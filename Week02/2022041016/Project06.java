@@ -1,5 +1,5 @@
 public class LogicalOperator{
-  public static void main(String args[]){
+  public static void main(String[] args){
     System.out.println('a'>'b');
     System.out.println(3>=2);
     System.out.println(-1<0);
