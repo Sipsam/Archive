@@ -7,10 +7,14 @@ public class GuessNumberGame{
       System.out.println("수를 결정하였습니다. 맞추어 보세요.");
       int sp = 0; int ep = 99;
       int c = 1;
-      while(true){
+      I: while(true){
         System.out.println(sp+"-"+ep);
         System.out.print((c++)+">>");
         int t = s.nextInt();
+        if(t<sp || t > ep){
+          System.out.println("범위를 벗어났습니다. 다시 입력해주세요("+sp+"-"+ep+")");
+          continue I;
+        }
         if(t == rand){
           System.out.println("맞았습니다.");
           System.out.print("다시하시겠습니까(y/n)>>");
