@@ -6,7 +6,7 @@ public class GarbageEx{
 		String c = new String("Normal");
 		String d, e;
 		a= null;
-		d=c;
+		d=c; // c에 들어있던 값이 가비지가 된다.
 		c= null;
 	}
 }
