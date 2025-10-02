@@ -19,3 +19,20 @@ public class Circle{
     System.out.println(donut.name+"의 면적은 "+area);
   }
 }
+/*
+ 객체가 생성된 모습
+  pizza:{
+    radius: 10,
+    name: "자바피자",
+    public double getArea(){
+      return 3.14*radius*radius;
+    }
+  },
+  donut:{
+    radius: 2,
+    name: "자바도넛",
+    public double getArea(){
+      return 3.14*radius*radius;
+    }
+  }
+*/
