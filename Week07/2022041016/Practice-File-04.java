@@ -3,7 +3,7 @@ import java.util.*;
 public class FileWriterEx{
   public static void main(String[] args) {
     Scanner scanner= new Scanner(System.in);
-    FileWriterfout= null;
+    FileWriter fout= null;
     int c;
     try {
       fout= new FileWriter("c:\\test.txt");
