@@ -1,13 +1,13 @@
 import java.io.*;
 public class FileReadHangulFail{
   public static void main(String[] args) {
-    InputStreamReaderin = null;
-    FileInputStreamfin = null;
+    InputStreamReader in = null;
+    FileInputStream fin = null;
     try {
       fin = new FileInputStream("c:\\hangul.txt");
       in = new InputStreamReader(fin, "US-ASCII");
       int c;
-      System.out.println("인코딩문자집합은" + in.getEncoding());
+      System.out.println("인코딩 문자 집합은" + in.getEncoding());
       while ((c = in.read()) != -1) {
         System.out.print((char)c);
       }
