@@ -1,7 +1,7 @@
 import java.io.*;
 public class FileReaderEx{
   public static void main(String[] args) {
-    FileReaderfin = null;
+    FileReader fin = null;
     try {
       fin = new FileReader("c:\\windows\\system.ini");
       int c;
