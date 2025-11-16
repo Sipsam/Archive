@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOGATHER - 게시판(후기)</title>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/board.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div class="logo">TOGATHER</div>
+            <div class="header-actions">
+                <a href="index.html" class="btn btn-secondary">메인으로</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <h1 class="page-title">게시판</h1>
+        
+        <div class="board-tabs">
+            <button class="board-tab active" onclick="switchBoardTab('write')">
+                <span>←</span> 쓰기
+            </button>
+            <div class="tab-divider"></div>
+            <button class="board-tab" onclick="switchBoardTab('qa')">
+                Q/A <span>→</span>
+            </button>
+        </div>
+
+        <div class="board-content">
+            <div class="board-list" id="boardList">
+                <div class="board-item">
+                    <span class="board-number">1</span>
+                    <span class="board-title">후기 제목 1</span>
+                    <span class="board-author">작성자1</span>
+                    <span class="board-date">2024/01/15</span>
+                </div>
+                <div class="board-item">
+                    <span class="board-number">2</span>
+                    <span class="board-title">후기 제목 2</span>
+                    <span class="board-author">작성자2</span>
+                    <span class="board-date">2024/01/14</span>
+                </div>
+                <div class="board-item">
+                    <span class="board-number">3</span>
+                    <span class="board-title">후기 제목 3</span>
+                    <span class="board-author">작성자3</span>
+                    <span class="board-date">2024/01/13</span>
+                </div>
+                <div class="board-item">
+                    <span class="board-number">4</span>
+                    <span class="board-title">후기 제목 4</span>
+                    <span class="board-author">작성자4</span>
+                    <span class="board-date">2024/01/12</span>
+                </div>
+            </div>
+
+            <div class="write-section hidden" id="writeSection">
+                <h2>후기 작성</h2>
+                <form class="write-form">
+                    <div class="form-group">
+                        <label>제목</label>
+                        <input type="text" name="title" required>
+                    </div>
+                    <div class="form-group">
+                        <label>내용</label>
+                        <textarea name="content" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">작성하기</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="notification-badge">99</div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script src="js/board.js"></script>
+</body>
+</html>
+
