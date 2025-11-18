@@ -1,4 +1,7 @@
 package com.dev.dev.repository;
 
-public interface ProductRepository {
+import com.dev.dev.entity.Product;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface ProductRepository extends JpaRepository<Product, Long> {
 }

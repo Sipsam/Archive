@@ -1,4 +1,7 @@
 package com.dev.dev.repository;
 
-public interface ChatMessageRepository {
+import com.dev.dev.entity.ChatMessage;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
 }

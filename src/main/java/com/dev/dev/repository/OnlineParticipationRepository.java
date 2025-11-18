@@ -1,4 +1,7 @@
 package com.dev.dev.repository;
 
-public interface OnlineParticipationRepository {
+import com.dev.dev.entity.OnlineParticipation;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface OnlineParticipationRepository extends JpaRepository<OnlineParticipation, Long> {
 }
