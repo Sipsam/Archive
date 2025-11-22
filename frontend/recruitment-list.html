@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Together - 모집글 목록</title>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/recruitment.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div class="logo">Together</div>
+            <div class="header-actions">
+                <a href="index.html" class="btn btn-secondary">메인으로</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <h1 class="page-title">모집글 목록</h1>
+        
+        <div class="recruitment-list">
+            <div class="recruitment-item" onclick="navigateTo('recruitment-detail.html?id=1')">
+                <div class="recruitment-header">
+                    <div class="recruiter-info">
+                        <div class="recruiter-avatar">👤</div>
+                        <div class="recruiter-details">
+                            <span class="recruiter-name">모집자</span>
+                            <span class="recruiter-date">2024/01/15</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="recruitment-content">
+                    <h3>공동구매 모집글 제목 1</h3>
+                    <p>공동구매 상품 설명입니다...</p>
+                </div>
+                <div class="recruitment-meta">
+                    <span>참여 인원: 5/10</span>
+                    <span>마감일: 2024/01/20</span>
+                </div>
+            </div>
+
+            <div class="recruitment-item" onclick="navigateTo('recruitment-detail.html?id=2')">
+                <div class="recruitment-header">
+                    <div class="recruiter-info">
+                        <div class="recruiter-avatar">👤</div>
+                        <div class="recruiter-details">
+                            <span class="recruiter-name">모집자</span>
+                            <span class="recruiter-date">2024/01/14</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="recruitment-content">
+                    <h3>공동구매 모집글 제목 2</h3>
+                    <p>공동구매 상품 설명입니다...</p>
+                </div>
+                <div class="recruitment-meta">
+                    <span>참여 인원: 3/8</span>
+                    <span>마감일: 2024/01/18</span>
+                </div>
+            </div>
+
+            <div class="recruitment-item" onclick="navigateTo('recruitment-detail.html?id=3')">
+                <div class="recruitment-header">
+                    <div class="recruiter-info">
+                        <div class="recruiter-avatar">👤</div>
+                        <div class="recruiter-details">
+                            <span class="recruiter-name">모집자</span>
+                            <span class="recruiter-date">2024/01/13</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="recruitment-content">
+                    <h3>공동구매 모집글 제목 3</h3>
+                    <p>공동구매 상품 설명입니다...</p>
+                </div>
+                <div class="recruitment-meta">
+                    <span>참여 인원: 7/12</span>
+                    <span>마감일: 2024/01/22</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="pagination">
+            <button class="page-btn">1</button>
+            <button class="page-btn">2</button>
+            <button class="page-btn">3</button>
+            <button class="page-btn">4</button>
+            <button class="page-btn">5</button>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+</body>
+</html>
+

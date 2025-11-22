@@ -1,0 +1,143 @@
+/* 게시판 페이지 스타일 */
+.page-title {
+    margin-bottom: 30px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #4a90e2;
+}
+
+.board-tabs {
+    display: flex;
+    align-items: center;
+    background-color: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.board-tab {
+    flex: 1;
+    padding: 12px 20px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: #666;
+    border-bottom: 2px solid transparent;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.board-tab.active {
+    color: #4a90e2;
+    border-bottom: 2px solid #4a90e2;
+}
+
+.board-tab:hover {
+    color: #4a90e2;
+}
+
+.tab-divider {
+    width: 1px;
+    height: 30px;
+    background-color: #ddd;
+}
+
+.board-content {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    position: relative;
+}
+
+.board-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.board-item {
+    display: grid;
+    grid-template-columns: 50px 1fr 150px 120px;
+    gap: 20px;
+    padding: 15px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    align-items: center;
+}
+
+.board-item:hover {
+    background-color: #f9f9f9;
+}
+
+.board-item:last-child {
+    border-bottom: none;
+}
+
+.board-number {
+    color: #666;
+    font-weight: bold;
+}
+
+.board-title {
+    color: #333;
+    font-weight: 500;
+}
+
+.board-author {
+    color: #666;
+    font-size: 14px;
+}
+
+.board-date {
+    color: #999;
+    font-size: 14px;
+}
+
+.write-section {
+    margin-top: 20px;
+}
+
+.write-section.hidden {
+    display: none;
+}
+
+.write-form {
+    margin-top: 20px;
+}
+
+.notification-badge {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    background-color: #ff4444;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    cursor: pointer;
+}
+
+@media (max-width: 768px) {
+    .board-item {
+        grid-template-columns: 40px 1fr;
+        gap: 10px;
+    }
+    
+    .board-author,
+    .board-date {
+        grid-column: 2;
+        font-size: 12px;
+    }
+}
+

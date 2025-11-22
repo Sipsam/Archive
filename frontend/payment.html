@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Together - 결제</title>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/payment.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div class="logo">Together</div>
+            <div class="header-actions">
+                <a href="index.html" class="btn btn-secondary">메인으로</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <h1 class="page-title">결제</h1>
+        
+        <div class="payment-layout">
+            <div class="payment-main">
+                <div class="payment-section">
+                    <h2>상품정보</h2>
+                    <div class="product-summary">
+                        <div class="product-name">공동구매 상품명</div>
+                        <div class="product-details">
+                            <span>수량: 1개</span>
+                            <span>가격: 10,000원</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="payment-section">
+                    <h2>주문자 정보</h2>
+                    <form class="orderer-form">
+                        <div class="form-group">
+                            <label>이름</label>
+                            <input type="text" name="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label>전화번호</label>
+                            <input type="tel" name="phone" required>
+                        </div>
+                        <div class="form-group">
+                            <label>이메일</label>
+                            <input type="email" name="email" required>
+                        </div>
+                        <div class="form-group">
+                            <label>배송지 주소</label>
+                            <input type="text" name="address" required>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="payment-section">
+                    <h2>요청 사항</h2>
+                    <textarea name="request" placeholder="배송 시 요청사항을 입력하세요..."></textarea>
+                </div>
+            </div>
+
+            <div class="payment-sidebar">
+                <div class="payment-summary">
+                    <h2>총결제 내용</h2>
+                    <div class="summary-details">
+                        <div class="summary-row">
+                            <span>상품 금액</span>
+                            <span>10,000원</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>배송비</span>
+                            <span>3,000원</span>
+                        </div>
+                        <div class="summary-divider"></div>
+                        <div class="summary-row total">
+                            <span>총 결제금액</span>
+                            <span>13,000원</span>
+                        </div>
+                    </div>
+                    <div class="payment-circle">
+                        <div class="circle-content">
+                            <div class="amount">13,000원</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary btn-payment" onclick="processPayment()">결제하기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script src="js/payment.js"></script>
+</body>
+</html>
+

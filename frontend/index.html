@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Together - 메인페이지</title>
+    <!-- CSS 링크는 그대로 유지 -->
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div class="logo">Together</div>
+            <!-- 1. 로그인/회원가입 -> API 응답에 따라 동적으로 변경될 영역 -->
+            <div class="header-actions" id="headerActions">
+                <a href="login.html" class="btn btn-secondary">로그인/회원가입</a>
+            </div>
+        </div>
+    </header>
+
+    <nav>
+        <div class="nav-tabs">
+            <!-- 2. 모집글 목록 -> 탭 클릭 이벤트를 JS에서 관리 -->
+            <button class="nav-tab active" id="navTabOnline">온라인</button>
+            <div class="nav-divider"></div>
+            <button class="nav-tab" id="navTabOffline">오프라인</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="main-layout">
+            <aside class="sidebar">
+                <h3>메뉴바</h3>
+                <!-- 카테고리 메뉴바 (정적) -->
+                <ul class="menu-list">
+                    <br>
+                    <li><a href="index.html">메인페이지</a></li>
+                    <li><a href="recruitment-list.html">모집글 목록</a></li>
+                    <li><a href="board.html">게시판(후기)</a></li>
+                    <li><a href="mypage.html">마이페이지</a></li>
+                    <li><a href="chat.html">채팅</a></li>
+                    <li><a href="mypage.html">포인트</a></li>
+                </ul>
+            </aside>
+
+            <main class="main-content">
+                <!-- 3. 검색창 -> JS에서 이벤트를 받아 API 호출 -->
+                <div class="search-section">
+                    <input type="text" class="search-input" id="searchInput" placeholder="상품을 검색하세요...">
+                    <button class="search-btn" id="searchButton">🔍</button>
+                </div>
+
+                <!-- 2. 모집글 목록 -> API 응답으로 동적으로 채워질 영역 -->
+                <div class="content-grid" id="contentGrid">
+                    <!-- JS가 이곳에 .content-card를 동적으로 생성합니다. -->
+                    <!-- 기존의 정적 카드 3개는 제거 -->
+                </div>
+            </main>
+
+            <!-- 4. 실시간 채팅방 목록 -> API 응답으로 동적으로 채워질 영역 -->
+            <aside class="sidebar right-sidebar">
+                <h3>채팅 목록</h3>
+                <ul class="popular-list" id="chatListContainer">
+                    <!-- JS가 이곳에 채팅방 목록을 동적으로 생성합니다. -->
+                    <!-- <li>(로그인 시 채팅방 목록이 여기에 표시됩니다)</li> -->
+                </ul>
+            </aside>
+        </div>
+    </div>
+
+    <!-- JS 파일 로드 -->
+    <script src="js/common.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
