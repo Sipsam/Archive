@@ -1,5 +1,5 @@
 // js/login.js
-const BACKEND_URL = 'http://localhost:8080';
+const BACKEND_URL = '';
 
 document.addEventListener('DOMContentLoaded', () => {
     // 탭 전환 로직 (기존 유지)
