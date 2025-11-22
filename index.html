@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOGATHER - 메인페이지</title>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="index.html" class="logo">TOGATHER</a>
+            <div class="header-actions">
+                <a href="login.html" class="btn btn-secondary">로그인/회원가입</a>
+            </div>
+        </div>
+    </header>
+
+    <nav>
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="filterContent('online')">온라인</button>
+            <div class="nav-divider"></div>
+            <button class="nav-tab" onclick="filterContent('offline')">오프라인</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="main-layout">
+            <aside class="sidebar">
+                <h3>메뉴바</h3>
+                <ul class="menu-list">
+                    <br>
+                    <li><a href="recruitment-list.html">모집글 목록</a></li>
+                    <li><a href="board.html">게시판(후기)</a></li>
+                    <li><a href="qa.html">Q/A</a></li>
+                    <li><a href="mypage.html">마이페이지</a></li>
+                    <li><a href="chat.html">채팅</a></li>
+                    <li><a href="mypage.html">포인트</a></li>
+                </ul>
+            </aside>
+
+            <main class="main-content">
+                <div class="search-section">
+                    <input type="text" class="search-input" placeholder="상품을 검색하세요...">
+                    <button class="search-btn">🔍</button>
+                </div>
+
+                <div class="content-grid" id="contentGrid">
+                    <div class="content-card" data-type="online">
+                        <div class="card-image">이미지</div>
+                        <div class="card-info">
+                            <h3>상품 제목 1</h3>
+                            <p>상품 설명...</p>
+                        </div>
+                    </div>
+                    <div class="content-card" data-type="online">
+                        <div class="card-image">이미지</div>
+                        <div class="card-info">
+                            <h3>상품 제목 2</h3>
+                            <p>상품 설명...</p>
+                        </div>
+                    </div>
+                    <div class="content-card" data-type="offline">
+                        <div class="card-image">이미지</div>
+                        <div class="card-info">
+                            <h3>상품 제목 3</h3>
+                            <p>상품 설명...</p>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <aside class="sidebar right-sidebar">
+                <h3>인기 상품</h3>
+                <ul class="popular-list">
+                    <li>인기 상품 1</li>
+                    <li>인기 상품 2</li>
+                    <li>인기 상품 3</li>
+                </ul>
+            </aside>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
+
