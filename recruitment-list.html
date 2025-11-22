@@ -3,95 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TOGATHER - 모집글 목록</title>
+    <title>TOGATHER - 모집글 상세</title>
     <link rel="stylesheet" href="css/common.css">
-    <link rel="stylesheet" href="css/recruitment.css">
+    <link rel="stylesheet" href="css/recruitment-detail.css">
 </head>
 <body>
     <header>
         <div class="header-content">
-            <div class="logo">TOGATHER</div>
+            <a href="index.html" class="logo">TOGATHER</a>
             <div class="header-actions">
-                <a href="index.html" class="btn btn-secondary">메인으로</a>
+                <a href="recruitment-list.html" class="btn btn-secondary">목록으로</a>
             </div>
         </div>
     </header>
 
     <div class="container">
-        <h1 class="page-title">모집글 목록</h1>
+        <h1 class="page-title">모집글</h1>
         
-        <div class="recruitment-list">
-            <div class="recruitment-item" onclick="navigateTo('recruitment-detail.html?id=1')">
-                <div class="recruitment-header">
-                    <div class="recruiter-info">
-                        <div class="recruiter-avatar">👤</div>
-                        <div class="recruiter-details">
-                            <span class="recruiter-name">모집자</span>
-                            <span class="recruiter-date">2024/01/15</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="recruitment-content">
-                    <h3>공동구매 모집글 제목 1</h3>
-                    <p>공동구매 상품 설명입니다...</p>
-                </div>
-                <div class="recruitment-meta">
-                    <span>참여 인원: 5/10</span>
-                    <span>마감일: 2024/01/20</span>
+        <div class="recruitment-detail">
+            <div class="recruiter-card">
+                <div class="recruiter-avatar">👤</div>
+                <div class="recruiter-info">
+                    <div class="recruiter-name">모집자</div>
+                    <div class="recruiter-date">2024/01/15</div>
                 </div>
             </div>
 
-            <div class="recruitment-item" onclick="navigateTo('recruitment-detail.html?id=2')">
-                <div class="recruitment-header">
-                    <div class="recruiter-info">
-                        <div class="recruiter-avatar">👤</div>
-                        <div class="recruiter-details">
-                            <span class="recruiter-name">모집자</span>
-                            <span class="recruiter-date">2024/01/14</span>
-                        </div>
+            <div class="product-section">
+                <div class="product-images">
+                    <div class="main-image">
+                        <div class="image-placeholder">pic</div>
+                    </div>
+                    <div class="image-thumbnails">
+                        <div class="thumbnail">이미지 1</div>
+                        <div class="thumbnail">이미지 2</div>
+                        <div class="thumbnail">이미지 3</div>
                     </div>
                 </div>
-                <div class="recruitment-content">
-                    <h3>공동구매 모집글 제목 2</h3>
-                    <p>공동구매 상품 설명입니다...</p>
-                </div>
-                <div class="recruitment-meta">
-                    <span>참여 인원: 3/8</span>
-                    <span>마감일: 2024/01/18</span>
+
+                <div class="product-info">
+                    <div class="info-row">
+                        <label>상품명</label>
+                        <div class="info-value">공동구매 상품명</div>
+                    </div>
+                    <div class="info-row">
+                        <label>가격 (총/인당)</label>
+                        <div class="info-value">총 100,000원 / 인당 10,000원</div>
+                    </div>
+                    <div class="info-row">
+                        <label>공구희망 인원</label>
+                        <div class="info-value">10명</div>
+                    </div>
+                    <div class="info-row">
+                        <label>현재 참여 인원</label>
+                        <div class="info-value">5명</div>
+                    </div>
+                    <button class="btn btn-primary btn-join">참여하기</button>
                 </div>
             </div>
 
-            <div class="recruitment-item" onclick="navigateTo('recruitment-detail.html?id=3')">
-                <div class="recruitment-header">
-                    <div class="recruiter-info">
-                        <div class="recruiter-avatar">👤</div>
-                        <div class="recruiter-details">
-                            <span class="recruiter-name">모집자</span>
-                            <span class="recruiter-date">2024/01/13</span>
-                        </div>
+            <div class="comments-section">
+                <h2>댓글창</h2>
+                <div class="comment-form">
+                    <textarea placeholder="댓글을 입력하세요..."></textarea>
+                    <button class="btn btn-primary">댓글 작성</button>
+                </div>
+                <div class="comments-list">
+                    <div class="comment-item">
+                        <div class="comment-author">사용자1</div>
+                        <div class="comment-content">좋은 상품이네요! 참여하고 싶습니다.</div>
+                        <div class="comment-date">2024/01/15 14:30</div>
+                    </div>
+                    <div class="comment-item">
+                        <div class="comment-author">사용자2</div>
+                        <div class="comment-content">언제까지 모집하나요?</div>
+                        <div class="comment-date">2024/01/15 15:00</div>
                     </div>
                 </div>
-                <div class="recruitment-content">
-                    <h3>공동구매 모집글 제목 3</h3>
-                    <p>공동구매 상품 설명입니다...</p>
-                </div>
-                <div class="recruitment-meta">
-                    <span>참여 인원: 7/12</span>
-                    <span>마감일: 2024/01/22</span>
-                </div>
             </div>
-        </div>
-
-        <div class="pagination">
-            <button class="page-btn">1</button>
-            <button class="page-btn">2</button>
-            <button class="page-btn">3</button>
-            <button class="page-btn">4</button>
-            <button class="page-btn">5</button>
         </div>
     </div>
 
     <script src="js/common.js"></script>
+    <script src="js/recruitment-detail.js"></script>
 </body>
 </html>
 
