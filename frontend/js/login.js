@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // DTO 매핑: UI email -> DTO loginId
             const loginPayload = {
-                loginId: loginData.email,
+                loginId: loginData.loginId,
                 password: loginData.password,
             };
 
@@ -42,19 +42,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify(loginPayload)
+                    body: JSON.stringify(loginData),
                 });
 
                 if (response.ok) {
                     const data = await response.json();
-                    
                     // 🚨 핵심 수정: 백엔드 응답 키 'accessToken' 사용
                     if (data.accessToken) { 
                         // 토큰 저장 성공!
                         localStorage.setItem('accessToken', data.accessToken);
-                        
                         // login(data); 
-                        
                     } else {
                         throw new Error('서버 응답에 인증 토큰이 포함되어 있지 않습니다.');
                     }
