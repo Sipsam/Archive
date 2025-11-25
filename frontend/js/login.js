@@ -1,8 +1,9 @@
-// js/login.js
-const BACKEND_URL = '';
+// login.js
+
+const BACKEND_URL = ''; 
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 탭 전환 로직 (기존 유지)
+    // 탭 전환 로직 (유지)
     window.switchTab = function(tab) {
         const loginForm = document.getElementById('loginForm');
         const signupForm = document.getElementById('signupForm');
@@ -25,42 +26,53 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
         loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault(); // 기본 제출 동작 막기
-
-            // 폼 데이터 가져오기
+            e.preventDefault(); 
             const formData = new FormData(loginForm);
             const loginData = Object.fromEntries(formData.entries());
+            
+            // DTO 매핑: UI email -> DTO loginId
+            const loginPayload = {
+                loginId: loginData.email,
+                password: loginData.password,
+            };
 
             try {
-                // 백엔드 API로 요청 (POST)
                 const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify(loginData)
+                    body: JSON.stringify(loginPayload)
                 });
 
                 if (response.ok) {
                     const data = await response.json();
                     
-                    // 중요: 받은 토큰(JWT)을 로컬 스토리지에 저장
-                    // (백엔드가 { "token": "..." } 형태로 준다고 가정)
-                    localStorage.setItem('accessToken', data.token); 
+                    // 🚨 핵심 수정: 백엔드 응답 키 'accessToken' 사용
+                    if (data.accessToken) { 
+                        // 토큰 저장 성공!
+                        localStorage.setItem('accessToken', data.accessToken);
+                        
+                        // login(data); 
+                        
+                    } else {
+                        throw new Error('서버 응답에 인증 토큰이 포함되어 있지 않습니다.');
+                    }
                     
                     alert('로그인 성공!');
-                    window.location.href = 'index.html'; // 메인으로 이동
+                    window.location.href = 'index.html';
                 } else {
-                    alert('로그인 실패: 아이디 또는 비밀번호를 확인해주세요.');
+                    const errorText = await response.text();
+                    alert(`로그인 실패: ${errorText || '아이디 또는 비밀번호를 확인해주세요.'}`);
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('서버 통신 중 오류가 발생했습니다.');
+                alert('서버 통신 중 오류가 발생했습니다. (Nginx 설정 확인 필요)');
             }
         });
     }
 
-    // 2. 회원가입 폼 제출 처리
+    // 2. 회원가입 폼 제출 처리 (Nginx 환경에 맞게 fetch 사용 및 DTO 필드 매핑만 유지)
     const signupForm = document.getElementById('signupForm');
     if (signupForm) {
         signupForm.addEventListener('submit', async (e) => {
@@ -69,13 +81,24 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = new FormData(signupForm);
             const signupData = Object.fromEntries(formData.entries());
 
-            // 비밀번호 확인 검증
             if (signupData.password !== signupData.passwordConfirm) {
                 alert('비밀번호가 일치하지 않습니다.');
                 return;
             }
-            // 전송 시 passwordConfirm은 제외 (선택사항)
             delete signupData.passwordConfirm;
+
+            // DTO 필수 필드 매핑 및 누락 필드 빈 문자열 처리
+            const signupPayload = {
+                loginId: signupData.email, 
+                password: signupData.password,
+                name: signupData.name,
+                nickname: signupData.name, 
+                email: signupData.email,
+                phoneNumber: '', 
+                address: '',     
+                addressDetail: '', 
+                zipCode: '',     
+            };
 
             try {
                 const response = await fetch(`${BACKEND_URL}/api/auth/join`, {
@@ -83,15 +106,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify(signupData)
+                    body: JSON.stringify(signupPayload)
                 });
 
                 if (response.ok) {
                     alert('회원가입 성공! 로그인해주세요.');
-                    window.switchTab('login'); // 로그인 탭으로 자동 전환
+                    window.switchTab('login');
                 } else {
-                    const errorData = await response.json();
-                    alert(`회원가입 실패: ${errorData.message || '입력 정보를 확인해주세요.'}`);
+                    const errorText = await response.text();
+                    alert(`회원가입 실패: ${errorText || '입력 정보를 확인해주세요.'}`);
                 }
             } catch (error) {
                 console.error('Error:', error);
