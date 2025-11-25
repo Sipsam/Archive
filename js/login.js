@@ -1,6 +1,6 @@
-// js/login.js
+// login.js
 
-const BACKEND_URL = 'http://localhost:8080'; // 💡 수정: 명시적으로 URL을 설정하거나 common.js의 API_BASE를 사용하세요.
+const BACKEND_URL = '';
 
 document.addEventListener('DOMContentLoaded', () => {
     // 탭 전환 로직 (기존 유지)
