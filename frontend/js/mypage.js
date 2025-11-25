@@ -1,8 +1,8 @@
 // js/mypage.js
 
 document.addEventListener('DOMContentLoaded', async function() {
-    
     // 1. **인증 상태 확인 및 강제 리다이렉션**
+
     if (!checkAuth()) { // common.js의 checkAuth() 사용
         alert('로그인이 필요합니다.');
         window.location.href = 'login.html';

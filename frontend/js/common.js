@@ -42,6 +42,7 @@ function checkAuth() {
 function login(userData) {
     // 백엔드 LoginResponse DTO는 accessToken 필드를 사용합니다.
     if (userData && userData.accessToken) {
+        console.log("token stored");
         localStorage.setItem('accessToken', userData.accessToken);
     }
     // 선택 사항: 마이페이지에 바로 사용할 사용자 정보를 추가로 저장할 수 있습니다.
