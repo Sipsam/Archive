@@ -22,6 +22,7 @@ public class AuthController {
 
     @PostMapping("/join")
     public ResponseEntity<UserResponse> join(@RequestBody JoinRequest req) {
+        System.out.println(req);
         return ResponseEntity.ok(authService.join(req));
     }
 

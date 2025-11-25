@@ -8,7 +8,7 @@ import com.dev.dev.entity.Role;
 import com.dev.dev.entity.User;
 import com.dev.dev.repository.UserRepository;
 import com.dev.dev.security.JwtUtil;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional; // <-- 이걸로 바꾸세요!
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -56,6 +56,7 @@ public class AuthService {
 
 
     public LoginResponse login(LoginRequest req) {
+        System.out.println(req.getLoginId());
         User user = userRepository.findByLoginId(req.getLoginId())
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
 
