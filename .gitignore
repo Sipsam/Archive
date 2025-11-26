@@ -38,3 +38,17 @@ out/
 /.apt_generated_tests/
 
 mysql-data/
+# Docker 설정 (로컬/서버 환경별로 다름)
+Dockerfile
+docker-compose.yml
+
+# Gradle 설정 (로컬/서버 환경별로 다름)
+build.gradle
+settings.gradle
+gradlew
+gradlew.bat
+gradle/
+
+# 빌드 결과물
+build/
+.gradle/
