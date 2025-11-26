@@ -105,17 +105,14 @@ async function submitRecruitment() {
         }
         })
         .then(response => response.json())
-        .then(data => console.log(data))
+        .then(data => {
+            console.log(data);
+            // 5. 성공 처리
+            alert("모집글이 성공적으로 등록되었습니다!");
+            document.querySelector('.modal').style.display = 'none';
+            window.location.reload(); // 목록 새로고침
+        })
         .catch(error => console.error(error));
-
-        
-
-        // 5. 성공 처리
-        alert("모집글이 성공적으로 등록되었습니다!");
-        document.querySelector('.modal').style.display = 'none';
-        window.location.reload(); // 목록 새로고침
-
-
 
     } catch (error) {
         console.error("등록 실패:", error);
