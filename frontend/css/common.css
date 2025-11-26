@@ -38,7 +38,7 @@ header {
     font-size: 24px;
     font-weight: bold;
     color: #4a90e2;
-    text-decoration: none;
+    text-decoration-line: none;
 }
 
 /* 네비게이션 */
@@ -217,39 +217,39 @@ textarea {
     align-items: center;
 }
 
-/* 모달 내부 입력 폼 스타일 */
-.modal-form {
-    text-align: left;
+/* 모달 내부 입력폼 스타일 */
+.modal_form_content {
+    text-align: left; /* 라벨 왼쪽 정렬 */
     margin: 20px 0;
 }
 
-.input-group {
+.input-box {
     margin-bottom: 15px;
 }
 
-.input-group label {
+.input-box label {
     display: block;
-    margin-bottom: 5px;
     font-weight: bold;
+    margin-bottom: 5px;
     font-size: 14px;
 }
 
-.input-group input,
-.input-group textarea {
+.input-box input,
+.input-box textarea {
     width: 100%;
     padding: 10px;
-    border: 1px solid #ccc;
+    border: 1px solid #ddd;
     border-radius: 5px;
-    box-sizing: border-box; /* 패딩이 너비에 포함되도록 설정 */
+    box-sizing: border-box; /* 테두리 포함 크기 계산 */
 }
 
-.input-group textarea {
-    height: 80px;
-    resize: none;
+.input-box textarea {
+    height: 100px;
+    resize: none; /* 크기 조절 막기 */
 }
 
-/* 버튼 정렬 */
-.modal-actions {
+/* 버튼 영역 */
+.modal_btn_area {
     display: flex;
     justify-content: center;
     gap: 10px;
@@ -262,6 +262,7 @@ textarea {
     border: none;
     border-radius: 5px;
     cursor: pointer;
+    font-size: 14px;
 }
 
 .submit_btn:hover {

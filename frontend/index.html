@@ -35,28 +35,45 @@
                 <ul class="menu-list">
                     <br>
                     <!--모달 팝업-->
-                    <div class="modal" id="recruitModal">
+                    <div class="modal">
                         <div class="modal_popup">
                             <h3>모집글 신청</h3>
                             
-                            <div class="modal-form">
-                                <div class="input-group">
-                                    <label for="recruitTitle">제목</label>
-                                    <input type="text" id="recruitTitle" placeholder="예: 치킨 같이 시키실 분?">
+                            <div class="modal_form_content">
+                                <div class="input-box">
+                                    <label for="productName">상품명</label>
+                                    <input type="text" id="productName" placeholder="예: BHC 뿌링클 치킨">
                                 </div>
-                                
-                                <div class="input-group">
+
+                                <div class="input-box">
+                                    <label for="productUrl">구매 링크 (네이버 스마트 스토어 URL)</label>
+                                    <input type="url" id="productUrl" placeholder="https://smartstore.naver.com/...">
+                                </div>
+
+                                <div class="input-box">
+                                    <label for="targetHeadcount">모집 인원 (본인 포함)</label>
+                                    <input type="number" id="targetHeadcount" min="2" placeholder="예: 4">
+                                </div>
+
+                                <hr style="margin: 15px 0; border: 0; border-top: 1px solid #eee;">
+
+                                <div class="input-box">
+                                    <label for="recruitTitle">게시글 제목</label>
+                                    <input type="text" id="recruitTitle" placeholder="예: 단백질 쉐이크 같이 사실 분 구해요!">
+                                </div>
+
+                                <div class="input-box">
                                     <label for="recruitContent">내용</label>
-                                    <textarea id="recruitContent" placeholder="자세한 내용을 입력해주세요."></textarea>
+                                    <textarea id="recruitContent" placeholder="남길 코멘트 등의 내용을 적어주세요."></textarea>
                                 </div>
-                                
-                                <div class="input-group">
-                                    <label for="recruitEndDate">마감 시간</label>
+
+                                <div class="input-box">
+                                    <label for="recruitEndDate">모집 마감 시간</label>
                                     <input type="datetime-local" id="recruitEndDate">
                                 </div>
                             </div>
 
-                            <div class="modal-actions">
+                            <div class="modal_btn_area">
                                 <button type="button" class="submit_btn" onclick="submitRecruitment()">등록하기</button>
                                 <button type="button" class="close_btn">닫기</button>
                             </div>
