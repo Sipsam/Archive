@@ -100,6 +100,14 @@ async function submitRecruitment() {
 // 3. API 호출 및 처리 함수
 // ⭐ 문제 해결: submitRecruitment에서 추출된 모든 데이터를 인수로 받습니다.
 async function registerGroupBuy(productNumber, productUrl, targetHeadcount, title, content, endDate) { 
+
+    const token = getToken(); // 토큰을 가져옵니다.
+
+    const headers = {
+        'Content-Type': 'application/json', // 🌟 데이터 형식 지정 (기존 POST 요청에 필요)
+        // 🌟 토큰 추가: Authorization 헤더에 'Bearer 토큰값' 형식으로 추가
+        'Authorization': `Bearer ${token}` 
+    };
     
     try {
         let success = false;
@@ -108,7 +116,8 @@ async function registerGroupBuy(productNumber, productUrl, targetHeadcount, titl
         // GET 요청이므로, 데이터를 URL 쿼리 파라미터로 전달
         const urlParams = new URLSearchParams({ url: productUrl });
         const responseGet = await fetch(`${API_BASE}/api/groupbuys/attempt?${urlParams}`, {
-            method: 'GET'
+            method: 'GET',
+            headers: headers
         });
         
         // GET 요청의 성공/실패 확인 (HTTP 상태 코드가 200-299인지 확인)
