@@ -107,7 +107,7 @@ async function registerGroupBuy(productNumber, productUrl, targetHeadcount, titl
         // 1. 첫 번째 API 호출: URL 유효성/등록 가능 여부 확인 (GET)
         // GET 요청이므로, 데이터를 URL 쿼리 파라미터로 전달
         const urlParams = new URLSearchParams({ url: productUrl });
-        const responseGet = await fetch(`/api/groupbuys/attempt?${urlParams}`, {
+        const responseGet = await fetch(`${API_BASE}/api/groupbuys/attempt?${urlParams}`, {
             method: 'GET'
         });
         
@@ -126,7 +126,7 @@ async function registerGroupBuy(productNumber, productUrl, targetHeadcount, titl
                     recruit_end_date: endDate         
                 };
 
-                const responsePost = await fetch(`/api/groupbuys/online`, {
+                const responsePost = await fetch(`${API_BASE}/api/groupbuys/online`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json' 
