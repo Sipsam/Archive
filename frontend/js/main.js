@@ -82,7 +82,7 @@ async function submitRecruitment() {
         const response = await apiFetch('https://openapi.naver.com/v1/search/shop.json', {
             method: 'GET',
             body: {
-                productName: productId,       // 상품명
+                productName: productName,       // 상품명
                 productUrl: productUrl,         // 구매 링크
                 targetHeadcount: parseInt(targetHeadcount), // 모집 인원 (숫자로 변환)
                 
