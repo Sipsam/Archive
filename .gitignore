@@ -16,3 +16,6 @@ db_data/
 
 # VSCode 설정 파일 무시
 .vscode/
+
+dockerfile
+nginx.conf
