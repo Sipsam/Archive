@@ -34,6 +34,38 @@
                 <!-- 카테고리 메뉴바 (정적) -->
                 <ul class="menu-list">
                     <br>
+                    <!--모달 팝업-->
+                    <div class="modal" id="recruitModal">
+                        <div class="modal_popup">
+                            <h3>모집글 신청</h3>
+                            
+                            <div class="modal-form">
+                                <div class="input-group">
+                                    <label for="recruitTitle">제목</label>
+                                    <input type="text" id="recruitTitle" placeholder="예: 치킨 같이 시키실 분?">
+                                </div>
+                                
+                                <div class="input-group">
+                                    <label for="recruitContent">내용</label>
+                                    <textarea id="recruitContent" placeholder="자세한 내용을 입력해주세요."></textarea>
+                                </div>
+                                
+                                <div class="input-group">
+                                    <label for="recruitEndDate">마감 시간</label>
+                                    <input type="datetime-local" id="recruitEndDate">
+                                </div>
+                            </div>
+
+                            <div class="modal-actions">
+                                <button type="button" class="submit_btn" onclick="submitRecruitment()">등록하기</button>
+                                <button type="button" class="close_btn">닫기</button>
+                            </div>
+                        </div>
+                    </div>
+                    <!--end 모달 팝업-->
+                    <li>
+                        <button type="button" class="modal_btn">모집글 신청</button>
+                    </li>
                     <li><a href="index.html">메인페이지</a></li>
                     <li><a href="recruitment-list.html">모집글 목록</a></li>
                     <li><a href="board.html">게시판(후기)</a></li>

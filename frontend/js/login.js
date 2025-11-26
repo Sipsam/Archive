@@ -86,15 +86,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // DTO 필수 필드 매핑 및 누락 필드 빈 문자열 처리
             const signupPayload = {
-                loginId: signupData.email, 
+                loginId: signupData.loginId, 
                 password: signupData.password,
                 name: signupData.name,
                 nickname: signupData.name, 
                 email: signupData.email,
-                phoneNumber: '', 
-                address: '',     
-                addressDetail: '', 
-                zipCode: '',     
+                phoneNumber: signupData.phoneNumber, 
+                address: signupData.address,     
+                addressDetail: signupData.addressDetail, 
+                zipCode: signupData.zipCode,     
             };
 
             try {
