@@ -119,3 +119,63 @@ window.login = login;
 window.logout = logout;
 window.apiFetch = apiFetch;
 window.navigateTo = navigateTo;
+
+
+// 모집글 신청 (모달 팝업)
+const modal = document.querySelector('.modal');
+const modalOpen = document.querySelector('.modal_btn');
+const modalClose = document.querySelector('.close_btn');
+
+// 열기 버튼을 눌렀을 때 모달팝업이 열림
+modalOpen.addEventListener('click',function(){
+    modal.style.display = 'block';
+});
+// 닫기 버튼을 눌렀을 때 모달팝업이 닫힘
+modalClose.addEventListener('click',function(){
+    modal.style.display = 'none';
+});
+
+async function submitRecruitment() {
+    // 1. 로그인 체크 (common.js의 함수 활용)
+    if (!checkAuth()) {
+        alert("로그인이 필요한 서비스입니다.");
+        window.location.href = 'login.html';
+        return;
+    }
+
+    // 2. 입력값 가져오기
+    const title = document.getElementById('recruitTitle').value;
+    const content = document.getElementById('recruitContent').value;
+    const endDate = document.getElementById('recruitEndDate').value;
+
+    // 3. 유효성 검사 (빈 값 체크)
+    if (!title || !content || !endDate) {
+        alert("제목, 내용, 마감 시간을 모두 입력해주세요.");
+        return;
+    }
+
+    try {
+        // 4. API 호출 (POST 요청)
+        const response = await apiFetch('/api/groupbuys/online', {
+            method: 'POST',
+            body: {
+                title: title,
+                content: content,
+                recruitEndDate: endDate
+            }
+        });
+
+        // 5. 성공 처리
+        alert("모집글이 성공적으로 등록되었습니다!");
+        
+        // 모달 닫기 (common.js의 로직이 단순 display none이므로 여기서도 수동으로 닫거나 새로고침)
+        document.querySelector('.modal').style.display = 'none';
+        
+        // 페이지 새로고침하여 목록 갱신
+        window.location.reload();
+
+    } catch (error) {
+        console.error("등록 실패:", error);
+        alert("글 등록 중 오류가 발생했습니다.");
+    }
+}
