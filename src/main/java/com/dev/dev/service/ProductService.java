@@ -46,6 +46,7 @@ public class ProductService {
         try {
             String query = extractQueryFromUrl(productUrl);
             JSONObject item = callNaverApi(query);
+            System.out.println(item);
             if (item == null) return "failed";
             Product product = new Product();
             product.setName(item.getString("title").replaceAll("<.*?>", ""));
