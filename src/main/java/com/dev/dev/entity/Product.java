@@ -25,11 +25,4 @@ public class Product {
     @Column(name = "all_quantity")
     private Integer allQuantity;
 
-
-    @Column(name = "image_url", length = 500)
-    private String imageUrl;
-
-
-    @Column(name = "source_url", length = 500)
-    private String sourceUrl;
 }
