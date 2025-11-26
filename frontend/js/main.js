@@ -104,8 +104,8 @@ async function registerGroupBuy(productNumber, productUrl, targetHeadcount, titl
     const token = getToken(); // 토큰을 가져옵니다.
 
     const headers = {
-        'Content-Type': 'application/json', // 🌟 데이터 형식 지정 (기존 POST 요청에 필요)
-        // 🌟 토큰 추가: Authorization 헤더에 'Bearer 토큰값' 형식으로 추가
+        'Content-Type': 'application/json', // 데이터 형식 지정 (기존 POST 요청에 필요)
+        // 토큰 추가: Authorization 헤더에 'Bearer 토큰값' 형식으로 추가
         'Authorization': `Bearer ${token}` 
     };
     
