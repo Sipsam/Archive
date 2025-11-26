@@ -1,83 +1,108 @@
-// 메인페이지 JavaScript
-function filterContent(type) {
-    const cards = document.querySelectorAll('.content-card');
-    const tabs = document.querySelectorAll('.nav-tab');
-    
-    // 탭 활성화
-    tabs.forEach(tab => {
-        if (tab.textContent.includes(type === 'online' ? '온라인' : '오프라인')) {
-            tab.classList.add('active');
-        } else {
-            tab.classList.remove('active');
-        }
-    });
-    
-    // 카드 필터링
-    cards.forEach(card => {
-        if (card.dataset.type === type) {
-            card.classList.remove('hidden');
-        } else {
-            card.classList.add('hidden');
-        }
-    });
-}
+// js/main.js
 
-// 인증 상태에 따라 헤더의 버튼을 '로그인/가입' 또는 '로그아웃'으로 변경합니다.
-
-function updateAuthButton() {
-    // common.js의 checkAuth() 함수 사용
-    const isAuthenticated = checkAuth(); 
-    const authButton = document.getElementById('authButton'); // index.html에 ID를 추가해야 함
-
-    if (!authButton) return;
-
-    if (isAuthenticated) {
-        // ✅ 로그인 상태: 로그아웃 버튼으로 변경
-        authButton.textContent = '로그아웃';
-        authButton.href = '#'; 
-        authButton.classList.remove('btn-secondary');
-        authButton.classList.add('btn-primary'); // 스타일 변경 (선택 사항)
-
-        authButton.onclick = function(e) {
-            e.preventDefault();
-            if (confirm('로그아웃 하시겠습니까?')) {
-                logout(); // common.js의 logout() 호출
-            }
-        };
-
-    } else {
-        // ❌ 비로그인 상태: 로그인/회원가입 버튼 유지
-        authButton.textContent = '로그인/회원가입';
-        authButton.href = 'login.html';
-        authButton.classList.remove('btn-primary');
-        authButton.classList.add('btn-secondary');
-        authButton.onclick = null; // 기본 링크 동작
-    }
-}
-
-// 검색 기능
+// 1. UI 및 초기화 로직
 document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.querySelector('.search-input');
-    const searchBtn = document.querySelector('.search-btn');
-    
-    updateAuthButton(); 
+    updateAuthButton(); // 로그인 버튼 상태 업데이트
 
-    if (searchBtn) {
-        searchBtn.addEventListener('click', function() {
-            const query = searchInput.value;
-            if (query.trim()) {
-                alert('검색 기능: ' + query);
-                // 실제 검색 로직 구현
+    // 사이드바의 '모집글 신청' 버튼 이벤트 연결
+    const modal = document.querySelector('.modal');
+    const modalBtn = document.querySelector('.modal_btn'); // 사이드바 버튼
+    const closeBtn = document.querySelector('.close_btn');
+
+    // 1-1. 모달 열기 (사이드바 버튼 클릭 시)
+    if (modalBtn && modal) {
+        modalBtn.addEventListener('click', function() {
+            // 로그인 체크
+            if (!checkAuth()) {
+                alert("로그인이 필요한 서비스입니다.");
+                window.location.href = 'login.html';
+                return;
             }
+            // 모달 열기
+            modal.style.display = 'block';
         });
     }
-    
-    if (searchInput) {
-        searchInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                searchBtn.click();
-            }
+
+    // 1-2. 모달 닫기
+    if (closeBtn && modal) {
+        closeBtn.addEventListener('click', function() {
+            modal.style.display = 'none';
         });
     }
 });
 
+// UI 관련 함수들 (필터, 버튼 등) - 기존 유지
+function updateAuthButton() {
+    const isAuthenticated = checkAuth();
+    const authButton = document.getElementById('authButton');
+    if (!authButton) return;
+
+    if (isAuthenticated) {
+        authButton.textContent = '로그아웃';
+        authButton.href = '#';
+        authButton.onclick = (e) => {
+            e.preventDefault();
+            if (confirm('로그아웃 하시겠습니까?')) logout();
+        };
+    } else {
+        authButton.textContent = '로그인/회원가입';
+        authButton.href = 'login.html';
+        authButton.onclick = null;
+    }
+}
+
+
+// 2. ⭐ 핵심: 모집글 등록 로직 (입력값 6개 전송) ⭐
+async function submitRecruitment() {
+    // 1. 로그인 재확인
+    if (!checkAuth()) {
+        alert("로그인이 필요합니다.");
+        window.location.href = 'login.html';
+        return;
+    }
+
+    // 2. 입력값 가져오기 (6개)
+    const productName = document.getElementById('productName').value;
+    const productUrl = document.getElementById('productUrl').value;
+    const targetHeadcount = document.getElementById('targetHeadcount').value;
+    
+    const title = document.getElementById('recruitTitle').value;
+    const content = document.getElementById('recruitContent').value;
+    const endDate = document.getElementById('recruitEndDate').value;
+
+    // 3. 유효성 검사 (빈 값 체크)
+    if (!productName || !productUrl || !targetHeadcount || !title || !content || !endDate) {
+        alert("모든 항목을 입력해주세요.");
+        return;
+    }
+
+    try {
+        // 4. API 호출 (백엔드로 데이터 전송)
+        // 백엔드 개발자에게 body의 변수명(key)이 맞는지 꼭 확인하세요!
+        const response = await apiFetch('https://openapi.naver.com/v1/search/shop.json', {
+            method: 'GET',
+            body: {
+                productName: productId,       // 상품명
+                productUrl: productUrl,         // 구매 링크
+                targetHeadcount: parseInt(targetHeadcount), // 모집 인원 (숫자로 변환)
+                
+                title: title,                   // 게시글 제목
+                content: content,               // 내용
+                recruitEndDate: endDate         // 마감 시간
+            }
+        });
+
+        
+
+        // 5. 성공 처리
+        alert("모집글이 성공적으로 등록되었습니다!");
+        document.querySelector('.modal').style.display = 'none';
+        window.location.reload(); // 목록 새로고침
+
+
+
+    } catch (error) {
+        console.error("등록 실패:", error);
+        alert("글 등록 중 오류가 발생했습니다: " + error.message);
+    }
+}

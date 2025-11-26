@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 loginId: signupData.loginId, 
                 password: signupData.password,
                 name: signupData.name,
-                nickname: signupData.name, 
+                nickname: signupData.nickname, 
                 email: signupData.email,
                 phoneNumber: signupData.phoneNumber, 
                 address: signupData.address,     
