@@ -79,8 +79,9 @@ async function submitRecruitment() {
     try {
         // 4. API 호출 (백엔드로 데이터 전송)
         // 백엔드 개발자에게 body의 변수명(key)이 맞는지 꼭 확인하세요!
-        const response = await apiFetch('https://openapi.naver.com/v1/search/shop.json', {
+        /*const response = await apiFetch('https://openapi.naver.com/v1/search/shop.json', {
             method: 'GET',
+
             body: {
                 productName: productName,       // 상품명
                 productUrl: productUrl,         // 구매 링크
@@ -90,7 +91,22 @@ async function submitRecruitment() {
                 content: content,               // 내용
                 recruitEndDate: endDate         // 마감 시간
             }
-        });
+        });*/
+
+        const clientId = 'AN9TaXRlbzATdnmERqWg';
+        const clientSecret = 'WgV1Isj_ne';
+        const query = encodeURIComponent(productName);
+
+        fetch(`https://openapi.naver.com/v1/search/shop.json?query=${query}`, {
+        method: 'GET',
+        headers: {
+            'X-Naver-Client-Id': clientId,
+            'X-Naver-Client-Secret': clientSecret
+        }
+        })
+        .then(response => response.json())
+        .then(data => console.log(data))
+        .catch(error => console.error(error));
 
         
 
