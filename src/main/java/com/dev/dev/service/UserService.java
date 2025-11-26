@@ -22,8 +22,6 @@ public class UserService {
     private final UserReviewRepository userReviewRepository;
     private final PostRepository postRepository;
     private final OnlineParticipationRepository onlineParticipationRepository;
-    private final OfflineParticipationRepository offlineParticipationRepository;
-
 
     public UserResponse getMyInfo(Long userId) {
         User u = userRepository.findById(userId)
@@ -66,23 +64,13 @@ public class UserService {
         List<OnlineParticipation> online = onlineParticipationRepository.findAll().stream()
                 .filter(op -> op.getUser() != null && op.getUser().getId().equals(userId))
                 .collect(Collectors.toList());
-
-
-        List<OfflineParticipation> offline = offlineParticipationRepository.findAll().stream()
-                .filter(op -> op.getUser() != null && op.getUser().getId().equals(userId))
-                .collect(Collectors.toList());
-
-
-        return new MyParticipationsDTO(online, offline);
+        return new MyParticipationsDTO(online);
     }
     public static class MyParticipationsDTO {
         public final List<OnlineParticipation> onlineParticipations;
-        public final List<OfflineParticipation> offlineParticipations;
 
-
-        public MyParticipationsDTO(List<OnlineParticipation> online, List<OfflineParticipation> offline) {
+        public MyParticipationsDTO(List<OnlineParticipation> online) {
             this.onlineParticipations = online;
-            this.offlineParticipations = offline;
         }
     }
 }
