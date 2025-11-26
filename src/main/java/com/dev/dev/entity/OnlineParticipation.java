@@ -16,31 +16,26 @@ import java.time.LocalDateTime;
 public class OnlineParticipation {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long id; //참여 고유 id
 
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    private User user; //User 테이블 참조 FK , 참여자 id
 
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "online_group_buy_id", nullable = false)
-    private OnlineGroupBuy onlineGroupBuy;
+    private OnlineGroupBuy onlineGroupBuy;//온라인 모집글 고유id, OnlineGroupBuy 테이블 참조 FK
 
 
-    private Integer quantity;
+    private Integer quantity; // 수량
 
 
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_status", length = 20)
-    private PaymentStatus paymentStatus;
-
-
-    @Column(name = "tracking_number", length = 100)
-    private String trackingNumber;
-
+    private PaymentStatus paymentStatus; //결제 상태
 
     @Column(name = "created_at")
-    private LocalDateTime createdAt;
+    private LocalDateTime createdAt;//참여 일시
 }
