@@ -26,6 +26,7 @@ jobs:
     
     - name: Show Logs
       run: |
+        cd ~/project
         docker-compose logs --tail=50 frontend
     
     - name: Notify Deployment Success
