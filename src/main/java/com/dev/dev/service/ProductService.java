@@ -4,9 +4,12 @@ import io.github.bonigarcia.wdm.WebDriverManager;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +19,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 
 @Slf4j
 @Service
@@ -74,20 +78,32 @@ public class ProductService {
      * URL 기반으로 검색 API 호출 후 결과 로깅
      */
     public void searchByUrl(String productUrl) {
+        WebDriverManager.chromedriver().setup();
+        ChromeOptions options = new ChromeOptions();
+        options.addArguments("--headless=new");
+        options.addArguments("--no-sandbox");
+        options.addArguments("--disable-dev-shm-usage");
+        options.addArguments("--disable-gpu");
+        options.addArguments("--window-size=1920,1080");
+        options.addArguments("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+                "AppleWebKit/537.36 (KHTML, like Gecko) " +
+                "Chrome/142.0.0.0 Safari/537.36");
+        WebDriver driver = new ChromeDriver(options);
         try {
-            String query = extractQueryFromUrl(productUrl);
-            if (query == null) {
-                log.error("검색어 추출 실패");
-                return;
-            }
-            log.info("추출된 검색어: {}", query);
-            int display = 100; // 한 번에 100개씩 가져오기 (최대)
+            driver.get(productUrl);
+            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+            wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("meta[property='og:title']")));
+            String ogTitle = driver.findElement(By.cssSelector("meta[property='og:title']")).getAttribute("content");
+            log.info("og:title: {}", ogTitle);
+            String[] parts = ogTitle.split(" : ");
+            String productName = parts[0].trim();
+            log.info("검색어로 사용할 상품명: {}", productName);
+            int display = 100;
             int start = 1;
-            int total = Integer.MAX_VALUE; // 총 검색 결과
-            String targetTitle = "클라 섬유유연제 대용량 고농축 퍼퓸 라이프케어 플라워가든";
+            int total = Integer.MAX_VALUE;
             JSONObject matchedItem = null;
-            while (start <= total && start <= 1000) { // 최대 1000개까지만
-                JSONObject response = callNaverApi(query, display, start);
+            while (start <= total && start <= 1000) {
+                JSONObject response = callNaverApi(productName, display, start);
                 log.info("API 호출 start={} display={}", start, display);
                 log.info("response: {}", response.toString(2));
                 total = response.optInt("total", 0);
@@ -97,7 +113,7 @@ public class ProductService {
                         JSONObject item = items.getJSONObject(i);
                         String title = item.optString("title").replaceAll("<.*?>", "").trim();
                         log.info("상품 {}: {}", start + i, title);
-                        if (title.contains(targetTitle)) {
+                        if (title.contains(productName)) {
                             matchedItem = item;
                             break;
                         }
@@ -114,27 +130,7 @@ public class ProductService {
                 log.info("매칭된 상품 없음");
             }
         } catch (Exception e) {
-            log.error("검색 API 호출 실패: {}", e.getMessage());
-        }
-        WebDriverManager.chromedriver().setup();
-        ChromeOptions options = new ChromeOptions();
-        options.addArguments("--headless=new");
-        options.addArguments("--no-sandbox");
-        options.addArguments("--disable-dev-shm-usage");
-        options.addArguments("--disable-gpu");
-        options.addArguments("--window-size=1920,1080");
-        options.addArguments("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-                "AppleWebKit/537.36 (KHTML, like Gecko) " +
-                "Chrome/142.0.0.0 Safari/537.36");
-        WebDriver driver = new ChromeDriver(options);
-        try {
-            driver.get(productUrl);
-            Thread.sleep(3000);
-            String html = driver.getPageSource();
-            log.info("추출된 html: {}", html);
-        } catch (Exception e) {
-            e.printStackTrace();
-            log.error("html 추출 실패");
+            log.error("검색 실패: {}", e.getMessage(), e);
         } finally {
             driver.quit();
         }
