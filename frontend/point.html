@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Together - 마이페이지</title>
+    <title>Together - 포인트 관리</title>
     <link rel="stylesheet" href="css/common.css">
     <link rel="stylesheet" href="css/mypage.css">
 </head>
@@ -32,25 +32,22 @@
                     <div class="profile-info">
                         <div class="name-section">
                             <span class="name-label">이름</span>
-                            <!--사용자-->
                             <span class="name-value" id="userName"></span>
-                            <!--매너온도-->
                             <span class="score" id="manner_temp"></span>
                         </div>
                         <div class="point-section">
                             <span class="point-label">포인트</span>
-                            <span class="point-value" id="userPoints">0</span>
-                            <button class="point-detail-btn">🔍</button>
+                            <span class="point-value" id="userPointsProfile">0</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="menu-section">
                     <ul class="mypage-menu">
-                        <li><a href="#orders">주문 내역</a></li>
-                        <li><a href="#wishlist">찜한 상품</a></li>
-                        <li><a href="#reviews">내 후기</a></li>
-                        <li><a href="#settings">설정</a></li>
+                        <li><a href="mypage.html#orders">주문 내역</a></li>
+                        <li><a href="mypage.html#wishlist">찜한 상품</a></li>
+                        <li><a href="mypage.html#reviews">내 후기</a></li>
+                        <li><a href="mypage.html#settings">설정</a></li>
                         <li><a href="#" onclick="logout()">로그아웃</a></li>
                     </ul>
                 </div>
@@ -58,41 +55,44 @@
 
             <div class="content-section">
                 <div class="content-card">
+                    
                     <h2 class="sub-title">
                         보유 포인트 
-                        <span class="point-value-title" id="userPoints">0</span>
+                        <span class="point-value-title" id="userPoints">0 P</span>
                     </h2>
                     
-                    <h2>포인트 구매</h2>
+                    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+
+                    <h2 class="sub-title">포인트 구매</h2>
                     <div class="point-purchase-list">
-                        
-                        <div class="purchase-item selected" data-rp="1000" data-price="1000">
-                            <span class="rp-value">1,000P</span>
+                        <div class="purchase-item" data-price="1000">
+                            <span class="rp-value">1,000 P</span>
                             <span class="price-value">1,000원</span>
                         </div>
 
-                        <div class="purchase-item" data-rp="350" data-price="3000">
-                            <span class="rp-value">3,000P</span>
+                        <div class="purchase-item" data-price="3000">
+                            <span class="rp-value">3,000 P</span>
                             <span class="price-value">3,000원</span>
                         </div>
 
-                        <div class="purchase-item" data-rp="600" data-price="5000">
-                            <span class="rp-value">5,000P</span>
+                        <div class="purchase-item" data-price="5000">
+                            <span class="rp-value">5,000 P</span>
                             <span class="price-value">5,000원</span>
                         </div>
 
-                        <div class="purchase-item" data-rp="1,200" data-price="10000">
-                            <span class="rp-value">10,000P</span>
+                        <div class="purchase-item" data-price="10000">
+                            <span class="rp-value">10,000 P</span>
                             <span class="price-value">10,000원</span>
                         </div>
-
                     </div>
+                    
                     <button class="btn btn-primary purchase-btn">선택한 포인트 구매하기</button>
                     
-                    <h2 class="sub-title" style="margin-top: 30px;">포인트 변동 내역</h2>
+                    <h2 class="sub-title" style="margin-top: 40px;">포인트 변동 내역</h2>
                     <div class="activity-list" id="pointHistoryList">
-                        <div class="activity-item">내역을 불러오는 중...</div>
+                        <div class="activity-item" style="text-align: center;">내역을 불러오는 중...</div>
                     </div>
+
                 </div>
             </div>
         </div>
@@ -102,4 +102,3 @@
     <script src="js/mypage.js"></script>
 </body>
 </html>
-
