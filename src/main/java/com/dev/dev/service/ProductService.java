@@ -9,6 +9,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.support.ui.ExpectedCondition;
+import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -74,7 +75,8 @@ public class ProductService {
                     (ExpectedCondition<Boolean>) wd ->
                             ((JavascriptExecutor) wd).executeScript("return document.readyState").equals("complete")
             );
-            WebElement ogTag = driver.findElement(By.cssSelector("meta[property='og:title']"));
+            WebElement ogTag = new WebDriverWait(driver, Duration.ofSeconds(10))
+                    .until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("meta[property='og:title']")));
             String fullOgTitle = ogTag.getAttribute("content");
             if (fullOgTitle.contains(" : ")) {
                 return fullOgTitle.split(" : ")[0].trim();
