@@ -137,3 +137,14 @@
     }
 }
 
+.sub-title {
+    font-weight: bold;
+    color: #666;
+
+}
+
+.point-value-title {
+    color: #4a90e2;
+    font-size: 30px;
+    font-weight: bold;
+}
