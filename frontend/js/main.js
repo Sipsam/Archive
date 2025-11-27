@@ -176,3 +176,124 @@ async function registerGroupBuy(productNumber, productUrl, targetHeadcount, titl
         alert("글 등록 처리 중 오류가 발생했습니다: " + error.message);
     }
 }
+// ==========================================
+// 2. 신규 기능: 실시간 채팅 사이드바 연동
+// ==========================================
+
+// 채팅 기능 초기화 함수
+function initChatSidebar() {
+    const chatListContainer = document.getElementById('chatListContainer');
+    
+    // 1. 로그인 여부 확인 (토큰 존재 여부)
+    const token = localStorage.getItem('accessToken'); 
+
+    if (!token) {
+        // 비로그인 상태면 안내 문구 표시
+        if(chatListContainer) {
+            chatListContainer.innerHTML = '<li style="padding:10px; text-align:center; color:#888;">로그인이 필요합니다.</li>';
+        }
+        return; 
+    }
+
+    // 2. 로그인 상태라면: 초기 데이터 로드 + 소켓 연결
+    loadChatRooms(token); 
+    connectWebSocket(token);
+}
+
+// [API] 채팅방 목록 불러오기 (REST API)
+async function loadChatRooms(token) {
+    try {
+        // FIXME: 백엔드 API 주소 확인 필요 (예: /api/chat/rooms)
+        const response = await fetch('/api/chat/rooms', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const rooms = await response.json();
+            renderChatList(rooms); // 화면 그리기
+        } else {
+            console.error('채팅 목록 로드 실패:', response.status);
+        }
+    } catch (error) {
+        console.error('채팅 목록 에러:', error);
+    }
+}
+
+// [UI] 채팅방 목록 화면에 그리기
+function renderChatList(rooms) {
+    const chatListContainer = document.getElementById('chatListContainer');
+    if (!chatListContainer) return;
+
+    chatListContainer.innerHTML = ''; // 기존 목록 초기화
+
+    if (rooms.length === 0) {
+        chatListContainer.innerHTML = '<li style="padding:10px; color:#888;">참여 중인 채팅방이 없습니다.</li>';
+        return;
+    }
+
+    rooms.forEach(room => {
+        // li 요소 생성
+        const li = document.createElement('li');
+        li.className = 'chat-item'; // CSS 스타일링용 클래스
+        
+        // 안 읽은 메시지 배지 처리
+        const badgeHtml = room.unreadCount > 0 
+            ? `<span class="badge">${room.unreadCount}</span>` 
+            : '';
+
+        // 클릭 시 해당 채팅방으로 이동 (chat.html)
+        li.innerHTML = `
+            <a href="chat.html?roomId=${room.roomId}" style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                <span class="room-name">${room.roomName}</span>
+                ${badgeHtml}
+            </a> 
+        `;
+        chatListContainer.appendChild(li);
+    });
+}
+
+// [Socket] 실시간 소켓 연결 (WebSocket)
+function connectWebSocket(token) {
+    // FIXME: 백엔드 소켓 주소 확인 필요 (ws:// 또는 wss://)
+    // 예: ws://localhost:8080/ws/chat
+    const socketUrl = 'ws://localhost:8080/ws/chat'; 
+    let socket;
+
+    try {
+        socket = new WebSocket(socketUrl);
+    } catch (e) {
+        console.error('소켓 생성 실패:', e);
+        return;
+    }
+
+    socket.onopen = function() {
+        console.log('실시간 채팅 서버 연결됨');
+        // 필요하다면 연결 후 인증 토큰을 전송하는 로직 추가
+        // socket.send(JSON.stringify({ type: 'AUTH', token: token }));
+    };
+
+    socket.onmessage = function(event) {
+        try {
+            const data = JSON.parse(event.data);
+
+            // FIXME: 백엔드에서 정한 이벤트 타입 확인 필요 (예: 'NEW_MESSAGE', 'ROOM_UPDATE')
+            if (data.type === 'NEW_MESSAGE' || data.type === 'ROOM_UPDATE') {
+                console.log('새 메시지 감지! 목록을 갱신합니다.');
+                
+                // 화면을 새로고침하지 않고 목록만 다시 불러옴
+                loadChatRooms(token);
+            }
+        } catch (e) {
+            console.error('소켓 데이터 파싱 에러:', e);
+        }
+    };
+
+    socket.onclose = function() {
+        console.log('채팅 서버 연결 끊김. 5초 후 재연결 시도...');
+        setTimeout(() => connectWebSocket(token), 5000);
+    };
+}
