@@ -10,7 +10,7 @@ import org.json.JSONObject;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.*;
 import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
@@ -27,9 +27,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
 
-import org.openqa.selenium.By;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 
@@ -71,9 +68,17 @@ public class ProductService {
         options.addArguments("--disable-gpu");
         options.addArguments("--window-size=1920,1080");
 
-        WebDriver driver = null;
+        WebDriver driver = new ChromeDriver(options);
         try {
-            driver = new ChromeDriver(options);
+            // 네이버 초기 페이지 접근 (쿠키 주입용)
+            driver.get("https://www.naver.com");
+            Set<Cookie> cookies = Set.of(
+                    new Cookie("NID_SES", "AAABi6ZGh6/BW8lHFTUGoXy8lZDS+7eamS7enEec0jqVuxIhPF7560n/WHpn0tqBIk83dlhQtW0Fqu5cZ3xD7HvnKykRwcDozQBRL8ilsivBQdvcM+o6QHSjh8cNtyC2qB407v+HNfaA7Zlz8i/fOe3ellG5sB5AZLt2eg/ZevkUKevmDHyVPzofcjSE4mqF+5wZfaOwJ+2qScGCEgPrTjK0uqGhfqlR9tf7biWx459+ftaW9YVhySzEbcwchxFmFXd6L+SQdzuw29eLbn14lrR1jj4VeSmvkINH/mjBNqHI8wIOVnezv5B1uliH3Xwky7uPHtVFUP4vh2O/5sW6qIqUh1AQZxzUBBT1T4k0f3wWRO1CwHdzi9Ic5X2qcNJzWdPjt1nMfaLBswLYqObWahN2Avi7TnrYSwuCkw7FC9HTz1yFYJhL/DvZ+mQX/DnnNqjCAaROiSPUSAXIsR7QrgNntJz3nLa3ZwvyqTRUpbSupmTTq3qKCvMOYro4eTa6Zn8Iiha4bnRchgJWDFtaNcNhrNc="),
+                    new Cookie("NID_AUT", "pRFKfu0VsB3xwdnD8Z8ig72SqWwuIs3a6R6dl19sjMIwhofnji8lIT/JDyd3f+xa")
+            );
+            for (Cookie cookie : cookies) {
+                driver.manage().addCookie(cookie);
+            }
             driver.get(url);
             boolean ogExists = false;
             for (int i = 0; i < 15; i++) {
