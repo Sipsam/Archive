@@ -171,7 +171,7 @@ function initChatSidebar() {
     if (!token) {
         // 비로그인 상태면 안내 문구 표시
         if(chatListContainer) {
-            chatListContainer.innerHTML = '<li style="padding:10px; text-align:center; color:#888;">로그인이 필요합니다.</li>';
+            chatListContainer.innerHTML = '<li style="padding:8px; text-align:center; color:#888;">로그인이 필요합니다.</li>';
         }
         return; 
     }
