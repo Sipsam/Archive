@@ -1,37 +1,44 @@
 // frontend/js/board.js
 
-// 1. 화면 전환 함수 (목록 <-> 글쓰기)
+document.addEventListener('DOMContentLoaded', function() {
+    // 페이지 로드 시 목록 불러오기
+    loadPosts();
+
+    // 글쓰기 폼 이벤트 연결
+    const writeForm = document.querySelector('.write-form');
+    if (writeForm) {
+        writeForm.addEventListener('submit', submitPost);
+    }
+});
+
+// 1. 탭 전환 (목록 <-> 쓰기)
 function switchBoardTab(tab) {
     const boardList = document.getElementById('boardList');
     const writeSection = document.getElementById('writeSection');
     const tabs = document.querySelectorAll('.board-tab');
     
-    // 탭 활성화 스타일 초기화
+    // 탭 스타일 초기화
     tabs.forEach(t => t.classList.remove('active'));
 
     if (tab === 'write') {
-        // 로그인 체크
+        // 로그인 체크 (글쓰기는 로그인 필수)
         if (!checkAuth()) {
             alert('로그인이 필요한 서비스입니다.');
             window.location.href = 'login.html';
             return;
         }
-        // 글쓰기 화면 표시
-        if(boardList) boardList.classList.add('hidden');
-        if(writeSection) writeSection.classList.remove('hidden');
-        
-        // '쓰기' 탭 활성화 (인덱스 1번)
-        if(tabs[1]) tabs[1].classList.add('active');
+        // 화면 전환
+        boardList.classList.add('hidden');
+        writeSection.classList.remove('hidden');
+        tabs[1].classList.add('active'); // '쓰기' 탭 활성화
 
     } else {
-        // 목록 화면 표시
-        if(boardList) boardList.classList.remove('hidden');
-        if(writeSection) writeSection.classList.add('hidden');
+        // 화면 전환
+        boardList.classList.remove('hidden');
+        writeSection.classList.add('hidden');
+        tabs[0].classList.add('active'); // '목록' 탭 활성화
         
-        // '목록' 탭 활성화 (인덱스 0번)
-        if(tabs[0]) tabs[0].classList.add('active');
-        
-        // 목록 데이터 갱신
+        // 목록 최신화
         loadPosts();
     }
 }
@@ -42,10 +49,11 @@ async function loadPosts() {
     if (!boardList) return;
 
     try {
-        // 백엔드 API 호출: boardType이 'REVIEW'인 글만 가져옴
+        // 백엔드 API 호출: boardType이 'REVIEW'인 글만 조회
+        // CommunityController의 getPost 메서드 호출
         const posts = await apiFetch('/api/posts?boardType=REVIEW');
         
-        boardList.innerHTML = ''; // 초기화
+        boardList.innerHTML = ''; // 기존 내용 초기화
 
         if (!posts || posts.length === 0) {
             boardList.innerHTML = `
@@ -59,20 +67,20 @@ async function loadPosts() {
         // 받아온 데이터로 HTML 생성
         posts.forEach((post, index) => {
             const dateObj = new Date(post.createdAt);
-            const dateStr = dateObj.toLocaleDateString();
+            const dateStr = dateObj.toLocaleDateString(); // 날짜 포맷
 
             const itemDiv = document.createElement('div');
-            itemDiv.className = 'board-item'; // CSS 스타일 적용 클래스
+            itemDiv.className = 'board-item'; 
             itemDiv.innerHTML = `
-                <span class="board-number" style="width: 50px; text-align: center;">${posts.length - index}</span>
-                <span class="board-title" style="flex: 1; font-weight: bold;">${post.title}</span>
-                <span class="board-author" style="width: 100px; text-align: center;">${post.authorName}</span>
-                <span class="board-date" style="width: 100px; text-align: right; color: #888;">${dateStr}</span>
+                <span class="board-number" style="text-align:center;">${posts.length - index}</span>
+                <span class="board-title" style="font-weight:bold; cursor:pointer;">${post.title}</span>
+                <span class="board-author" style="text-align:center;">${post.authorName}</span>
+                <span class="board-date" style="text-align:right; color:#888;">${dateStr}</span>
             `;
 
-            // 클릭 시 내용 보기 (알림창)
-            itemDiv.addEventListener('click', () => {
-                alert(`[${post.title}]\n\n${post.content}`);
+            // 제목 클릭 시 상세 내용 보기 (간단히 alert로 구현, 추후 모달/상세페이지로 확장 가능)
+            itemDiv.querySelector('.board-title').addEventListener('click', () => {
+                alert(`[${post.title}]\n\n${post.content}\n\n작성자: ${post.authorName}`);
             });
 
             boardList.appendChild(itemDiv);
@@ -86,7 +94,7 @@ async function loadPosts() {
 
 // 3. 게시글 작성하기 (POST)
 async function submitPost(event) {
-    event.preventDefault(); // 새로고침 방지
+    event.preventDefault(); // 폼 기본 제출 방지 (새로고침 막기)
 
     const titleInput = document.getElementById('title');
     const contentInput = document.getElementById('content');
@@ -96,8 +104,9 @@ async function submitPost(event) {
         return;
     }
 
+    // 백엔드 PostDto.Request 구조에 맞춤
     const postData = {
-        boardType: 'REVIEW', // 백엔드 식별용
+        boardType: 'REVIEW', // 백엔드에서 이 값을 보고 포인트를 지급함
         title: titleInput.value,
         content: contentInput.value
     };
@@ -108,26 +117,17 @@ async function submitPost(event) {
             body: postData
         });
 
-        alert('후기가 등록되었습니다! (100 포인트 적립)');
+        alert('후기가 성공적으로 등록되었습니다!\n(100 포인트가 적립되었습니다)');
         
-        // 입력창 비우고 목록으로 돌아가기
+        // 입력창 비우기
         titleInput.value = '';
         contentInput.value = '';
+
+        // 목록 화면으로 돌아가기
         switchBoardTab('list');
 
     } catch (error) {
         console.error('글 작성 실패:', error);
-        alert('글 작성 중 오류가 발생했습니다.\n' + error.message);
+        alert('글 작성 중 오류가 발생했습니다: ' + error.message);
     }
 }
-
-// 4. 초기화 이벤트
-document.addEventListener('DOMContentLoaded', function() {
-    loadPosts(); // 페이지 열리면 목록 불러오기
-
-    // 글쓰기 폼 전송 이벤트 연결
-    const writeForm = document.querySelector('.write-form');
-    if (writeForm) {
-        writeForm.addEventListener('submit', submitPost);
-    }
-});
