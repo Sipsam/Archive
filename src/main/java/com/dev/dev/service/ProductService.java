@@ -169,6 +169,7 @@ public class ProductService {
                 .name(title)
                 .price(lprice)
                 .allQuantity(quantity)
+                .link(item.optString("link"))
                 .unit(unit)
                 .build();
     }

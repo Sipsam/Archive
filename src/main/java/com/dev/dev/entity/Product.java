@@ -19,6 +19,6 @@ public class Product {
 
     @Column(name = "all_quantity")
     private Integer allQuantity;
-
+    private String link;
     private String unit; // g, kg, 개, 팩 등
 }
