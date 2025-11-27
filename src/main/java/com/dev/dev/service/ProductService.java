@@ -69,26 +69,46 @@ public class ProductService {
         return matchedProduct;
     }
     private String extractOgTitle(String url) throws IOException {
-        try {
-            Document doc = Jsoup.connect(url)
-                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                    .timeout(10000)
-                    .get();
-            Element ogTitleTag = doc.selectFirst("meta[property=og:title]");
-            if (ogTitleTag == null) {
-                log.warn("og:title 메타 태그가 없습니다. 일반 title 태그 사용.");
-                return doc.title();
+        int maxRetries = 3;
+        int retryDelay = 2000;
+        int attempt = 1;
+        for (; attempt <= maxRetries; attempt++) {
+            try {
+                System.out.println("크롤링 시도 #" + attempt + ": " + url);
+                Document doc = Jsoup.connect(url)
+                        .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                        .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
+                        .header("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7")
+                        .header("Accept-Encoding", "gzip, deflate, br")
+                        .header("Connection", "keep-alive")
+                        .header("Upgrade-Insecure-Requests", "1")
+                        .header("Sec-Fetch-Dest", "document")
+                        .header("Sec-Fetch-Mode", "navigate")
+                        .header("Sec-Fetch-Site", "none")
+                        .header("Sec-Fetch-User", "?1")
+                        .header("Cache-Control", "max-age=0")
+                        .referrer("https://www.google.com/")
+                        .timeout(15000)
+                        .ignoreHttpErrors(true)
+                        .followRedirects(true)
+                        .get();
+                Element ogTitleTag = doc.selectFirst("meta[property=og:title]");
+                if (ogTitleTag == null) {
+                    log.warn("og:title 메타 태그가 없습니다. 일반 title 태그 사용.");
+                    return doc.title();
+                }
+                String fullOgTitle = ogTitleTag.attr("content");
+                log.debug("원본 OG Title: {}", fullOgTitle);
+                if (fullOgTitle.contains(" : ")) {
+                    return fullOgTitle.split(" : ")[0].trim();
+                }
+                return fullOgTitle.trim();
+            } catch (IOException e) {
+                log.error("크롤링 실패: {}", e.getMessage());
+                throw e;
             }
-            String fullOgTitle = ogTitleTag.attr("content");
-            log.debug("원본 OG Title: {}", fullOgTitle);
-            if (fullOgTitle.contains(" : ")) {
-                return fullOgTitle.split(" : ")[0].trim();
-            }
-            return fullOgTitle.trim();
-        } catch (IOException e) {
-            log.error("크롤링 실패: {}", e.getMessage());
-            throw e;
         }
+        return "";
     }
     private JSONObject searchInNaverShopping(String ogTitle) throws Exception {
         int display = 100;
