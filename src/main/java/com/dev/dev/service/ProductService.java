@@ -6,6 +6,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.support.ui.ExpectedCondition;
+import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +19,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.*;
 
 import org.openqa.selenium.By;
@@ -54,31 +58,34 @@ public class ProductService {
         productRepository.deleteById(id);
     }
     private String extractOgTitle(String url) {
+        System.setProperty("webdriver.chrome.driver", "/usr/local/bin/chromedriver");
         ChromeOptions options = new ChromeOptions();
-        options.addArguments("--headless=new");  // headless 모드
+        options.addArguments("--headless=new");
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
-        options.addArguments("--remote-allow-origins=*");
-        WebDriver driver = new ChromeDriver(options);
+        options.addArguments("--disable-gpu");
+        options.addArguments("--window-size=1920,1080");
+        WebDriver driver = null;
         try {
-            log.info("Selenium으로 페이지 접속: {}", url);
+            driver = new ChromeDriver(options);
             driver.get(url);
-            Thread.sleep(2000);
-            WebElement ogTitleTag =
-                    driver.findElement(By.cssSelector("meta[property='og:title']"));
-
-            String fullOgTitle = ogTitleTag.getAttribute("content");
-
-            if (fullOgTitle.contains(" : "))
+            new WebDriverWait(driver, Duration.ofSeconds(10)).until(
+                    (ExpectedCondition<Boolean>) wd ->
+                            ((JavascriptExecutor) wd).executeScript("return document.readyState").equals("complete")
+            );
+            WebElement ogTag = driver.findElement(By.cssSelector("meta[property='og:title']"));
+            String fullOgTitle = ogTag.getAttribute("content");
+            if (fullOgTitle.contains(" : ")) {
                 return fullOgTitle.split(" : ")[0].trim();
-            else
-                return fullOgTitle.trim();
-
+            }
+            return fullOgTitle.trim();
         } catch (Exception e) {
             log.error("Selenium 크롤링 실패: {}", e.getMessage());
             return null;
         } finally {
-            driver.quit();
+            if (driver != null) {
+                driver.quit();
+            }
         }
     }
     private JSONObject searchInNaverShopping(String ogTitle) throws Exception {
