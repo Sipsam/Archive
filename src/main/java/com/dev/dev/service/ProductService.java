@@ -45,10 +45,8 @@ public class ProductService {
     public String registerProduct(String productUrl) {
         try {
             String query = extractQueryFromUrl(productUrl);
-            System.out.println( "Query : " + query );
             JSONObject item = callNaverApi(query);
             System.out.println("item: " + item);
-            if (item == null) return "failed";
             Product product = new Product();
             product.setName(item.getString("title").replaceAll("<.*?>", ""));
             product.setPrice(item.getInt("lprice"));
@@ -75,7 +73,6 @@ public class ProductService {
         con.setRequestProperty("X-Naver-Client-Id", NAVER_CLIENT_ID);
         con.setRequestProperty("X-Naver-Client-Secret", NAVER_CLIENT_SECRET);
         int responseCode = con.getResponseCode();
-        System.out.println("Response Code: " + responseCode);
         BufferedReader br = new BufferedReader(new InputStreamReader(
                 responseCode == 200 ? con.getInputStream() : con.getErrorStream()
         ));
@@ -85,6 +82,7 @@ public class ProductService {
         br.close();
         try {
             JSONObject json = new JSONObject(response.toString());
+            System.out.println("json: " + json);
             JSONArray items = json.getJSONArray("items");
             return items.length() == 0 ? null : items.getJSONObject(0);
         } catch (JSONException e) {
