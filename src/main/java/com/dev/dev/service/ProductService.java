@@ -1,144 +1,48 @@
 package com.dev.dev.service;
 
-import com.dev.dev.entity.Product;
-import com.dev.dev.repository.ProductRepository;
-import io.github.bonigarcia.wdm.WebDriverManager;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.openqa.selenium.*;
-import org.openqa.selenium.support.ui.ExpectedCondition;
-import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.util.*;
-
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeOptions;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ProductService {
 
-    private final ProductRepository productRepository;
-
-    // application.yml에서 주입 (보안 강화)
     @Value("${naver.client.id:7zALpPUHFLIUrlLhcFOi}")
     private String NAVER_CLIENT_ID;
 
     @Value("${naver.client.secret:4GfMwG3hWC}")
     private String NAVER_CLIENT_SECRET;
 
-    public List<Product> findAll() {
-        return productRepository.findAll();
-    }
-
-    public Optional<Product> findById(Long id) {
-        return productRepository.findById(id);
-    }
-
-    public Product save(Product product) {
-        return productRepository.save(product);
-    }
-
-    public void delete(Long id) {
-        productRepository.deleteById(id);
-    }
-    private String extractOgTitle(String url) {
-        WebDriverManager.chromedriver().setup();
-        ChromeOptions options = new ChromeOptions();
-        options.addArguments("--headless=new");
-        options.addArguments("--no-sandbox");
-        options.addArguments("--disable-dev-shm-usage");
-        options.addArguments("--disable-gpu");
-        options.addArguments("--window-size=1920,1080");
-
-        WebDriver driver = new ChromeDriver(options);
+    /**
+     * URL에서 n_query 추출
+     */
+    private String extractQueryFromUrl(String url) {
         try {
-            // 네이버 초기 페이지 접근 (쿠키 주입용)
-            driver.get("https://www.naver.com");
-            Set<Cookie> cookies = Set.of(
-                    new Cookie("NID_SES", "AAABi6ZGh6/BW8lHFTUGoXy8lZDS+7eamS7enEec0jqVuxIhPF7560n/WHpn0tqBIk83dlhQtW0Fqu5cZ3xD7HvnKykRwcDozQBRL8ilsivBQdvcM+o6QHSjh8cNtyC2qB407v+HNfaA7Zlz8i/fOe3ellG5sB5AZLt2eg/ZevkUKevmDHyVPzofcjSE4mqF+5wZfaOwJ+2qScGCEgPrTjK0uqGhfqlR9tf7biWx459+ftaW9YVhySzEbcwchxFmFXd6L+SQdzuw29eLbn14lrR1jj4VeSmvkINH/mjBNqHI8wIOVnezv5B1uliH3Xwky7uPHtVFUP4vh2O/5sW6qIqUh1AQZxzUBBT1T4k0f3wWRO1CwHdzi9Ic5X2qcNJzWdPjt1nMfaLBswLYqObWahN2Avi7TnrYSwuCkw7FC9HTz1yFYJhL/DvZ+mQX/DnnNqjCAaROiSPUSAXIsR7QrgNntJz3nLa3ZwvyqTRUpbSupmTTq3qKCvMOYro4eTa6Zn8Iiha4bnRchgJWDFtaNcNhrNc="),
-                    new Cookie("NID_AUT", "pRFKfu0VsB3xwdnD8Z8ig72SqWwuIs3a6R6dl19sjMIwhofnji8lIT/JDyd3f+xa")
-            );
-            for (Cookie cookie : cookies) {
-                driver.manage().addCookie(cookie);
-            }
-            driver.get(url);
-            boolean ogExists = false;
-            for (int i = 0; i < 15; i++) {
-                Object exists = ((JavascriptExecutor) driver)
-                        .executeScript("return document.querySelector('meta[property=\"og:title\"]') !== null;");
-                if (exists instanceof Boolean && (Boolean) exists) {
-                    ogExists = true;
-                    break;
+            String[] parts = url.split("[?&]");
+            for (String part : parts) {
+                if (part.startsWith("n_query=")) {
+                    return java.net.URLDecoder.decode(part.substring(8), StandardCharsets.UTF_8);
                 }
-                Thread.sleep(1000);
             }
-            String pageHtml = driver.getPageSource();
-            System.out.println("===== Selenium 페이지 소스 =====");
-            System.out.println(pageHtml);
-            if (!ogExists) {
-                log.error("meta[property='og:title'] 존재하지 않음");
-                return null;
-            }
-            String html = driver.getPageSource();
-            Document doc = Jsoup.parse(html);
-            Element ogTag = doc.selectFirst("meta[property=og:title]");
-            if (ogTag == null) {
-                log.error("meta[property='og:title'] 파싱 실패");
-                return null;
-            }
-            String fullOgTitle = ogTag.attr("content");
-            if (fullOgTitle.contains(" : ")) {
-                return fullOgTitle.split(" : ")[0].trim();
-            }
-            return fullOgTitle.trim();
         } catch (Exception e) {
-            log.error("Selenium 크롤링 실패: {}", e.getMessage());
-            return null;
-        } finally {
-            if (driver != null) {
-                driver.quit();
-            }
-        }
-    }
-    private JSONObject searchInNaverShopping(String ogTitle) throws Exception {
-        int display = 100;
-        int start = 1;
-        while (start <= 1000) {
-            JSONObject res = callNaverApi(ogTitle, display, start);
-            JSONArray items = res.getJSONArray("items");
-            for (int i = 0; i < items.length(); i++) {
-                JSONObject item = items.getJSONObject(i);
-                String apiTitle = item.getString("title")
-                        .replaceAll("<.*?>", "")
-                        .trim();
-                if (apiTitle.equals(ogTitle)) {
-                    log.info("매칭 성공: {}", apiTitle);
-                    return item;
-                }
-            }
-            start += display;
-            Thread.sleep(200);
+            log.error("n_query 추출 실패: {}", e.getMessage());
         }
         return null;
     }
+
+    /**
+     * 네이버 쇼핑 검색 API 호출
+     */
     private JSONObject callNaverApi(String query, int display, int start) throws Exception {
         String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
         String apiURL =
@@ -149,6 +53,7 @@ public class ProductService {
         con.setRequestMethod("GET");
         con.setRequestProperty("X-Naver-Client-Id", NAVER_CLIENT_ID);
         con.setRequestProperty("X-Naver-Client-Secret", NAVER_CLIENT_SECRET);
+
         BufferedReader br = new BufferedReader(
                 new InputStreamReader(con.getInputStream(), StandardCharsets.UTF_8)
         );
@@ -157,11 +62,35 @@ public class ProductService {
         while ((line = br.readLine()) != null) sb.append(line);
         br.close();
         con.disconnect();
+
         return new JSONObject(sb.toString());
     }
-    public JSONObject findProductFromUrl(String productUrl) throws Exception {
-        String ogTitle = extractOgTitle(productUrl);
-        if (ogTitle == null) return null;
-        return searchInNaverShopping(ogTitle);
+
+    /**
+     * URL 기반으로 검색 API 호출 후 결과 로깅
+     */
+    public void searchByUrl(String productUrl) {
+        try {
+            String query = extractQueryFromUrl(productUrl);
+            if (query == null) {
+                log.error("검색어 추출 실패");
+                return;
+            }
+            log.info("추출된 검색어: {}", query);
+
+            JSONObject response = callNaverApi(query, 10, 1);
+            log.info("네이버 쇼핑 검색 API response: {}", response.toString(2));
+
+            // 결과 items 배열 로그
+            JSONArray items = response.optJSONArray("items");
+            if (items != null) {
+                for (int i = 0; i < items.length(); i++) {
+                    JSONObject item = items.getJSONObject(i);
+                    log.info("상품 {}: {}", i + 1, item.toString());
+                }
+            }
+        } catch (Exception e) {
+            log.error("검색 API 호출 실패: {}", e.getMessage());
+        }
     }
 }
