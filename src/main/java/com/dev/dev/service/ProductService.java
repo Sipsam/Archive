@@ -40,8 +40,8 @@ public class ProductService {
         productRepository.deleteById(id);
     }
 
-    private final String NAVER_CLIENT_ID = "AN9TaXRlbzATdnmERqWg";
-    private final String NAVER_CLIENT_SECRET = "WgV1Isj_ne";
+    private final String NAVER_CLIENT_ID = "7zALpPUHFLIUrlLhcFOi";
+    private final String NAVER_CLIENT_SECRET = "3sE6x0kiF_";
     public String registerProduct(String productUrl) {
         try {
             String query = extractQueryFromUrl(productUrl);
