@@ -15,8 +15,8 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -60,8 +60,11 @@ public class ProductService {
         }
     }
     private String extractQueryFromUrl(String url) throws MalformedURLException {
-        String[] parts = new URL(url).getPath().split("/");
-        return parts[parts.length - 1];
+        String query = new URL(url).getQuery();
+        Map<String, String> map = Arrays.stream(query.split("&"))
+                .map(param -> param.split("=", 2))
+                .collect(Collectors.toMap(a -> a[0], a -> a[1]));
+        return map.get("n_query");
     }
     private JSONObject callNaverApi(String query) throws IOException {
         HttpURLConnection con = (HttpURLConnection) new URL(
@@ -80,6 +83,7 @@ public class ProductService {
         br.close();
         try {
             JSONObject json = new JSONObject(response.toString());
+            System.out.println(json);
             JSONArray items = json.getJSONArray("items");
             return items.length() == 0 ? null : items.getJSONObject(0);
         } catch (JSONException e) {
