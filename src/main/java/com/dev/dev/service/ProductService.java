@@ -2,6 +2,7 @@ package com.dev.dev.service;
 
 import com.dev.dev.entity.Product;
 import com.dev.dev.repository.ProductRepository;
+import io.github.bonigarcia.wdm.WebDriverManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONArray;
@@ -58,7 +59,7 @@ public class ProductService {
         productRepository.deleteById(id);
     }
     private String extractOgTitle(String url) {
-        System.setProperty("webdriver.chrome.driver", "/usr/local/bin/chromedriver");
+        WebDriverManager.chromedriver().setup();
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--headless=new");
         options.addArguments("--no-sandbox");
