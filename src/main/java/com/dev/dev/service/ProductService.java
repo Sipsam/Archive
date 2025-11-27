@@ -74,25 +74,6 @@ public class ProductService {
      * URL 기반으로 검색 API 호출 후 결과 로깅
      */
     public void searchByUrl(String productUrl) {
-        WebDriverManager.chromedriver().setup();
-        ChromeOptions options = new ChromeOptions();
-        options.addArguments("--headless=new");
-        options.addArguments("--no-sandbox");
-        options.addArguments("--disable-dev-shm-usage");
-        options.addArguments("--disable-gpu");
-        options.addArguments("--window-size=1920,1080");
-        WebDriver driver = new ChromeDriver(options);
-        try {
-            driver.get(productUrl);
-            Thread.sleep(3000);
-            String html = driver.getPageSource();
-            log.info("추출된 html: {}", html);
-        } catch (Exception e) {
-            e.printStackTrace();
-            log.error("html 추출 실패");
-        } finally {
-            driver.quit();
-        }
         try {
             String query = extractQueryFromUrl(productUrl);
             if (query == null) {
@@ -134,6 +115,25 @@ public class ProductService {
             }
         } catch (Exception e) {
             log.error("검색 API 호출 실패: {}", e.getMessage());
+        }
+        WebDriverManager.chromedriver().setup();
+        ChromeOptions options = new ChromeOptions();
+        options.addArguments("--headless=new");
+        options.addArguments("--no-sandbox");
+        options.addArguments("--disable-dev-shm-usage");
+        options.addArguments("--disable-gpu");
+        options.addArguments("--window-size=1920,1080");
+        WebDriver driver = new ChromeDriver(options);
+        try {
+            driver.get(productUrl);
+            Thread.sleep(3000);
+            String html = driver.getPageSource();
+            log.info("추출된 html: {}", html);
+        } catch (Exception e) {
+            e.printStackTrace();
+            log.error("html 추출 실패");
+        } finally {
+            driver.quit();
         }
     }
 }
