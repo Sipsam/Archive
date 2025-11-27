@@ -41,7 +41,7 @@ public class ProductService {
     }
 
     private final String NAVER_CLIENT_ID = "7zALpPUHFLIUrlLhcFOi";
-    private final String NAVER_CLIENT_SECRET = "3sE6x0kiF_";
+    private final String NAVER_CLIENT_SECRET = "4GfMwG3hWC";
     public String registerProduct(String productUrl) {
         try {
             String query = extractQueryFromUrl(productUrl);
