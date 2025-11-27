@@ -85,6 +85,9 @@ public class ProductService {
                 }
                 Thread.sleep(1000);
             }
+            String pageHtml = driver.getPageSource();
+            System.out.println("===== Selenium 페이지 소스 =====");
+            System.out.println(pageHtml);
             if (!ogExists) {
                 log.error("meta[property='og:title'] 존재하지 않음");
                 return null;
