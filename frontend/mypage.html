@@ -40,7 +40,7 @@
                         <div class="point-section">
                             <span class="point-label">포인트</span>
                             <span class="point-value" id="userPoints">0</span>
-                            <button class="point-detail-btn">🔍</button>
+                            <a href="mypage.html"><button class="point-detail-btn">🔍</button></a>
                         </div>
                     </div>
                 </div>
@@ -51,7 +51,12 @@
                         <li><a href="#wishlist">찜한 상품</a></li>
                         <li><a href="#reviews">내 후기</a></li>
                         <li><a href="#settings">설정</a></li>
-                        <li><a href="#" onclick="logout()">로그아웃</a></li>
+                        <!--<li><a href="#" onclick="logout()">로그아웃</a></li>-->
+                        <li>
+                            <a href="#" onclick="if(confirm('로그아웃 하시겠습니까?')) { logout(); } else { return false; }">
+                                로그아웃
+                            </a>
+                        </li>
                     </ul>
                 </div>
             </div>
