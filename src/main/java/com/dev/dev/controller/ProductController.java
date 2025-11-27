@@ -39,8 +39,10 @@ public class ProductController {
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("상품 등록 실패", e);
-            return ResponseEntity.status(500)
-                    .body(createErrorResponse("failed")); // 오류 발생 시
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", false);
+            result.put("message", "failed");
+            return ResponseEntity.ok(result);
         }
     }
     private Map<String, Object> createErrorResponse(String message) {

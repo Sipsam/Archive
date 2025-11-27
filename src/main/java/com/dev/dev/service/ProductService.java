@@ -118,6 +118,9 @@ public class ProductService {
                 Thread.sleep(200);
             }
             if (matchedItem != null) {
+                if (productRepository.existsById(matchedItem.optLong("productId"))) {
+                    throw new IllegalStateException("EXISTS");
+                }
                 product = createProductFromItem(matchedItem);
                 productRepository.save(product);
                 log.info("생성된 Product: {}", product);
