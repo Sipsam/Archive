@@ -123,6 +123,9 @@ public class ProductService {
         options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--disable-gpu");
         options.addArguments("--window-size=1920,1080");
+        options.addArguments("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+                "AppleWebKit/537.36 (KHTML, like Gecko) " +
+                "Chrome/142.0.0.0 Safari/537.36");
         WebDriver driver = new ChromeDriver(options);
         try {
             driver.get(productUrl);
