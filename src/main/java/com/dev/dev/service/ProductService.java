@@ -67,7 +67,7 @@ public class ProductService {
     }
     private JSONObject callNaverApi(String query) throws IOException {
         HttpURLConnection con = (HttpURLConnection) new URL(
-                "https://openapi.naver.com/v1/search/shop.json?query=" + URLEncoder.encode(query, "UTF-8") + "&display=1"
+                "https://openapi.naver.com/v1/search/shop.json?query=" + query + "&display=1"
         ).openConnection();
         con.setRequestMethod("GET");
         con.setRequestProperty("X-Naver-Client-Id", NAVER_CLIENT_ID);
