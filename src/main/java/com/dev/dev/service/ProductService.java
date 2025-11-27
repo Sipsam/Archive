@@ -1,7 +1,9 @@
 package com.dev.dev.service;
 
 import com.dev.dev.entity.Product;
+import com.dev.dev.repository.ProductRepository;
 import io.github.bonigarcia.wdm.WebDriverManager;
+import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -27,10 +29,16 @@ import java.util.regex.Pattern;
 @Slf4j
 @Service
 public class ProductService {
+    private final ProductRepository productRepository;
     @Value("${naver.client.id:7zALpPUHFLIUrlLhcFOi}")
     private String NAVER_CLIENT_ID;
     @Value("${naver.client.secret:4GfMwG3hWC}")
     private String NAVER_CLIENT_SECRET;
+
+    public ProductService(ProductRepository productRepository) {
+        this.productRepository = productRepository;
+    }
+
     /**
      * 네이버 쇼핑 검색 API 호출
      */
@@ -111,6 +119,7 @@ public class ProductService {
             }
             if (matchedItem != null) {
                 product = createProductFromItem(matchedItem);
+                productRepository.save(product);
                 log.info("생성된 Product: {}", product);
             } else {
                 log.info("매칭된 상품 없음");
@@ -122,7 +131,8 @@ public class ProductService {
         }
         return product;
     }
-    private Product createProductFromItem(JSONObject item) {
+    @Transactional
+    public Product createProductFromItem(JSONObject item) {
         String title = item.optString("title").replaceAll("<.*?>", "").trim();
         Integer lprice = item.optInt("lprice", 0);
         Long productId = item.optLong("productId", 0L);
