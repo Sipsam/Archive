@@ -7,6 +7,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.ExpectedConditions;
@@ -67,18 +70,33 @@ public class ProductService {
         options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--disable-gpu");
         options.addArguments("--window-size=1920,1080");
+
         WebDriver driver = null;
         try {
             driver = new ChromeDriver(options);
             driver.get(url);
-            new WebDriverWait(driver, Duration.ofSeconds(15)).until(
-                    wd -> ((JavascriptExecutor) wd)
-                            .executeScript("return document.querySelector('meta[property=\"og:title\"]') !== null;")
-                            .equals(true)
-            );
-            WebElement ogTag = new WebDriverWait(driver, Duration.ofSeconds(10))
-                    .until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("meta[property='og:title']")));
-            String fullOgTitle = ogTag.getAttribute("content");
+            boolean ogExists = false;
+            for (int i = 0; i < 15; i++) {
+                Object exists = ((JavascriptExecutor) driver)
+                        .executeScript("return document.querySelector('meta[property=\"og:title\"]') !== null;");
+                if (exists instanceof Boolean && (Boolean) exists) {
+                    ogExists = true;
+                    break;
+                }
+                Thread.sleep(1000);
+            }
+            if (!ogExists) {
+                log.error("meta[property='og:title'] 존재하지 않음");
+                return null;
+            }
+            String html = driver.getPageSource();
+            Document doc = Jsoup.parse(html);
+            Element ogTag = doc.selectFirst("meta[property=og:title]");
+            if (ogTag == null) {
+                log.error("meta[property='og:title'] 파싱 실패");
+                return null;
+            }
+            String fullOgTitle = ogTag.attr("content");
             if (fullOgTitle.contains(" : ")) {
                 return fullOgTitle.split(" : ")[0].trim();
             }
