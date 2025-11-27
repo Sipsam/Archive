@@ -77,17 +77,37 @@ public class ProductService {
                 return;
             }
             log.info("추출된 검색어: {}", query);
-
-            JSONObject response = callNaverApi(query, 10, 1);
-            log.info("네이버 쇼핑 검색 API response: {}", response.toString(2));
-
-            // 결과 items 배열 로그
-            JSONArray items = response.optJSONArray("items");
-            if (items != null) {
-                for (int i = 0; i < items.length(); i++) {
-                    JSONObject item = items.getJSONObject(i);
-                    log.info("상품 {}: {}", i + 1, item.toString());
+            int display = 100; // 한 번에 100개씩 가져오기 (최대)
+            int start = 1;
+            int total = Integer.MAX_VALUE; // 총 검색 결과
+            String targetTitle = "클라 섬유유연제 대용량 고농축 퍼퓸 라이프케어 플라워가든";
+            JSONObject matchedItem = null;
+            while (start <= total && start <= 1000) { // 최대 1000개까지만
+                JSONObject response = callNaverApi(query, display, start);
+                log.info("API 호출 start={} display={}", start, display);
+                log.info("response: {}", response.toString(2));
+                total = response.optInt("total", 0);
+                JSONArray items = response.optJSONArray("items");
+                if (items != null) {
+                    for (int i = 0; i < items.length(); i++) {
+                        JSONObject item = items.getJSONObject(i);
+                        String title = item.optString("title").replaceAll("<.*?>", "").trim();
+                        log.info("상품 {}: {}", start + i, title);
+                        if (title.contains(targetTitle)) {
+                            matchedItem = item;
+                            break;
+                        }
+                    }
                 }
+                if (matchedItem != null) {
+                    log.info("매칭된 상품 발견: {}", matchedItem.toString(2));
+                    break;
+                }
+                start += display;
+                Thread.sleep(200);
+            }
+            if (matchedItem == null) {
+                log.info("매칭된 상품 없음");
             }
         } catch (Exception e) {
             log.error("검색 API 호출 실패: {}", e.getMessage());
