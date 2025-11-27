@@ -71,9 +71,10 @@ public class ProductService {
         try {
             driver = new ChromeDriver(options);
             driver.get(url);
-            new WebDriverWait(driver, Duration.ofSeconds(10)).until(
-                    (ExpectedCondition<Boolean>) wd ->
-                            ((JavascriptExecutor) wd).executeScript("return document.readyState").equals("complete")
+            new WebDriverWait(driver, Duration.ofSeconds(15)).until(
+                    wd -> ((JavascriptExecutor) wd)
+                            .executeScript("return document.querySelector('meta[property=\"og:title\"]') !== null;")
+                            .equals(true)
             );
             WebElement ogTag = new WebDriverWait(driver, Duration.ofSeconds(10))
                     .until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("meta[property='og:title']")));
