@@ -3,7 +3,6 @@
 // 1. UI 및 초기화 로직
 document.addEventListener('DOMContentLoaded', function() {
     updateAuthButton(); // 로그인 버튼 상태 업데이트
-
     initChatSidebar();
     // 사이드바의 '모집글 신청' 버튼 이벤트 연결
     const modal = document.querySelector('.modal');
