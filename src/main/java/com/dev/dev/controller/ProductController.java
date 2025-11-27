@@ -1,9 +1,9 @@
 package com.dev.dev.controller;
 
+import com.dev.dev.entity.Product;
 import com.dev.dev.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.json.JSONObject;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,24 +16,31 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/groupbuys")
 @RequiredArgsConstructor
+@Slf4j
 public class ProductController {
 
     private final ProductService productService;
 
     @GetMapping("/attempt")
     public ResponseEntity<Map<String, Object>> attemptRegister(@RequestParam String url) {
-        System.out.println("상품 등록 시도: " + url);
+        log.info("상품 등록 시도: {}", url);
         try {
-            productService.searchByUrl(url);
+            Product product = productService.searchByUrl(url);
             Map<String, Object> result = new HashMap<>();
-            result.put("success", true);
-            result.put("message", "상품 정보를 성공적으로 가져왔습니다.");
-            System.out.println("상품 정보 추출 성공: ");
+            if (product != null) {
+                result.put("success", true);
+                result.put("message", "success"); // 성공 시
+                log.info("상품 정보 추출 성공: {}", product);
+            } else {
+                result.put("success", false);
+                result.put("message", "failed"); // 매칭된 상품 없을 때
+                log.info("매칭된 상품 없음");
+            }
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            System.out.println("상품 등록 실패: " + e.getMessage());
+            log.error("상품 등록 실패", e);
             return ResponseEntity.status(500)
-                    .body(createErrorResponse("상품 정보를 가져오는데 실패했습니다: " + e.getMessage()));
+                    .body(createErrorResponse("failed")); // 오류 발생 시
         }
     }
     private Map<String, Object> createErrorResponse(String message) {
