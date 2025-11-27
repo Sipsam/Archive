@@ -92,7 +92,7 @@ public class ProductService {
                         .ignoreHttpErrors(true)
                         .followRedirects(true)
                         .get();
-                log.debug("크롤링 성공: {}", doc);
+                log.info("크롤링 성공: {}", doc);
                 Element ogTitleTag = doc.selectFirst("meta[property=og:title]");
                 if (ogTitleTag == null) {
                     log.warn("og:title 메타 태그가 없습니다. 일반 title 태그 사용.");
