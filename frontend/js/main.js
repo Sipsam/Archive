@@ -159,7 +159,7 @@ async function registerGroupBuy(productNumber, productUrl, targetHeadcount, titl
             (typeof validationResult === 'object' && validationResult.success === true) ||
             (typeof validationResult === 'object' && validationResult.message === 'success')
         );
-        
+        console.log(validationResult);
         if (!isValid) {
             // 검증 실패
             let errorMsg = '입력 정보를 확인해주세요.';
@@ -174,7 +174,6 @@ async function registerGroupBuy(productNumber, productUrl, targetHeadcount, titl
         
         // 2. POST 요청 (등록) - 검증 성공 시
         productNumber = validationResult.productNumber;
-        console.log(validationResult, validationResult.productNumber);
         const postData = {
             productId: productNumber,         
             targetHeadcount: parseInt(targetHeadcount, 10),
