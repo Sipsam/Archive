@@ -24,7 +24,7 @@ public class PaymentService {
     private final OnlineParticipationRepository participationRepository;
     private final UserRepository userRepository; // [추가] 포인트 업데이트를 위해 필요
 
-    private String widgetSecretKey = "test_sk_LlDJaYngro1dl0enY2bn3ezGdRpX";
+    private String widgetSecretKey = "test_GROQ_API_KEY_REMOVED";
 
     @Transactional
     public JSONObject confirmPayment(String jsonBody) throws Exception {
