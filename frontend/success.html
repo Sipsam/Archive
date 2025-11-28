@@ -24,14 +24,21 @@
           amount: amount,
         };
 
-        const response = await fetch("/confirm", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestData),
-        });
+        // 결제 성공 비즈니스 로직을 구현하세요.
+        const token = getToken(); 
 
+        const headers = {
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${token}` 
+        };
+
+        const response = await fetch('/api/point/charge',{
+            method : "POST",
+            headers : headers,
+            body : JSON.stringify(requestData),
+        });
+        console.log(json);
+        
         const json = await response.json();
 
         if (!response.ok) {
@@ -39,9 +46,6 @@
           console.log(json);
           window.location.href = `/fail?message=${json.message}&code=${json.code}`;
         }
-
-        // 결제 성공 비즈니스 로직을 구현하세요.
-        console.log(json);
       }
       confirm();
 

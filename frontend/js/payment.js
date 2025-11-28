@@ -211,6 +211,7 @@ async function processPayment() {
             customerName: username,
             customerMobilePhone: phone,
         });
+        
     } catch (error) {
         console.error("결제 요청 실패:", error);
         alert("결제 요청 중 오류가 발생했습니다.");
