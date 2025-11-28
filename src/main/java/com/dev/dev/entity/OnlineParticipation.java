@@ -32,6 +32,7 @@ public class OnlineParticipation {
     private Integer quantity; // 수량
 
 
+
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_status", length = 20)
     private PaymentStatus paymentStatus; //결제 상태
