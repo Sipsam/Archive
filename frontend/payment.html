@@ -6,6 +6,7 @@
     <title>Together - 결제</title>
     <link rel="stylesheet" href="css/common.css">
     <link rel="stylesheet" href="css/payment.css">
+    <script src="https://js.tosspayments.com/v2/standard"></script>
 </head>
 <body>
     <header>
@@ -35,24 +36,26 @@
 
                 <div class="payment-section">
                     <h2>주문자 정보</h2>
-                    <form class="orderer-form">
-                        <div class="form-group">
+                    <form class="orderer-form" id="order-form"> <div class="form-group">
                             <label>이름</label>
-                            <input type="text" name="name" required>
-                        </div>
+                            <input type="text" id="username" name="name" required> </div>
                         <div class="form-group">
                             <label>전화번호</label>
-                            <input type="tel" name="phone" required>
-                        </div>
+                            <input type="tel" id="mobile" name="phone" required> </div>
                         <div class="form-group">
                             <label>이메일</label>
-                            <input type="email" name="email" required>
-                        </div>
+                            <input type="email" id="email" name="email" required> </div>
                         <div class="form-group">
                             <label>배송지 주소</label>
                             <input type="text" name="address" required>
                         </div>
                     </form>
+                </div>
+                
+                <div class="payment-section">
+                    <h2>결제 수단</h2>
+                    <div id="payment-method"></div>
+                    <div id="agreement"></div>
                 </div>
 
                 <div class="payment-section">
@@ -84,7 +87,7 @@
                             <div class="amount">13,000원</div>
                         </div>
                     </div>
-                    <button class="btn btn-primary btn-payment" onclick="processPayment()">결제하기</button>
+                    <button class="btn btn-primary btn-payment" id="payment-button">결제하기</button>
                 </div>
             </div>
         </div>
@@ -94,4 +97,3 @@
     <script src="js/payment.js"></script>
 </body>
 </html>
-
