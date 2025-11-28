@@ -66,7 +66,7 @@ public class ProductService {
      * URL 기반으로 검색 API 호출 후 결과 로깅
      */
     public Product searchByUrl(String productUrl) {
-        WebDriverManager.chromedriver().setup();
+        WebDriverManager.chromedriver().clearDriverCache().setup();
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--headless=new");
         options.addArguments("--no-sandbox");
@@ -80,7 +80,7 @@ public class ProductService {
         try {
             // 1. 페이지 접속 후 og:title 추출
             driver.get(productUrl);
-            Thread.sleep(3000);
+            log.info("페이지 로드 완료: {}", driver.getPageSource());
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
             wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("meta[property='og:title']")));
             String ogTitle = driver.findElement(By.cssSelector("meta[property='og:title']")).getAttribute("content");
