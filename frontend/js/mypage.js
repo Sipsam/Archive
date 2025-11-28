@@ -262,7 +262,7 @@ async function loadMyActivities() {
     if (!activityList) return;
 
     try {
-        // TODO: 활동 내역 API 호출
+        // 활동 내역 API 호출 넣어야 함
         // const activities = await apiFetch('/api/users/me/activities');
         
         // 임시로 빈 상태 표시

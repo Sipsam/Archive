@@ -108,42 +108,81 @@ async function registerGroupBuy(productNumber, productUrl, targetHeadcount, titl
             headers: headers
         });
         
-        if (responseGet.ok) {
-            const validationResult = await responseGet.text(); 
-            
-            if (validationResult.trim() === 'success') {
-                // 2. POST 요청 (등록)
-                const postData = {
-                    productId: productNumber,         
-                    targetHeadcount: parseInt(targetHeadcount, 10),
-                    title: title,                   
-                    content: content,               
-                    recruit_end_date: endDate         
-                };
-
-                const responsePost = await fetch(`${API_BASE}/api/groupbuys/online`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}` // 여기도 위에서 정의한 headers 변수 사용하여 토큰 헤더 추가 필요
-                    },
-                    body: JSON.stringify(postData) 
-                });
-                
-                if (responsePost.ok) { 
-                    success = true;
-                } else {
-                    const errorText = await responsePost.text();
-                    throw new Error(`모집글 등록 실패: ${errorText || '서버 오류'}`);
-                }
-                
+        // 응답 처리 (JSON 또는 텍스트)
+        let validationResult;
+        const contentType = responseGet.headers.get('content-type') || '';
+        
+        try {
+            if (contentType.includes('application/json')) {
+                validationResult = await responseGet.json();
             } else {
-                alert(`등록 확인 실패: ${validationResult || '입력 정보를 확인해주세요.'}`);
+                const textResult = await responseGet.text();
+                // 텍스트가 JSON 형태인지 확인
+                try {
+                    validationResult = JSON.parse(textResult);
+                } catch {
+                    // 순수 텍스트인 경우
+                    validationResult = textResult;
+                }
             }
+        } catch (e) {
+            console.error('응답 파싱 오류:', e);
+            validationResult = await responseGet.text();
+        }
+        
+        // 검증 결과 확인
+        const isValid = responseGet.ok && (
+            validationResult === 'success' ||
+            (typeof validationResult === 'object' && validationResult.success === true) ||
+            (typeof validationResult === 'object' && validationResult.message === 'success')
+        );
+        
+        if (!isValid) {
+            // 검증 실패
+            let errorMsg = '입력 정보를 확인해주세요.';
+            if (typeof validationResult === 'object') {
+                errorMsg = validationResult.message || validationResult.error || errorMsg;
+            } else if (typeof validationResult === 'string') {
+                errorMsg = validationResult;
+            }
+            alert(`등록 확인 실패: ${errorMsg}`);
+            return;
+        }
+        
+        // 2. POST 요청 (등록) - 검증 성공 시
+        const postData = {
+            productId: productNumber,         
+            targetHeadcount: parseInt(targetHeadcount, 10),
+            title: title,                   
+            content: content,               
+            recruit_end_date: endDate         
+        };
 
+        const responsePost = await fetch(`${API_BASE}/api/groupbuys/online`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(postData) 
+        });
+        
+        if (responsePost.ok) { 
+            success = true;
         } else {
-            const errorText = await responseGet.text();
-            alert(`URL 검증 중 서버 오류: ${errorText || '서버 응답 확인 필요'}`);
+            let errorMessage = '서버 오류';
+            try {
+                const errorJson = await responsePost.json();
+                errorMessage = errorJson.message || errorJson.error || errorMessage;
+            } catch (e) {
+                try {
+                    const errorText = await responsePost.text();
+                    errorMessage = errorText || errorMessage;
+                } catch (e2) {
+                    errorMessage = `HTTP ${responsePost.status}`;
+                }
+            }
+            throw new Error(`모집글 등록 실패: ${errorMessage}`);
         }
 
         if (success) {
@@ -240,8 +279,7 @@ function renderChatList(rooms) {
 // [Socket] 실시간 소켓 연결 (WebSocket)
 function connectWebSocket(token) {
     // FIXME: 백엔드 소켓 주소 확인 필요 (ws:// 또는 wss://)
-    // 예: ws://localhost:8080/ws/chat
-    const socketUrl = 'ws://localhost:8080/ws/chat'; 
+    const socketUrl = 'ws://together1.kro.kr/ws/chat'; 
     let socket;
 
     try {
