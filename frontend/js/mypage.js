@@ -37,6 +37,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             await loadMyPointHistory();
         }
 
+        // 4. 참여 중인 모집글 로드
+        await loadMyParticipations();
+
     } catch (error) {
         console.error('정보 로드 실패:', error);
     }
@@ -168,4 +171,106 @@ function setupPointPurchase() {
         const price = parseInt(selectedItem.dataset.price, 10);
         await purchasePoints(price);
     });
+}
+
+// 참여 중인 모집글 로드
+async function loadMyParticipations() {
+    const participationList = document.getElementById('participationList');
+    if (!participationList) return;
+
+    try {
+        const participations = await apiFetch('/api/users/me/participations');
+        
+        participationList.innerHTML = ''; // 초기화
+
+        if (!participations || participations.length === 0) {
+            participationList.innerHTML = `
+                <div style="padding: 20px; text-align: center; color: #999; background: #f9f9f9; border-radius: 8px;">
+                    참여 중인 모집글이 없습니다.
+                </div>`;
+            return;
+        }
+
+        // 참여 모집글 목록 표시
+        participations.forEach(participation => {
+            const groupBuy = participation.onlineGroupBuy || participation.groupBuy;
+            if (!groupBuy) return;
+
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'activity-item';
+            itemDiv.style.cursor = 'pointer';
+            itemDiv.style.padding = '15px';
+            itemDiv.style.marginBottom = '10px';
+            itemDiv.style.border = '1px solid #eee';
+            itemDiv.style.borderRadius = '8px';
+            itemDiv.style.transition = 'all 0.3s';
+            
+            itemDiv.onmouseenter = () => {
+                itemDiv.style.backgroundColor = '#f5f5f5';
+                itemDiv.style.borderColor = '#4a90e2';
+            };
+            itemDiv.onmouseleave = () => {
+                itemDiv.style.backgroundColor = '#fff';
+                itemDiv.style.borderColor = '#eee';
+            };
+            
+            itemDiv.onclick = () => {
+                window.location.href = `recruitment-detail.html?id=${groupBuy.id}`;
+            };
+
+            const dateStr = groupBuy.createdAt ? new Date(groupBuy.createdAt).toLocaleDateString('ko-KR') : '-';
+            const endDateStr = groupBuy.recruitEndDate ? new Date(groupBuy.recruitEndDate).toLocaleDateString('ko-KR') : '-';
+            const paymentStatus = participation.paymentStatus || 'PENDING';
+            const paymentStatusText = paymentStatus === 'PAID' ? '결제완료' : paymentStatus === 'CANCELLED' ? '결제취소' : '결제대기';
+
+            itemDiv.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: bold; font-size: 16px; margin-bottom: 5px; color: #333;">
+                            ${groupBuy.title || '제목 없음'}
+                        </div>
+                        <div style="font-size: 14px; color: #666; margin-bottom: 5px;">
+                            상품명: ${groupBuy.product?.name || '상품명 없음'}
+                        </div>
+                        <div style="font-size: 12px; color: #999;">
+                            모집 마감일: ${endDateStr} | 참여일: ${dateStr}
+                        </div>
+                    </div>
+                    <div style="margin-left: 20px;">
+                        <span style="padding: 5px 10px; background: ${paymentStatus === 'PAID' ? '#4a90e2' : paymentStatus === 'CANCELLED' ? '#ff4444' : '#ffa500'}; color: white; border-radius: 5px; font-size: 12px;">
+                            ${paymentStatusText}
+                        </span>
+                    </div>
+                </div>
+            `;
+
+            participationList.appendChild(itemDiv);
+        });
+
+    } catch (error) {
+        console.error('참여 모집글 로드 실패:', error);
+        participationList.innerHTML = `
+            <div style="padding: 20px; text-align: center; color: #ff4444; background: #fff3cd; border-radius: 8px;">
+                참여 모집글을 불러오지 못했습니다.
+            </div>`;
+    }
+}
+
+// 활동 내역 로드 (기존 함수가 없으면 추가)
+async function loadMyActivities() {
+    const activityList = document.getElementById('activityList');
+    if (!activityList) return;
+
+    try {
+        // TODO: 활동 내역 API 호출
+        // const activities = await apiFetch('/api/users/me/activities');
+        
+        // 임시로 빈 상태 표시
+        activityList.innerHTML = `
+            <div style="padding: 20px; text-align: center; color: #999;">
+                활동 내역이 없습니다.
+            </div>`;
+    } catch (error) {
+        console.error('활동 내역 로드 실패:', error);
+    }
 }
