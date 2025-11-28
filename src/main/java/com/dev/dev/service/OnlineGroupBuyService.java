@@ -89,7 +89,7 @@ public class OnlineGroupBuyService {
         OnlineParticipation participation = OnlineParticipation.builder()
                 .user(user)
                 .onlineGroupBuy(groupBuy)
-                .quantity(null)
+                .quantity(null) // 이건 프론트에서 안 넘긴다고 함.
                 .paymentStatus(PaymentStatus.PENDING)//PENDING = "결제 대기"라는 의미의 enum요소
                 .build();
 
@@ -124,5 +124,41 @@ public class OnlineGroupBuyService {
         //이거 결제로직이랑 연동해서 해야하므로 수정해야 할 것 같음. 이대로 하면 사용자가 직접 수정 가능한데 말이 안됌.
 
         return OnlineParticipationDto.from(participation);
+    }
+
+    @Transactional
+    public void startPaymentProcess(Long userId, Long groupBuyId) {
+        OnlineGroupBuy groupBuy = groupBuyRepository.findById(groupBuyId)
+                .orElseThrow(() -> new IllegalArgumentException("공구 정보를 찾을 수 없습니다."));
+
+        // 1. 방장 권한 체크
+        if (!groupBuy.getHostUser().getId().equals(userId)) {
+            throw new SecurityException("방장만 결제를 시작할 수 있습니다.");
+        }
+
+        // 2. 인원 수 체크 (목표 인원과 현재 인원이 정확히 일치해야 함)
+        if (groupBuy.getParticipationList().size() != groupBuy.getTargetHeadcount()) {
+            throw new IllegalStateException("목표 인원이 정확히 채워져야 결제를 시작할 수 있습니다.");
+        }
+
+        Product product = groupBuy.getProductId();
+        int targetHeadcount = groupBuy.getTargetHeadcount();
+
+        // 3. 계산 로직 (N분의 1)
+        // 요청 사항: 참여자별 Quantity = 상품 총 수량 / 목표 인원
+        // (참고: 프롬프트에서 '총가격'이라고 언급하셨으나 문맥상 '총수량'이 맞아 수정 적용했습니다)
+        int individualQuantity = product.getAllQuantity() / targetHeadcount;
+
+        // 4. 모든 참여자의 수량(Quantity) 일괄 업데이트
+        // 금액은 백엔드에서 계산하지 않고, 프론트엔드가 product 정보를 보고 처리하도록 둠
+        List<OnlineParticipation> participations = groupBuy.getParticipationList();
+        for (OnlineParticipation participation : participations) {
+            participation.setQuantity(individualQuantity);
+        }
+
+        // 5. 공구 상태 변경 (RECRUITING -> PAYING)
+        groupBuy.setStatus(GroupBuyStatus.IN_PROGRESS);
+
+        // Dirty Checking에 의해 트랜잭션 종료 시 자동 Update
     }
 }
