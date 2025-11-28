@@ -80,6 +80,7 @@ public class ProductService {
         try {
             // 1. 페이지 접속 후 og:title 추출
             driver.get(productUrl);
+            Thread.sleep(3000);
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
             wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("meta[property='og:title']")));
             String ogTitle = driver.findElement(By.cssSelector("meta[property='og:title']")).getAttribute("content");
