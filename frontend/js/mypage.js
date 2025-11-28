@@ -255,22 +255,3 @@ async function loadMyParticipations() {
             </div>`;
     }
 }
-
-// 활동 내역 로드 (기존 함수가 없으면 추가)
-async function loadMyActivities() {
-    const activityList = document.getElementById('activityList');
-    if (!activityList) return;
-
-    try {
-        // 활동 내역 API 호출 넣어야 함
-        // const activities = await apiFetch('/api/users/me/activities');
-        
-        // 임시로 빈 상태 표시
-        activityList.innerHTML = `
-            <div style="padding: 20px; text-align: center; color: #999;">
-                활동 내역이 없습니다.
-            </div>`;
-    } catch (error) {
-        console.error('활동 내역 로드 실패:', error);
-    }
-}
