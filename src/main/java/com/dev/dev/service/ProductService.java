@@ -66,7 +66,7 @@ public class ProductService {
      * URL 기반으로 검색 API 호출 후 결과 로깅
      */
     public Product searchByUrl(String productUrl) {
-        WebDriverManager.chromedriver().setup();
+        WebDriverManager.chromedriver().clearDriverCache().setup();
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--headless=new");
         options.addArguments("--no-sandbox");
