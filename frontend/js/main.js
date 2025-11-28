@@ -52,6 +52,21 @@ function updateAuthButton() {
 }
 
 
+// 로딩 화면 표시/숨김 함수
+function showLoading() {
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    if (loadingOverlay) {
+        loadingOverlay.style.display = 'flex';
+    }
+}
+
+function hideLoading() {
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    if (loadingOverlay) {
+        loadingOverlay.style.display = 'none';
+    }
+}
+
 // 2. 모집글 등록 로직
 async function submitRecruitment() {
     if (!checkAuth()) {
@@ -84,7 +99,15 @@ async function submitRecruitment() {
         return; 
     }
 
-    await registerGroupBuy(productNumber, productUrl, targetHeadcount, title, content, endDate);
+    // 로딩 화면 표시
+    showLoading();
+    
+    try {
+        await registerGroupBuy(productNumber, productUrl, targetHeadcount, title, content, endDate);
+    } finally {
+        // 성공/실패와 관계없이 로딩 화면 숨김
+        hideLoading();
+    }
 }
 
 
@@ -194,6 +217,7 @@ async function registerGroupBuy(productNumber, productUrl, targetHeadcount, titl
     } catch (error) {
         console.error("등록 처리 중 오류 발생:", error);
         alert("글 등록 처리 중 오류가 발생했습니다: " + error.message);
+        // 에러 발생 시에도 로딩 화면은 hideLoading()에서 처리됨
     }
 }
 // ==========================================
