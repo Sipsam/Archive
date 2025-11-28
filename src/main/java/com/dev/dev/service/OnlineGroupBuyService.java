@@ -42,6 +42,7 @@ public class OnlineGroupBuyService {
     public ResponseOnlineGroupByDto createGroupBuy(Long userId, RequestOnlineGroupBuyDto.Create req) {
         User host = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        System.out.println("ProductId: " + req.getProductId());
         Product product = productRepository.findById(req.getProductId())
                 .orElseThrow(() -> new IllegalArgumentException("Product not found"));
 
