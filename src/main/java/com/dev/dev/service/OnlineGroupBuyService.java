@@ -21,7 +21,7 @@ public class OnlineGroupBuyService {
     private final OnlineParticipationRepository participationRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
-    // private final ChatService chatService;
+    private final ChatRoomService chatRoomService;
 
     // 1. 목록 조회. 객체들을 Dto로 감싸고 List에 담는 로직은 ResponseOnlineGroupByDto의 참여자 Dto가 담긴 리스트 필드를 생성하는 것과 동일하지만, 범위가 이것은 모집글이 담긴 리스트 이다. 저건 참여자 Dto를 담는 리스트 이고
     // 더 큰 범위의 리스트. 이 리스트 안에 모집글 Dto가 있고 그 모집글 Dto안에 참여자 리스트  필드가 있고, 그 참여자 리스트 필드에 참여자 Dto들이 각각 담겨 있는 구조이다.
@@ -60,7 +60,9 @@ public class OnlineGroupBuyService {
                 .build();
 
         OnlineGroupBuy saved = groupBuyRepository.save(groupBuy);//생성된 객체를 데이터베이스 테이블에 저장
-        // saved.setChatRoomId(...)
+        ChatRoom room = chatRoomService.createRoomForGroupBuy(saved.getId(), saved.getTitle());
+        saved.setChatRoomId(room.getId());
+        chatRoomService.addParticipant(room, host);
 
         return ResponseOnlineGroupByDto.from(saved);//생성된 객체를 다시 ResponseOnlineGroupByDto형식으로 변환하여 반환
     }
@@ -94,7 +96,9 @@ public class OnlineGroupBuyService {
                 .build();
 
         participationRepository.save(participation);
-        // chatService.join(...)
+        ChatRoom room = chatRoomService.findByGroupBuyId(groupBuyId)
+                .orElseThrow(() -> new IllegalStateException("채팅방을 찾을 수 없습니다."));
+        chatRoomService.addParticipant(room, user);
     }
 
     // 6. 공구 상태 변경
