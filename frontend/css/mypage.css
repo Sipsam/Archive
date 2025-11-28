@@ -124,6 +124,58 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
+.settings-form {
+    margin-top: 25px;
+}
+
+.settings-form .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+}
+
+.settings-form .form-group label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: #555;
+}
+
+.settings-form .form-group input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+.settings-form .form-group input:focus {
+    border-color: #4a90e2;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.15);
+}
+
+.settings-form .form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-helper-text {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #888;
+}
+
+.form-actions {
+    margin-top: 25px;
+    text-align: right;
+}
+
+.settings-form .btn {
+    min-width: 140px;
+}
+
 .activity-list {
     margin-top: 20px;
 }

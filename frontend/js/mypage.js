@@ -1,5 +1,7 @@
 // js/mypage.js
 
+let currentUserInfo = null;
+
 document.addEventListener('DOMContentLoaded', async function() {
     // 1. 인증 확인
     if (!checkAuth()) { 
@@ -11,6 +13,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     // 2. 사용자 정보 로드
     try {
         const myInfo = await apiFetch('/api/users/me'); 
+        currentUserInfo = myInfo;
         
         // 이름 바인딩
         const nameElement = document.getElementById('userName');
@@ -40,12 +43,16 @@ document.addEventListener('DOMContentLoaded', async function() {
         // 4. 참여 중인 모집글 로드
         await loadMyParticipations();
 
+        // 설정 폼 초기값 세팅
+        populateSettingsForm(myInfo);
+
     } catch (error) {
         console.error('정보 로드 실패:', error);
     }
 
     // 4. 포인트 구매 이벤트 연결
     setupPointPurchase();
+    setupSettingsForm();
 });
 
 // UI에 포인트 숫자를 업데이트하는 헬퍼 함수
@@ -253,5 +260,127 @@ async function loadMyParticipations() {
             <div style="padding: 20px; text-align: center; color: #ff4444; background: #fff3cd; border-radius: 8px;">
                 참여 모집글을 불러오지 못했습니다.
             </div>`;
+    }
+}
+
+function populateSettingsForm(user) {
+    if (!user) return;
+    const nameInput = document.getElementById('settingName');
+    const nicknameInput = document.getElementById('settingNickname');
+    const emailInput = document.getElementById('settingEmail');
+    const phoneInput = document.getElementById('settingPhone');
+    const addressInput = document.getElementById('settingAddress');
+    const addressDetailInput = document.getElementById('settingAddressDetail');
+    const zipInput = document.getElementById('settingZip');
+
+    if (nameInput) nameInput.value = user.name || '';
+    if (nicknameInput) nicknameInput.value = user.nickname || '';
+    if (emailInput) emailInput.value = user.email || '';
+    if (phoneInput) phoneInput.value = user.phoneNumber || '';
+    if (addressInput) addressInput.value = user.address || '';
+    if (addressDetailInput) addressDetailInput.value = user.addressDetail || '';
+    if (zipInput) zipInput.value = user.zipCode || '';
+}
+
+function setupSettingsForm() {
+    const form = document.getElementById('settingsForm');
+    if (!form) return;
+
+    form.addEventListener('submit', async function(event) {
+        event.preventDefault();
+        await saveSettings();
+    });
+}
+
+async function saveSettings() {
+    const saveBtn = document.getElementById('settingsSaveBtn');
+    const currentPassword = getInputValue('settingPassword');
+
+    if (!currentPassword) {
+        alert('정보를 변경하려면 현재 비밀번호를 입력해주세요.');
+        return;
+    }
+
+    const payload = {
+        name: getInputValue('settingName'),
+        nickname: getInputValue('settingNickname'),
+        email: getInputValue('settingEmail'),
+        phoneNumber: getInputValue('settingPhone'),
+        address: getInputValue('settingAddress'),
+        addressDetail: getInputValue('settingAddressDetail'),
+        zipCode: getInputValue('settingZip')
+    };
+
+    Object.keys(payload).forEach(key => {
+        if (payload[key] === '') {
+            payload[key] = null;
+        }
+    });
+
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = '저장 중...';
+    }
+
+    try {
+        await verifyCurrentPassword(currentPassword);
+
+        const updatedUser = await apiFetch('/api/users/me', {
+            method: 'PUT',
+            body: payload
+        });
+
+        currentUserInfo = updatedUser;
+        populateSettingsForm(updatedUser);
+
+        const nameElement = document.getElementById('userName');
+        if (nameElement) {
+            nameElement.textContent = updatedUser.nickname || '사용자';
+        }
+
+        const passwordInput = document.getElementById('settingPassword');
+        if (passwordInput) passwordInput.value = '';
+
+        alert('정보가 저장되었습니다.');
+
+    } catch (error) {
+        console.error('정보 저장 실패:', error);
+        alert(error.message ? error.message : '정보 저장 중 오류가 발생했습니다.');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = '저장하기';
+        }
+    }
+}
+
+function getInputValue(inputId) {
+    const input = document.getElementById(inputId);
+    return input ? input.value.trim() : '';
+}
+
+async function verifyCurrentPassword(password) {
+    if (!currentUserInfo || !currentUserInfo.loginId) {
+        throw new Error('로그인 정보를 확인할 수 없습니다.');
+    }
+
+    const response = await fetch(`${API_BASE}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            loginId: currentUserInfo.loginId,
+            password: password
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error('비밀번호가 일치하지 않습니다.');
+    }
+
+    const data = await response.json();
+    if (data && data.accessToken) {
+        login(data);
     }
 }

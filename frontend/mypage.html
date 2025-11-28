@@ -40,7 +40,7 @@
                         <div class="point-section">
                             <span class="point-label">포인트</span>
                             <span class="point-value" id="userPoints">0</span>
-                            <a href="mypage.html"><button class="point-detail-btn">🔍</button></a>
+                            <a href="point.html"><button class="point-detail-btn">🔍</button></a>
                         </div>
                     </div>
                 </div>
@@ -62,6 +62,50 @@
                     <div class="participation-list" id="participationList">
                         <!-- 동적으로 로드됨 -->
                     </div>
+                </div>
+
+                <div class="content-card" style="margin-top: 20px;" id="settings">
+                    <h2>설정</h2>
+                    <form id="settingsForm" class="settings-form">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="settingName">이름</label>
+                                <input type="text" id="settingName" placeholder="이름을 입력하세요">
+                            </div>
+                            <div class="form-group">
+                                <label for="settingNickname">닉네임</label>
+                                <input type="text" id="settingNickname" placeholder="닉네임을 입력하세요">
+                            </div>
+                            <div class="form-group">
+                                <label for="settingEmail">이메일</label>
+                                <input type="email" id="settingEmail" placeholder="이메일을 입력하세요">
+                            </div>
+                            <div class="form-group">
+                                <label for="settingPhone">전화번호</label>
+                                <input type="tel" id="settingPhone" placeholder="전화번호를 입력하세요">
+                            </div>
+                            <div class="form-group">
+                                <label for="settingAddress">주소</label>
+                                <input type="text" id="settingAddress" placeholder="주소를 입력하세요">
+                            </div>
+                            <div class="form-group">
+                                <label for="settingAddressDetail">상세 주소</label>
+                                <input type="text" id="settingAddressDetail" placeholder="상세 주소를 입력하세요">
+                            </div>
+                            <div class="form-group">
+                                <label for="settingZip">우편번호</label>
+                                <input type="text" id="settingZip" placeholder="우편번호">
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="settingPassword">현재 비밀번호</label>
+                                <input type="password" id="settingPassword" placeholder="변경 전 비밀번호를 입력하세요" autocomplete="current-password">
+                                <small class="form-helper-text">정보를 저장하기 전에 현재 비밀번호 확인이 필요합니다.</small>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" id="settingsSaveBtn" class="btn btn-primary">저장하기</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
