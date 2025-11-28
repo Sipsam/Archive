@@ -83,7 +83,7 @@ async function loadPaymentInfo(groupBuyId) {
 
 // ⭐ [추가] 토스페이먼츠 위젯 초기화 함수
 async function initTossPayments(amount) {
-    const clientKey = "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm"; // 테스트용 클라이언트 키
+    const clientKey = "test_ck_LlDJaYngroyZROYGmRlx3ezGdRpX"; // 테스트용 클라이언트 키
     const tossPayments = TossPayments(clientKey);
     
     // 회원 고유 키 (로그인된 사용자 ID 등을 사용하면 좋으나, 여기선 랜덤 생성)
