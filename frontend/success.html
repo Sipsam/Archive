@@ -32,20 +32,20 @@
             'Authorization': `Bearer ${token}` 
         };
 
-        const response = await fetch('/api/point/charge',{
+        const response = await fetch('/api/payment/point/charge',{
             method : "POST",
             headers : headers,
             body : JSON.stringify(requestData),
         });
         console.log(json);
         
-        const json = await response.json();
+        /*const json = await response.json();
 
         if (!response.ok) {
           // 결제 실패 비즈니스 로직을 구현하세요.
           console.log(json);
           window.location.href = `/fail?message=${json.message}&code=${json.code}`;
-        }
+        }*/
       }
       confirm();
 
