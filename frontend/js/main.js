@@ -159,7 +159,6 @@ async function registerGroupBuy(productNumber, productUrl, targetHeadcount, titl
             (typeof validationResult === 'object' && validationResult.success === true) ||
             (typeof validationResult === 'object' && validationResult.message === 'success')
         );
-        console.log(validationResult);
         if (!isValid) {
             // 검증 실패
             let errorMsg = '입력 정보를 확인해주세요.';
@@ -304,7 +303,7 @@ function renderChatList(rooms) {
 // [Socket] 실시간 소켓 연결 (WebSocket)
 function connectWebSocket(token) {
     // FIXME: 백엔드 소켓 주소 확인 필요 (ws:// 또는 wss://)
-    const socketUrl = 'ws://together1.kro.kr/ws/chat'; 
+    const socketUrl = 'ws://together1.kro.kr:8080/ws/chat'; 
     let socket;
 
     try {
