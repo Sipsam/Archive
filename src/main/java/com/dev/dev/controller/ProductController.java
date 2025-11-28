@@ -30,6 +30,7 @@ public class ProductController {
             if (product != null) {
                 result.put("success", true);
                 result.put("message", "success"); // 성공 시
+                result.put("productNumber", product.getId());
                 log.info("상품 정보 추출 성공: {}", product);
             } else {
                 result.put("success", false);
