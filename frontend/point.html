@@ -6,6 +6,7 @@
     <title>Together - 포인트 관리</title>
     <link rel="stylesheet" href="css/common.css">
     <link rel="stylesheet" href="css/mypage.css">
+    <script src="https://js.tosspayments.com/v2/standard"></script>
 </head>
 <body>
     <header>
@@ -85,8 +86,14 @@
                             <span class="price-value">10,000원</span>
                         </div>
                     </div>
+
+                    <div id="payment-widget-area" style="margin-top: 30px; display: none;"> <div id="payment-method"></div>
+                        <div id="agreement"></div>
+                    </div>
                     
-                    <button class="btn btn-primary purchase-btn">선택한 포인트 구매하기</button>
+                    <button class="btn btn-primary purchase-btn" id="point-payment-btn" style="margin-top: 20px;">
+                        결제하기 (금액을 선택해주세요)
+                    </button>
                     
                     <h2 class="sub-title" style="margin-top: 40px;">포인트 변동 내역</h2>
                     <div class="activity-list" id="pointHistoryList">
