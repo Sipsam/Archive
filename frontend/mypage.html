@@ -32,9 +32,7 @@
                     <div class="profile-info">
                         <div class="name-section">
                             <span class="name-label">이름</span>
-                            <!--사용자-->
                             <span class="name-value" id="userName"></span>
-                            <!--매너온도-->
                             <span class="score" id="manner_temp"></span>
                         </div>
                         <div class="point-section">
@@ -47,59 +45,71 @@
 
                 <div class="menu-section">
                     <ul class="mypage-menu">
-                        <li><a href="#orders">주문 내역</a></li>
-                        <li><a href="#wishlist">찜한 상품</a></li>
-                        <li><a href="#reviews">내 후기</a></li>
-                        <li><a href="#settings">설정</a></li>
+                        <li><a class="menu-link active" data-tab="section-orders">주문 내역 (참여글)</a></li>
+                        <li><a class="menu-link" href="#">찜한 상품 (준비중)</a></li>
+                        <li><a class="menu-link" href="#">내 후기 (준비중)</a></li>
+                        <li><a class="menu-link" data-tab="section-settings">설정</a></li>
                         <li><a href="#" onclick="logout()">로그아웃</a></li>
                     </ul>
                 </div>
             </div>
 
             <div class="content-section">
-                <div class="content-card">
+                
+                <div id="section-orders" class="tab-content active content-card">
                     <h2>참여 중인 모집글</h2>
                     <div class="participation-list" id="participationList">
-                        <!-- 동적으로 로드됨 -->
-                    </div>
+                        </div>
                 </div>
 
-                <div class="content-card" style="margin-top: 20px;" id="settings">
-                    <h2>설정</h2>
+                <div id="section-settings" class="tab-content content-card">
+                    <h2>내 정보 설정</h2>
                     <form id="settingsForm" class="settings-form">
                         <div class="form-grid">
                             <div class="form-group">
                                 <label for="settingName">이름</label>
-                                <input type="text" id="settingName" placeholder="이름을 입력하세요">
+                                <input type="text" id="settingName" placeholder="이름">
                             </div>
                             <div class="form-group">
                                 <label for="settingNickname">닉네임</label>
-                                <input type="text" id="settingNickname" placeholder="닉네임을 입력하세요">
+                                <input type="text" id="settingNickname" placeholder="닉네임">
                             </div>
                             <div class="form-group">
                                 <label for="settingEmail">이메일</label>
-                                <input type="email" id="settingEmail" placeholder="이메일을 입력하세요">
+                                <input type="email" id="settingEmail" placeholder="이메일">
                             </div>
                             <div class="form-group">
                                 <label for="settingPhone">전화번호</label>
-                                <input type="tel" id="settingPhone" placeholder="전화번호를 입력하세요">
+                                <input type="tel" id="settingPhone" placeholder="전화번호">
                             </div>
                             <div class="form-group">
                                 <label for="settingAddress">주소</label>
-                                <input type="text" id="settingAddress" placeholder="주소를 입력하세요">
+                                <input type="text" id="settingAddress" placeholder="주소">
                             </div>
                             <div class="form-group">
                                 <label for="settingAddressDetail">상세 주소</label>
-                                <input type="text" id="settingAddressDetail" placeholder="상세 주소를 입력하세요">
+                                <input type="text" id="settingAddressDetail" placeholder="상세 주소">
                             </div>
                             <div class="form-group">
                                 <label for="settingZip">우편번호</label>
                                 <input type="text" id="settingZip" placeholder="우편번호">
                             </div>
+
+                            <div class="password-section-divider"></div>
+                            <h3 style="grid-column: 1 / -1; margin-bottom: 10px; font-size: 16px;">비밀번호 변경</h3>
+
                             <div class="form-group full-width">
-                                <label for="settingPassword">현재 비밀번호</label>
-                                <input type="password" id="settingPassword" placeholder="변경 전 비밀번호를 입력하세요" autocomplete="current-password">
-                                <small class="form-helper-text">정보를 저장하기 전에 현재 비밀번호 확인이 필요합니다.</small>
+                                <label for="settingPassword">현재 비밀번호 (필수)</label>
+                                <input type="password" id="settingPassword" placeholder="정보 변경 시 본인 확인을 위해 입력해주세요" autocomplete="current-password">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="newPassword">새 비밀번호</label>
+                                <input type="password" id="newPassword" placeholder="변경할 비밀번호" autocomplete="new-password">
+                            </div>
+                            <div class="form-group">
+                                <label for="confirmNewPassword">새 비밀번호 확인</label>
+                                <input type="password" id="confirmNewPassword" placeholder="변경할 비밀번호 재입력" autocomplete="new-password">
                             </div>
                         </div>
                         <div class="form-actions">
@@ -107,6 +117,7 @@
                         </div>
                     </form>
                 </div>
+                
             </div>
         </div>
     </div>
@@ -115,4 +126,3 @@
     <script src="js/mypage.js"></script>
 </body>
 </html>
-

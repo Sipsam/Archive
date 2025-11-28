@@ -107,6 +107,14 @@
     color: #333;
     border-radius: 5px;
     transition: background-color 0.3s;
+    cursor: pointer; /* 클릭 가능 표시 */
+}
+
+/* ⭐ [추가] 선택된 메뉴 스타일 */
+.mypage-menu a.active {
+    background-color: #e6f0ff;
+    color: #4a90e2;
+    font-weight: bold;
 }
 
 .mypage-menu a:hover {
@@ -122,6 +130,14 @@
     padding: 30px;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* ⭐ [추가] 탭 컨텐츠 숨김/표시 처리 */
+.tab-content {
+    display: none; /* 기본 숨김 */
+}
+.tab-content.active {
+    display: block; /* 활성화 시 표시 */
 }
 
 .settings-form {
@@ -176,6 +192,13 @@
     min-width: 140px;
 }
 
+/* ⭐ [추가] 비밀번호 구분선 */
+.password-section-divider {
+    grid-column: 1 / -1;
+    margin: 20px 0;
+    border-top: 1px solid #eee;
+}
+
 .activity-list {
     margin-top: 20px;
 }
@@ -188,7 +211,6 @@
     border-left: 3px solid #4a90e2;
 }
 
-/* 미디어 쿼리 닫는 괄호 위치 주의 */
 @media (max-width: 768px) {
     .mypage-layout {
         flex-direction: column;
@@ -205,11 +227,11 @@
     margin-bottom: 15px;
 }
 
-/* ⭐ [수정] 보유 포인트 값 스타일 (파란색 배경) ⭐ */
+/* 포인트 관련 스타일 (유지) */
 .point-value-title {
     display: inline-block;
-    background-color: #e6f0ff; /* 연한 파란색 배경 */
-    color: #4a90e2; /* 글자색 파란색 */
+    background-color: #e6f0ff;
+    color: #4a90e2;
     font-size: 24px;
     font-weight: bold;
     padding: 5px 15px;
@@ -218,11 +240,10 @@
     vertical-align: middle;
 }
 
-/* ⭐ [수정] 포인트 구매 목록 (4분할 레이아웃) ⭐ */
 .point-purchase-list {
     display: flex;
-    flex-wrap: wrap; /* 줄바꿈 허용 */
-    gap: 10px; /* 사이 간격 */
+    flex-wrap: wrap;
+    gap: 10px;
     margin-top: 15px;
     margin-bottom: 25px;
     justify-content: space-between;
@@ -233,10 +254,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    
-    /* 4분할 핵심 계산: (100% - 간격합) / 4 */
     flex-basis: calc(25% - 7.5px); 
-    
     border: 1px solid #ccc;
     background-color: #fff;
     padding: 20px 0;
@@ -245,19 +263,16 @@
     transition: all 0.2s;
 }
 
-/* 마우스 올렸을 때 효과 */
 .purchase-item:hover {
     border-color: #4a90e2;
     background-color: #f0f8ff;
 }
 
-/* 선택되었을 때 스타일 */
 .purchase-item.selected {
-    border: 2px solid #ff0000; /* 빨간색 테두리 */
+    border: 2px solid #ff0000;
     background-color: #fff;
 }
 
-/* RP 값 텍스트 */
 .rp-value {
     font-size: 16px;
     font-weight: bold;
@@ -265,7 +280,6 @@
     margin-bottom: 5px;
 }
 
-/* 가격 텍스트 */
 .price-value {
     font-size: 20px;
     font-weight: bold;
@@ -277,12 +291,10 @@
     text-align: center;
 }
 
-/* 선택된 항목의 가격 색상 */
 .purchase-item.selected .price-value {
     color: #ff0000;
 }
 
-/* 구매 버튼 */
 .purchase-btn {
     width: 100%;
     padding: 15px;
@@ -300,7 +312,6 @@
     background-color: #357abd;
 }
 
-/* 포인트 내역 행 스타일 추가 */
 .point-history-row {
     display: flex;
     justify-content: space-between;
