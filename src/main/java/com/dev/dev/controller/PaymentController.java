@@ -40,4 +40,13 @@ public class PaymentController {
         groupBuyService.startPaymentProcess(userId, groupBuyId);
         return ResponseEntity.ok("결제 프로세스가 시작되었습니다. (참여자별 수량 계산 완료)");
     }
+
+    // 3. [NEW] 포인트 충전 결제 승인 요청
+    @PostMapping("/point/charge")
+    public ResponseEntity<JSONObject> chargePoint(
+            HttpServletRequest request,
+            @RequestBody String jsonBody) throws Exception {
+        Long userId = extractUserId(request);
+        return ResponseEntity.ok(paymentService.chargePoint(jsonBody, userId));
+    }
 }
