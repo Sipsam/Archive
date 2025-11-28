@@ -45,9 +45,16 @@ public class OnlineGroupBuyService {
         Product product = productRepository.findById(req.getProductId())
                 .orElseThrow(() -> new IllegalArgumentException("Product not found"));
 
-        // [포인트 차감 예시]
-        // int deposit = 5000;
-        // if (host.getPoint() < deposit) throw ...
+        // 포인트 차감
+        int deposit = 1000;
+        int currentPoint = host.getPoints() == null ? 0 : host.getPoints();
+
+        if (currentPoint < deposit) {
+            throw new IllegalStateException("공구 생성을 위한 포인트가 부족합니다. (보유: " + currentPoint + ", 필요: " + deposit + ")");
+        }
+
+        // 차감 수행
+        host.setPoints(currentPoint - deposit);
 
         OnlineGroupBuy groupBuy = OnlineGroupBuy.builder()//엔터티 생성. 바디를 통해 전달된 req를 반영하여 객체 생성(req는 Dto다)
                 .hostUser(host)
@@ -150,7 +157,6 @@ public class OnlineGroupBuyService {
 
         // 3. 계산 로직 (N분의 1)
         // 요청 사항: 참여자별 Quantity = 상품 총 수량 / 목표 인원
-        // (참고: 프롬프트에서 '총가격'이라고 언급하셨으나 문맥상 '총수량'이 맞아 수정 적용했습니다)
         int individualQuantity = product.getAllQuantity() / targetHeadcount;
 
         // 4. 모든 참여자의 수량(Quantity) 일괄 업데이트
