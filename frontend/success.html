@@ -34,10 +34,20 @@
 
         const response = await fetch('/api/payment/point/charge',{
             method : "POST",
+            //headers: { "Content-Type": "application/json" },
             headers : headers,
             body : JSON.stringify(requestData),
         });
-        console.log(json);
+
+        const json = await response.json();
+        
+        if (!response.ok) {
+            console.error("서버 에러 발생:", json); // 여기서 진짜 에러 메시지가 출력됩니다.
+            // 예: alert("결제 실패: " + json.message);
+            return;
+        }   
+
+        console.log("결제 성공", json);
         
         /*const json = await response.json();
 
