@@ -4,8 +4,8 @@ let currentRoomId = null;
 let currentUser = null;
 let socket = null;
 
-// [설정] 웹소켓 주소 (로컬 호스트용)
-const WS_BASE_URL = 'ws://localhost:8080/ws/chat';
+// [설정] 웹소켓 주소
+const WS_BASE_URL = '';
 
 document.addEventListener('DOMContentLoaded', async function() {
     // 1. 로그인 체크
