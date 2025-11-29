@@ -33,21 +33,26 @@ document.addEventListener('DOMContentLoaded', async function() {
     await loadRecruitmentDetail(groupBuyId);
 });
 
-// 모집글 상세 정보 불러오기
+// recruitment-detail.js 수정본
+
 async function loadRecruitmentDetail(groupBuyId) {
     try {
-        // 모집글 상세 정보 조회
+        // 1. 모집글 상세 정보 조회 (여기 안에 참여자 목록도 들어있음!)
         const groupBuy = await apiFetch(`/api/groupbuys/online/${groupBuyId}`);
         currentGroupBuy = groupBuy;
 
-        // 참여 여부 확인
-        const participations = await apiFetch(`/api/groupbuys/online/${groupBuyId}/participations`);
-        isParticipant = participations.some(p => p.user?.id === currentUserId);
+        // [삭제] 2. 참여 여부 확인을 위한 별도 요청 (이게 404 원인임)
+        // const participations = await apiFetch(`/api/groupbuys/online/${groupBuyId}/participations`);
+        
+        // [수정] 2. 대신 상세정보 안에 있는 리스트를 사용
+        const participations = groupBuy.participationList || []; // 데이터가 없으면 빈 배열
 
-        // 화면에 데이터 표시
+        isParticipant = participations.some(p => p.userId === currentUserId);
+
+        // 3. 화면에 데이터 표시
         renderRecruitmentDetail(groupBuy, participations);
 
-        // 버튼 상태 설정
+        // 4. 버튼 상태 설정
         setupJoinButton(groupBuy, participations);
 
     } catch (error) {
