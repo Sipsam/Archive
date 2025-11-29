@@ -151,6 +151,51 @@
     animation: spin 1s linear infinite;
     margin: 0 auto;
 }
+/* 사이드바 채팅 목록 스타일 */
+.chat-item-sidebar {
+    border-bottom: 1px solid #eee;
+    transition: background-color 0.2s;
+}
+
+.chat-item-sidebar:hover {
+    background-color: #f0f8ff;
+}
+
+.chat-link {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 10px;
+    text-decoration: none;
+    color: #333;
+    width: 100%;
+}
+
+.chat-info {
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+}
+
+.room-name {
+    font-weight: 500;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px; /* 사이드바 너비에 맞게 조절 */
+}
+
+.badge {
+    background-color: #ff4444;
+    color: white;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+}
 
 @keyframes spin {
     0% { transform: rotate(0deg); }
