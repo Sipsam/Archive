@@ -1,7 +1,7 @@
 // js/common.js
 
 // 1. ⚙️ 환경 설정 (Nginx 프록시 사용 전제)
-const API_BASE = ''; 
+const API_BASE = 'http://together1.kro.kr'; 
 
 // 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', function() {
