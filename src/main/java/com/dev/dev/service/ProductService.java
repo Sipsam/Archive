@@ -75,34 +75,19 @@ public class ProductService {
         options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--window-size=1920,1080");
         options.addArguments("--disable-blink-features=AutomationControlled");
-        options.addArguments("--disable-infobars");
-        options.addArguments("--start-maximized");
-        options.addArguments(
-                "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-                        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-        );
-        options.setExperimentalOption("excludeSwitches",
-                Arrays.asList("enable-automation")
-        );
+        options.addArguments("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
+        options.setExperimentalOption("excludeSwitches", Arrays.asList("enable-automation"));
         options.setExperimentalOption("useAutomationExtension", false);
-
         WebDriver driver = new ChromeDriver(options);
         ((JavascriptExecutor) driver).executeScript(
                 "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
         );
         ((JavascriptExecutor) driver).executeScript(
-                "Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3]})"
-        );
-        ((JavascriptExecutor) driver).executeScript(
                 "Object.defineProperty(navigator, 'languages', {get: () => ['ko-KR', 'ko']})"
         );
         ((JavascriptExecutor) driver).executeScript(
-                "const getParameter = WebGLRenderingContext.prototype.getParameter;" +
-                        "WebGLRenderingContext.prototype.getParameter = function(parameter) {" +
-                        "  if (parameter === 37446) return 'Intel Inc.';" +
-                        "  if (parameter === 37447) return 'Intel Iris OpenGL';" +
-                        "  return getParameter(parameter);" +
-                        "};"
+                "Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3]})"
         );
         Product product = null;
         try {
