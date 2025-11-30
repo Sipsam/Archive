@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
@@ -23,6 +24,7 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -66,16 +68,42 @@ public class ProductService {
      * URL 기반으로 검색 API 호출 후 결과 로깅
      */
     public Product searchByUrl(String productUrl) {
-        WebDriverManager.chromedriver().clearDriverCache().setup();
+        WebDriverManager.chromedriver().setup();
         ChromeOptions options = new ChromeOptions();
-        options.addArguments("--headless=new");
+        options.addArguments("--disable-gpu");
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
-        options.addArguments("--disable-gpu");
         options.addArguments("--window-size=1920,1080");
-        options.addArguments("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36");
+        options.addArguments("--disable-blink-features=AutomationControlled");
+        options.addArguments("--disable-infobars");
+        options.addArguments("--start-maximized");
+        options.addArguments(
+                "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+                        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        );
+        options.setExperimentalOption("excludeSwitches",
+                Arrays.asList("enable-automation")
+        );
+        options.setExperimentalOption("useAutomationExtension", false);
+
         WebDriver driver = new ChromeDriver(options);
+        ((JavascriptExecutor) driver).executeScript(
+                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+        );
+        ((JavascriptExecutor) driver).executeScript(
+                "Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3]})"
+        );
+        ((JavascriptExecutor) driver).executeScript(
+                "Object.defineProperty(navigator, 'languages', {get: () => ['ko-KR', 'ko']})"
+        );
+        ((JavascriptExecutor) driver).executeScript(
+                "const getParameter = WebGLRenderingContext.prototype.getParameter;" +
+                        "WebGLRenderingContext.prototype.getParameter = function(parameter) {" +
+                        "  if (parameter === 37446) return 'Intel Inc.';" +
+                        "  if (parameter === 37447) return 'Intel Iris OpenGL';" +
+                        "  return getParameter(parameter);" +
+                        "};"
+        );
         Product product = null;
         try {
             // 1. 페이지 접속 후 og:title 추출
