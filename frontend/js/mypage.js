@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupSettingsForm();
 });
 
-// --- ⭐ 1. 내 참여 내역 로드 & 채팅방 입장 버튼 ---
+// --- 1. 내 참여 내역 로드 & 채팅방 입장 버튼 ---
 async function loadMyParticipations() {
     const listContainer = document.getElementById('participationList');
     if (!listContainer) return;
@@ -127,7 +127,7 @@ async function loadMyParticipations() {
 }
 
 
-// --- ⭐ 2. 토스페이먼츠 포인트 결제 로직 (기존 코드 복원) ---
+// --- 2. 토스페이먼츠 포인트 결제 로직 ---
 async function initPointPayment() {
     const clientKey = "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm"; 
     const tossPayments = TossPayments(clientKey);

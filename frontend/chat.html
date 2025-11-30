@@ -22,61 +22,27 @@
         
         <div class="chat-layout">
             <aside class="chat-sidebar">
-                <div class="chat-list">
-                    <div class="chat-item active">
-                        <div class="chat-avatar">👤</div>
-                        <div class="chat-info">
-                            <div class="chat-name">사용자1</div>
-                            <div class="chat-preview">안녕하세요! 공동구매 참여하고 싶습니다.</div>
-                        </div>
-                    </div>
-                    <div class="chat-item">
-                        <div class="chat-avatar">👤</div>
-                        <div class="chat-info">
-                            <div class="chat-name">사용자2</div>
-                            <div class="chat-preview">배송은 언제 되나요?</div>
-                        </div>
-                    </div>
-                    <div class="chat-item">
-                        <div class="chat-avatar">👤</div>
-                        <div class="chat-info">
-                            <div class="chat-name">사용자3</div>
-                            <div class="chat-preview">감사합니다!</div>
-                        </div>
-                    </div>
+                <div class="chat-list" id="chatRoomList">
+                    <div style="padding:15px; text-align:center; color:#999;">채팅방 로딩 중...</div>
                 </div>
             </aside>
 
             <main class="chat-main">
                 <div class="chat-header">
                     <div class="chat-partner">
-                        <div class="chat-avatar">👤</div>
-                        <span>사용자1</span>
-                    </div>
-                    <div class="chat-actions">
-                        <button class="icon-btn">⚙️</button>
-                        <button class="icon-btn">📌</button>
+                        <span id="chatRoomTitle" style="font-weight:bold; font-size:18px;">채팅방을 선택해주세요</span>
                     </div>
                 </div>
 
                 <div class="chat-messages" id="chatMessages">
-                    <div class="message received">
-                        <div class="message-content">안녕하세요! 공동구매 참여하고 싶습니다.</div>
-                        <div class="message-time">14:30</div>
-                    </div>
-                    <div class="message sent">
-                        <div class="message-content">네, 환영합니다! 어떤 상품에 관심이 있으신가요?</div>
-                        <div class="message-time">14:31</div>
-                    </div>
-                    <div class="message received">
-                        <div class="message-content">공동구매 상품명에 참여하고 싶습니다.</div>
-                        <div class="message-time">14:32</div>
+                    <div style="text-align:center; padding-top:50px; color:#aaa;">
+                        왼쪽 목록에서 채팅방을 선택하면 대화가 시작됩니다.
                     </div>
                 </div>
 
                 <div class="chat-input-area">
-                    <input type="text" class="chat-input" id="chatInput" placeholder="메시지를 입력하세요...">
-                    <button class="send-btn" onclick="sendMessage()">전송</button>
+                    <input type="text" class="chat-input" id="chatInput" placeholder="메시지를 입력하세요..." disabled>
+                    <button class="send-btn" id="sendBtn" disabled>전송</button>
                 </div>
             </main>
         </div>
@@ -86,4 +52,3 @@
     <script src="js/chat.js"></script>
 </body>
 </html>
-
