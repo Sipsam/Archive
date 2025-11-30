@@ -1,8 +1,8 @@
 // frontend/js/mypage.js
 
 let currentUserInfo = null;
-let paymentWidgets = null; // 토스페이먼츠 위젯 객체
-let selectedPointAmount = 0; // 선택된 포인트 금액
+let paymentWidgets = null; 
+let selectedPointAmount = 0; 
 
 document.addEventListener('DOMContentLoaded', async function() {
     // 1. 인증 확인
@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         const myInfo = await apiFetch('/api/users/me'); 
         currentUserInfo = myInfo;
         
-        // UI 바인딩 (이름, 매너온도, 포인트)
+        // UI 바인딩
         const nameElement = document.getElementById('userName');
         if (nameElement) nameElement.textContent = myInfo.nickname || '사용자';
         
@@ -31,22 +31,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
         
         updatePointUI(myInfo.points);
-        
-        // ⭐ [핵심] 내 참여 내역(주문 내역) 로드 (+채팅방 버튼)
-        await loadMyParticipations();
-        
-        // 설정 폼 초기화
         populateSettingsForm(myInfo);
         
-        // 포인트 페이지일 경우 포인트 내역 로드
-        if(document.getElementById('pointHistoryList')) {
-            await loadMyPointHistory();
-        }
-
-        // 포인트 결제 초기화 (point.html용)
-        if (document.getElementById('payment-method')) {
-            await initPointPayment();
-        }
+        // ⭐ 참여 내역 로드 함수 호출
+        await loadMyParticipations();
+        
+        if(document.getElementById('pointHistoryList')) await loadMyPointHistory();
+        if (document.getElementById('payment-method')) await initPointPayment();
 
     } catch (error) {
         console.error('정보 로드 실패:', error);
@@ -55,40 +46,46 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupSettingsForm();
 });
 
-// --- 1. 내 참여 내역 로드 & 채팅방 입장 버튼 ---
+// ⭐ [참여 내역 로드] 이 부분이 화면에 목록을 그려줍니다.
 async function loadMyParticipations() {
     const listContainer = document.getElementById('participationList');
     if (!listContainer) return;
 
     try {
-        // API 호출: 내가 참여한 공구 목록
-        // (UserService.java의 getMyParticipations 반환값 구조에 맞춤)
         const data = await apiFetch('/api/users/me/participations');
-        
-        // data.onlineParticipations 배열을 가져옴
+        // 데이터 구조: { onlineParticipations: [...], offlineParticipations: [...] }
         const onlineList = data.onlineParticipations || [];
         
         listContainer.innerHTML = ''; // 초기화
 
         if (onlineList.length === 0) {
-            listContainer.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">참여한 내역이 없습니다.</div>';
+            listContainer.innerHTML = `
+                <div style="padding: 40px; text-align: center; color: #999; background-color: #f9f9f9; border-radius: 8px;">
+                    <p>아직 참여한 모집글이 없습니다.</p>
+                    <a href="index.html" style="color: #4a90e2; text-decoration: none; font-weight: bold; margin-top: 10px; display: inline-block;">
+                        모집글 보러 가기 &rarr;
+                    </a>
+                </div>`;
             return;
         }
 
         onlineList.forEach(item => {
-            // item 구조: { id, onlineGroupBuy: { ... }, paymentStatus, ... }
             const groupBuy = item.onlineGroupBuy; 
-            const product = groupBuy.product;
             
+            // 만약 백엔드에서 groupBuy 정보가 안 왔다면 건너뜀 (에러 방지)
+            if (!groupBuy) return;
+
+            const product = groupBuy.product;
+            const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '-';
+
             const card = document.createElement('div');
             card.className = 'activity-item'; 
             card.style.borderLeft = '4px solid #4a90e2';
             card.style.marginBottom = '15px';
             
-            // 채팅방 버튼 HTML 생성 (chatRoomId가 있을 경우에만 표시)
+            // 채팅방 버튼
             let chatButtonHtml = '';
             if (groupBuy.chatRoomId) {
-                // 버튼 클릭 시 chat.html로 이동하며 roomId 전달
                 chatButtonHtml = `
                     <button onclick="location.href='chat.html?roomId=${groupBuy.chatRoomId}'" 
                             style="margin-top:10px; padding:8px 12px; background:#4a90e2; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">
@@ -96,16 +93,17 @@ async function loadMyParticipations() {
                     </button>
                 `;
             } else {
-                chatButtonHtml = `<span style="font-size:12px; color:#999;">(채팅방 준비중)</span>`;
+                chatButtonHtml = `<span style="font-size:12px; color:#999; margin-top:10px; display:inline-block;">(채팅방 준비중)</span>`;
             }
-
-            // 날짜 포맷팅
-            const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '-';
 
             card.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:start;">
                     <div>
-                        <h3 style="margin-bottom:5px; font-size:16px; color:#333;">${groupBuy.title || '제목 없음'}</h3>
+                        <h3 style="margin-bottom:5px; font-size:16px; color:#333;">
+                            <a href="recruitment-detail.html?id=${groupBuy.id}" style="text-decoration:none; color:#333;">
+                                ${groupBuy.title || '제목 없음'}
+                            </a>
+                        </h3>
                         <p style="margin-bottom:5px; color:#666; font-size:14px;">상품: ${product ? product.name : '정보 없음'}</p>
                         <p style="font-size:13px; color:#888;">참여일: ${dateStr}</p>
                         <span style="display:inline-block; margin-top:5px; font-size:13px; font-weight:bold; color:#4a90e2;">
@@ -123,76 +121,6 @@ async function loadMyParticipations() {
     } catch (error) {
         console.error('참여 내역 로드 실패:', error);
         listContainer.innerHTML = '<div style="padding:20px; text-align:center; color:red;">목록을 불러오지 못했습니다.</div>';
-    }
-}
-
-
-// --- 2. 토스페이먼츠 포인트 결제 로직 ---
-async function initPointPayment() {
-    const clientKey = "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm"; 
-    const tossPayments = TossPayments(clientKey);
-    const customerKey = "user_" + (currentUserInfo?.id || new Date().getTime());
-    
-    paymentWidgets = tossPayments.widgets({ customerKey });
-
-    await paymentWidgets.setAmount({
-        currency: "KRW",
-        value: 1000, 
-    });
-
-    await Promise.all([
-        paymentWidgets.renderPaymentMethods({ selector: "#payment-method", variantKey: "DEFAULT" }),
-        paymentWidgets.renderAgreement({ selector: "#agreement", variantKey: "AGREEMENT" }),
-    ]);
-    
-    document.getElementById('payment-widget-area').style.display = 'block';
-    setupPointPurchaseEvents();
-}
-
-function setupPointPurchaseEvents() {
-    const purchaseItems = document.querySelectorAll('.point-purchase-list .purchase-item');
-    const purchaseBtn = document.getElementById('point-payment-btn');
-    
-    purchaseItems.forEach(item => {
-        item.addEventListener('click', async function() {
-            purchaseItems.forEach(i => i.classList.remove('selected'));
-            this.classList.add('selected');
-
-            const price = parseInt(this.dataset.price, 10);
-            selectedPointAmount = price;
-
-            await paymentWidgets.setAmount({ currency: "KRW", value: price });
-
-            if (purchaseBtn) {
-                purchaseBtn.textContent = `${price.toLocaleString()}원 결제하기`;
-                purchaseBtn.disabled = false;
-            }
-        });
-    });
-
-    if (purchaseBtn) {
-        purchaseBtn.textContent = "충전할 금액을 선택해주세요";
-        purchaseBtn.disabled = true;
-
-        purchaseBtn.addEventListener('click', async function() {
-            if (selectedPointAmount <= 0) {
-                alert('충전할 포인트를 선택해주세요.');
-                return;
-            }
-            try {
-                const orderId = "POINT_" + new Date().getTime();
-                await paymentWidgets.requestPayment({
-                    orderId: orderId,
-                    orderName: `포인트 ${selectedPointAmount.toLocaleString()}P 충전`,
-                    successUrl: window.location.origin + "/success.html",
-                    failUrl: window.location.origin + "/fail.html",
-                    customerEmail: currentUserInfo?.email || "unknown@example.com",
-                    customerName: currentUserInfo?.name || "사용자",
-                });
-            } catch (error) {
-                console.error("결제 요청 실패:", error);
-            }
-        });
     }
 }
 
