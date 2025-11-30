@@ -184,7 +184,7 @@ function connectWebSocket(roomId) {
             const data = JSON.parse(event.data);
             
             // 현재 보고 있는 방의 메시지만 표시
-            if (String(data.roomId) === String(currentRoomId)) {
+            if (String(data.roomId) === String(currentRoomId) && data.type === 'CHAT') {
                 // 메시지 형식이 단순 텍스트가 아니라 객체라고 가정
                 appendMessageToUI({
                     senderId: data.senderId,
