@@ -18,68 +18,60 @@
     </header>
 
     <div class="container">
-        <h1 class="page-title">모집글</h1>
+        <h1 class="page-title">모집글 상세</h1>
         
         <div class="recruitment-detail">
             <div class="recruiter-card">
                 <div class="recruiter-avatar">👤</div>
                 <div class="recruiter-info">
-                    <div class="recruiter-name">모집자</div>
-                    <div class="recruiter-date">2024/01/15</div>
-                </div>
+                    <div class="recruiter-name" id="hostName">모집자</div> <div class="recruiter-date" id="recruitDate">2024/01/15</div> </div>
             </div>
 
             <div class="product-section">
                 <div class="product-images">
-                    <div class="main-image">
-                        <div class="image-placeholder">pic</div>
-                    </div>
-                    <div class="image-thumbnails">
-                        <div class="thumbnail">이미지 1</div>
-                        <div class="thumbnail">이미지 2</div>
-                        <div class="thumbnail">이미지 3</div>
+                    <div class="main-image" id="productImage">
+                        <div class="image-placeholder">이미지 로딩 중...</div>
                     </div>
                 </div>
 
                 <div class="product-info">
                     <div class="info-row">
                         <label>상품명</label>
-                        <div class="info-value">공동구매 상품명</div>
+                        <div class="info-value" id="productName">-</div>
                     </div>
+                    
                     <div class="info-row">
-                        <label>가격 (총/인당)</label>
-                        <div class="info-value">총 100,000원 / 인당 10,000원</div>
+                        <label>가격 정보</label>
+                        <div class="info-value" id="priceInfo">-</div>
                     </div>
+
                     <div class="info-row">
-                        <label>공구희망 인원</label>
-                        <div class="info-value">10명</div>
+                        <label>모집 목표 인원</label>
+                        <div class="info-value" id="targetCount">0명</div>
                     </div>
+
                     <div class="info-row">
                         <label>현재 참여 인원</label>
-                        <div class="info-value">5명</div>
+                        <div class="info-value" id="currentCount">0명</div>
                     </div>
+
+                    <div class="info-row" id="sourceLinkRow" style="display: none;">
+                        <label>구매 링크</label>
+                        <div class="info-value"><a id="sourceLink" href="#" target="_blank" style="color:#4a90e2; font-size: 16px;">상품 보러가기 ↗</a></div>
+                    </div>
+
                     <button class="btn btn-primary btn-join">참여하기</button>
                 </div>
             </div>
 
             <div class="comments-section">
-                <h2>댓글창</h2>
+                <h2>댓글</h2>
                 <div class="comment-form">
-                    <textarea placeholder="댓글을 입력하세요..."></textarea>
-                    <button class="btn btn-primary">댓글 작성</button>
+                    <textarea id="commentInput" placeholder="댓글을 입력하세요..."></textarea>
+                    <button class="btn btn-primary" id="btnWriteComment">댓글 작성</button>
                 </div>
-                <div class="comments-list">
-                    <div class="comment-item">
-                        <div class="comment-author">사용자1</div>
-                        <div class="comment-content">좋은 상품이네요! 참여하고 싶습니다.</div>
-                        <div class="comment-date">2024/01/15 14:30</div>
+                <div class="comments-list" id="commentsList">
                     </div>
-                    <div class="comment-item">
-                        <div class="comment-author">사용자2</div>
-                        <div class="comment-content">언제까지 모집하나요?</div>
-                        <div class="comment-date">2024/01/15 15:00</div>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -88,4 +80,3 @@
     <script src="js/recruitment-detail.js"></script>
 </body>
 </html>
-
