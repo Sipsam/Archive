@@ -51,7 +51,7 @@ async function loadRecruitmentDetail(groupBuyId) {
         // 화면에 정보 뿌리기 (렌더링)
         renderRecruitmentDetail(groupBuy, participations);
 
-        // 하단 버튼(참여하기/결제하기) 상태 설정
+        // 하단 버튼(참여하기/채팅방이동/결제하기) 상태 설정
         setupJoinButton(groupBuy, participations);
 
     } catch (error) {
@@ -68,7 +68,7 @@ function renderRecruitmentDetail(groupBuy, participations) {
     const recruitDateEl = document.getElementById('recruitDate');
 
     if (hostNameEl) {
-        // 닉네임 > 이름 > '알 수 없음'
+        // 닉네임이 없으면 이름, 이름도 없으면 '알 수 없음'
         hostNameEl.textContent = groupBuy.hostUser?.nickname || groupBuy.hostUser?.name || '알 수 없음';
     }
     if (recruitDateEl) {
@@ -94,7 +94,7 @@ function renderRecruitmentDetail(groupBuy, participations) {
         if (priceInfoEl) {
             const totalPrice = product.price || 0;
             const targetHeadcount = groupBuy.targetHeadcount || 1; 
-            const perPersonPrice = Math.ceil(totalPrice / targetHeadcount); // 1/N 가격 (소수점 올림)
+            const perPersonPrice = Math.floor(totalPrice / targetHeadcount); // 1/N 가격 (소수점 버림)
 
             priceInfoEl.innerHTML = `
                 <span style="font-weight:bold; color:#333;">총 ${totalPrice.toLocaleString()}원</span>
@@ -122,7 +122,7 @@ function renderRecruitmentDetail(groupBuy, participations) {
     if (currentCountEl) currentCountEl.textContent = `${participations.length}명`;
 }
 
-// 하단 버튼 상태 관리 함수
+// 하단 버튼 상태 관리 함수 수정 (여기가 중요)
 function setupJoinButton(groupBuy, participations) {
     const joinBtn = document.querySelector('.btn-join');
     if (!joinBtn) return;
@@ -130,7 +130,7 @@ function setupJoinButton(groupBuy, participations) {
     const currentCount = participations.length;
     const targetCount = groupBuy.targetHeadcount || 0;
     const isFull = currentCount >= targetCount;
-    const isHost = (groupBuy.hostUser?.id === currentUserId); // 방장인지 확인
+    const isHost = (groupBuy.hostUser?.id === currentUserId); // 내가 방장인가?
 
     // 버튼 기본 초기화
     joinBtn.disabled = false;
@@ -140,26 +140,30 @@ function setupJoinButton(groupBuy, participations) {
 
     // 조건별 버튼 설정
     if (isHost) {
-        // 케이스 1: 내가 방장일 때
-        joinBtn.textContent = '결제 상태로 변경 (방장 전용)';
+        // 케이스 1: 내가 방장일 때 -> 결제 상태 변경 버튼
+        joinBtn.textContent = '결제 상태로 변경하기 (방장 전용)';
         joinBtn.onclick = changePaymentStatus;
         
     } else if (isParticipant) {
-        // 케이스 2: 이미 참여했을 때 -> 결제 페이지로 이동
-        joinBtn.textContent = '결제 하러가기';
+        // ⭐ 케이스 2: 이미 참여했을 때 -> 채팅방으로 이동
+        joinBtn.textContent = '채팅방으로 이동';
         joinBtn.onclick = () => {
-            window.location.href = `payment.html?groupBuyId=${groupBuy.id}`;
+            if (groupBuy.chatRoomId) {
+                window.location.href = `chat.html?roomId=${groupBuy.chatRoomId}`;
+            } else {
+                alert('아직 채팅방이 생성되지 않았습니다.');
+            }
         };
 
     } else if (isFull) {
-        // 케이스 3: 인원이 꽉 찼을 때
-        joinBtn.textContent = '모집 마감 (인원 초과)';
+        // ⭐ 케이스 3: 인원이 꽉 찼을 때 -> 회색 버튼
+        joinBtn.textContent = '모집인원이 다 찼습니다.';
         joinBtn.disabled = true;
         joinBtn.style.backgroundColor = '#ccc';
         joinBtn.style.cursor = 'not-allowed';
 
     } else {
-        // 케이스 4: 참여 가능할 때
+        // 케이스 4: 참여 가능할 때 -> 참여하기
         joinBtn.textContent = '참여하기';
         joinBtn.onclick = () => joinGroupBuy(groupBuy.id);
     }
@@ -172,7 +176,7 @@ async function joinGroupBuy(groupBuyId) {
     try {
         await apiFetch(`/api/groupbuys/online/${groupBuyId}/participate`, { method: 'POST' });
         
-        alert('참여 신청이 완료되었습니다!');
+        alert('참여가 완료되었습니다! 채팅방으로 이동할 수 있습니다.');
         
         // 채팅방 토큰 저장 로직 (필요 시)
         const token = getToken();

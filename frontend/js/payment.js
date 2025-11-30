@@ -64,7 +64,7 @@ async function loadPaymentInfo(groupBuyId) {
             paymentStatus = myParticipation.paymentStatus || 'PENDING';
         }
 
-        // 1. 상품명 표시 (productName)
+        // 상품명 표시 (HTML class="product-name")
         const productNameEl = document.querySelector('.product-name');
         if (productNameEl && currentGroupBuy.product) {
             productNameEl.textContent = currentGroupBuy.product.name;
@@ -91,7 +91,7 @@ function renderProductInfo(groupBuy) {
     // 인당 가격 계산 (총 가격 / 목표 인원)
     const perPersonPrice = Math.floor(totalPrice / (groupBuy.targetHeadcount || 1));
     
-    // 배송비 (고정 1,000원 가정)
+    // 배송비 1,000원 (제가 그냥 고정으로 1000원 했습니다)
     const deliveryFee = 1000; 
     const totalAmount = perPersonPrice + deliveryFee;
 
@@ -144,16 +144,13 @@ async function initTossPayments(amount) {
     ]);
 }
 
-// ⭐ [핵심] 결제 버튼 상태 관리 (회색 vs 파란색)
+// 결제 버튼 상태 관리 (회색 vs 파란색)
 function setupPaymentButton() {
     const paymentBtn = document.getElementById('payment-button');
     if (!paymentBtn) return;
 
     // 결제 가능 조건: 
-    // 백엔드 GroupBuyStatus가 PAYING 또는 IN_PROGRESS 등 결제 허용 상태여야 함.
-    // "방장이 상태를 변경했는지"를 status로 판단함.
-    // (기본 RECRUITING 상태면 결제 불가)
-    
+    // 백엔드 status가 'RECRUITING'(모집중)이 아니면 결제 가능으로 간주 (방장이 변경한 상태)
     const isPaymentOpen = (currentGroupBuy.status !== 'RECRUITING'); 
 
     if (!isPaymentOpen) {
@@ -192,10 +189,13 @@ async function processPayment() {
     try {
         const orderId = "ORDER_" + new Date().getTime(); // 주문번호 생성
 
+        // 성공 시 돌아올 URL에 groupBuyId 추가 success.html에서 payment.html로 리다이렉트
+        const successUrl = window.location.origin + `/success.html?groupBuyId=${currentGroupBuy.id}`;
+        
         await widgets.requestPayment({
             orderId: orderId,
             orderName: currentGroupBuy?.title || "공동구매 참여",
-            successUrl: window.location.origin + "/success.html",
+            successUrl: successUrl, 
             failUrl: window.location.origin + "/fail.html",
             customerEmail: email,
             customerName: username,
@@ -204,6 +204,5 @@ async function processPayment() {
         
     } catch (error) {
         console.error("결제 요청 실패:", error);
-        // 에러 처리는 필요 시 추가
     }
 }
