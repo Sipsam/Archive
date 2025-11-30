@@ -70,6 +70,8 @@ public class ProductService {
     public Product searchByUrl(String productUrl) {
         WebDriverManager.chromedriver().setup();
         ChromeOptions options = new ChromeOptions();
+        options.addArguments("--verbose");
+        options.addArguments("--log-path=/tmp/chromedriver.log");
         options.addArguments("--disable-gpu");
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
