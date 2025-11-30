@@ -44,7 +44,7 @@ async function loadPopularGroupBuys() {
         }
 
         // 화면 그리기
-        contentGrid.innerHTML = '<h3 style="grid-column:1/-1; margin-bottom:10px; color:#4a90e2;">🔥 지금 핫한 모집글 (참여자 순)</h3>';
+        contentGrid.innerHTML = '<h3 style="grid-column:1/-1; margin-bottom:10px; color:#4a90e2;">🔥 지금 핫한 모집글</h3>';
         popularList.forEach(gb => renderCard(gb, contentGrid));
 
     } catch (error) {
