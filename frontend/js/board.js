@@ -112,6 +112,7 @@ async function submitPost(event) {
     };
 
     try {
+        console.log('Bearer '+localStorage.getItem('accessToken'));
         await apiFetch('/api/posts', {
             method: 'POST',
             headers: {
