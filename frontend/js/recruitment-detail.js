@@ -78,12 +78,12 @@ function renderRecruitmentDetail(groupBuy, participations) {
     }
 
     // 2. 상품 정보 (DTO: productName, productPrice 등)
-    // 주의: 보내주신 DTO에는 imageUrl이 없었습니다. 만약 추가하신다면 groupBuy.productImageUrl로 쓰세요.
     const imageEl = document.getElementById('productImage');
     // 이미지가 DTO에 없다면 기본 텍스트나 placeholder 유지
     if (imageEl && groupBuy.productImageUrl) { 
         imageEl.innerHTML = `<img src="${groupBuy.productImageUrl}" alt="${groupBuy.productName}" style="width: 100%; height: 100%; object-fit: contain; border-radius: 8px;">`;
     }
+    
 
     const productNameEl = document.getElementById('productName');
     if (productNameEl) productNameEl.textContent = groupBuy.productName || '상품명 없음';
@@ -196,7 +196,7 @@ async function changePaymentStatus() {
     if (!confirm('결제 상태로 변경하시겠습니까?\n변경 후에는 참여자들이 결제를 진행할 수 있게 됩니다.')) return;
 
     try {
-        await apiFetch(`/api/groupbuys/online/${currentGroupBuy.id}/change-payment-status`, { method: 'POST' });
+        await apiFetch(`/api/groupbuys/online/${currentGroupBuy.id}/status`, { method: 'POST' });
         alert('상태가 변경되었습니다. 참여자들이 이제 결제할 수 있습니다.');
         window.location.reload();
     } catch (error) {
