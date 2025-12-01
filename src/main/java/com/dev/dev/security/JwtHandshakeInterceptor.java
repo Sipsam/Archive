@@ -37,9 +37,8 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
             return false;
         }
 
-        String loginId = String.valueOf(jwtUtil.getUserIdFromToken(token)); // 토큰 subject가 loginId라고 가정
-        System.out.println("loginId: " + loginId);
-        Optional<User> userOpt = userRepository.findByLoginId(loginId);
+        System.out.println("userId: " + jwtUtil.getUserIdFromToken(token));
+        Optional<User> userOpt = userRepository.findById(jwtUtil.getUserIdFromToken(token));
         if (userOpt.isEmpty()) {
             return false;
         }
