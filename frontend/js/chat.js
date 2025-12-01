@@ -5,7 +5,7 @@ let currentUser = null;
 let socket = null;
 
 // [설정] 웹소켓 주소
-const WS_BASE_URL = 'ws://together1.kro.kr/ws/chat'; 
+const WS_BASE_URL = 'ws://together1.kro.kr/ws/chat?token='+localStorage.getItem('accessToken'); 
 
 document.addEventListener('DOMContentLoaded', async function() {
     // 1. 로그인 체크
@@ -171,7 +171,7 @@ function connectWebSocket(roomId) {
     if (!token) return;
 
     // 쿼리 파라미터로 토큰과 방 번호 전달
-    socket = new WebSocket(`${WS_BASE_URL}?token=${token}`);
+    socket = new WebSocket(WS_BASE_URL);
 
     socket.onopen = function() {
         console.log(`채팅방 ${roomId} 연결 성공`);
@@ -243,5 +243,8 @@ if (sendBtn) sendBtn.addEventListener('click', sendMessage);
 if (chatInput) {
     chatInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') sendMessage();
+    });
+}
+
     });
 }
