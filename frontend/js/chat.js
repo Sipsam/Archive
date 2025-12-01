@@ -245,6 +245,3 @@ if (chatInput) {
         if (e.key === 'Enter') sendMessage();
     });
 }
-
-    });
-}
