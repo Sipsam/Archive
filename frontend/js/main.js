@@ -97,30 +97,34 @@ function renderCard(groupBuy, container) {
     const card = document.createElement('div');
     card.className = 'content-card';
     card.onclick = () => window.location.href = `recruitment-detail.html?id=${groupBuy.id}`;
-
-    // HTML에서 이미지가 들어갈 요소를 선택
-    const imageEl = document.createElement('productImage');
-    imageEl.setAttribute("id", "productImage");
-
-    // groupBuy 객체에 이미지 URL이 있는지 확인
+    // 1) 이미지 요소 추가
+    const imageEl = document.createElement("div");
+    imageEl.id = "productImage";
+    
     if (groupBuy && groupBuy.productImageUrl) {
-        // 이미지가 있다면: img 태그를 생성해서 넣음
-        imageEl.innerHTML = `<img src="${groupBuy.productImageUrl}" alt="${groupBuy.productName}" style="width: 100%; height: 100%; object-fit: contain; border-radius: 8px;">`;
+        imageEl.innerHTML = `
+            <img src="${groupBuy.productImageUrl}"
+                 alt="${groupBuy.productName}"
+                 style="width:100%; height:100%; object-fit:contain; border-radius:8px;">
+        `;
     } else {
-        // 이미지가 없다면: '이미지 없음' 박스로 유지
         imageEl.innerHTML = `<div class="card-image">이미지 없음</div>`;
     }
     card.appendChild(imageEl);
-    card.innerHTML = `
-        <div class="card-info">
-            <h3>${groupBuy.title}</h3>
-            <p style="color:#666; font-size:14px; margin-bottom:5px;">${product ? product.name : '상품정보 없음'}</p>
-            <div style="margin-top:10px; display:flex; justify-content:space-between; color:#4a90e2; font-weight:bold;">
-                <span>👤 ${currentCount}명 참여</span>
-                <span>목표 ${groupBuy.targetHeadcount}명</span>
-            </div>
+    // 2) info 박스 추가
+    const infoEl = document.createElement("div");
+    infoEl.className = "card-info";
+    infoEl.innerHTML = `
+        <h3>${groupBuy.title}</h3>
+        <p style="color:#666; font-size:14px; margin-bottom:5px;">
+            ${product ? product.name : '상품정보 없음'}
+        </p>
+        <div style="margin-top:10px; display:flex; justify-content:space-between; color:#4a90e2; font-weight:bold;">
+            <span>👤 ${currentCount}명 참여</span>
+            <span>목표 ${groupBuy.targetHeadcount}명</span>
         </div>
     `;
+    card.appendChild(infoEl);
     container.appendChild(card);
 }
 
