@@ -1,6 +1,7 @@
 package com.dev.dev.service;
 
 
+import com.dev.dev.dto.participation.ParticipationResponse;
 import com.dev.dev.dto.user.UpdateUserRequest;
 import com.dev.dev.dto.user.UserResponse;
 import com.dev.dev.entity.*;
@@ -59,17 +60,25 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
-
     public MyParticipationsDTO getMyParticipations(Long userId) {
-        List<OnlineParticipation> online = onlineParticipationRepository.findAll().stream()
-                .filter(op -> op.getUser() != null && op.getUser().getId().equals(userId))
-                .collect(Collectors.toList());
-        return new MyParticipationsDTO(online);
-    }
-    public static class MyParticipationsDTO {
-        public final List<OnlineParticipation> onlineParticipations;
 
-        public MyParticipationsDTO(List<OnlineParticipation> online) {
+        List<OnlineParticipation> entities =
+                onlineParticipationRepository.findAll().stream()
+                        .filter(op -> op.getUser() != null
+                                && op.getUser().getId().equals(userId))
+                        .toList();
+
+        List<ParticipationResponse> dtoList = entities.stream()
+                .map(ParticipationResponse::new)
+                .collect(Collectors.toList());
+
+        return new MyParticipationsDTO(dtoList);
+    }
+
+    public static class MyParticipationsDTO {
+        public final List<ParticipationResponse> onlineParticipations;
+
+        public MyParticipationsDTO(List<ParticipationResponse> online) {
             this.onlineParticipations = online;
         }
     }
