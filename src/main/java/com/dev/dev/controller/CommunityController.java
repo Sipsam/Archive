@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import java.util.List;  // 추가된 임포트
 import javax.servlet.http.HttpServletRequest;  // 추가된 임포트
+import org.springframework.http.HttpStatus;
 
 @RestController
 @RequestMapping("/api")
