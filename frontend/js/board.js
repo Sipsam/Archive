@@ -114,6 +114,11 @@ async function submitPost(event) {
     try {
         await apiFetch('/api/posts', {
             method: 'POST',
+            headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...headers,
+            },
             body: postData
         });
 
