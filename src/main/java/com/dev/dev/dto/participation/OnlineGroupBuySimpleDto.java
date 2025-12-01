@@ -11,14 +11,18 @@ public class OnlineGroupBuySimpleDto {
     private Long chatRoomId;
     private int targetHeadcount;
 
-    private ProductSimpleDto product; // product 정보도 포함해야 프론트 확장에 대비
+    private ProductSimpleDto product;
+    private String productImageUrl;  // ★ 프론트에서 groupBuy.productImageUrl 로 접근 예정
 
     public OnlineGroupBuySimpleDto(OnlineGroupBuy ogb) {
         this.id = ogb.getId();
         this.title = ogb.getTitle();
         this.chatRoomId = ogb.getChatRoomId();
         this.targetHeadcount = ogb.getTargetHeadcount();
+
         this.product = new ProductSimpleDto(ogb.getProductId());
+        this.productImageUrl = ogb.getProductId().getImageUrl(); // ★ 추가됨
     }
 }
+
 

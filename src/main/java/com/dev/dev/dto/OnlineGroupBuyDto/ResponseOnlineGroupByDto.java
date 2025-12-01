@@ -28,6 +28,7 @@ public class ResponseOnlineGroupByDto {
     private String productName;
     private Integer productPrice;
     private Integer productAllQuantity;
+    private String productImageUrl; // ★ 추가
 
     // 3. 방장 정보
     private Long hostId;
@@ -54,6 +55,7 @@ public class ResponseOnlineGroupByDto {
                 .productName(entity.getProductId().getName())
                 .productPrice(entity.getProductId().getPrice())
                 .productAllQuantity(entity.getProductId().getAllQuantity())
+                .productImageUrl(entity.getProductId().getImageUrl())
 
                 // 방장 정보
                 .hostId(entity.getHostUser().getId())

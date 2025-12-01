@@ -149,8 +149,12 @@ public class ProductService {
         String title = item.optString("title").replaceAll("<.*?>", "").trim();
         Integer lprice = item.optInt("lprice", 0);
         Long productId = item.optLong("productId", 0L);
+
+        String imageUrl = item.optString("image");  // ★ 추가
+
         Pattern pattern = Pattern.compile("(\\d+(?:\\.\\d+)?)\\s*(kg|g|개|팩)");
         Matcher matcher = pattern.matcher(title);
+
         int quantity = 1;
         String unit = null;
         while (matcher.find()) {
@@ -161,9 +165,6 @@ public class ProductService {
                 if ("kg".equals(matchedUnit)) {
                     qty = qty * 1000;
                     matchedUnit = "g";
-                }
-                if (unit != null && ("개".equals(unit) || "팩".equals(unit))) {
-                    continue;
                 }
                 Pattern afterPattern = Pattern.compile("g\\s*(개|팩)");
                 Matcher afterMatcher = afterPattern.matcher(title);
@@ -177,6 +178,7 @@ public class ProductService {
                 quantity = 1;
             }
         }
+
         return Product.builder()
                 .id(productId)
                 .name(title)
@@ -184,6 +186,7 @@ public class ProductService {
                 .allQuantity(quantity)
                 .link(item.optString("link"))
                 .unit(unit)
+                .imageUrl(imageUrl)   // ★ 이미지 저장!
                 .build();
     }
 }
