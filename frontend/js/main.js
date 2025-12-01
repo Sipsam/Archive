@@ -99,7 +99,8 @@ function renderCard(groupBuy, container) {
     card.onclick = () => window.location.href = `recruitment-detail.html?id=${groupBuy.id}`;
 
     // HTML에서 이미지가 들어갈 요소를 선택
-    const imageEl = document.getElementById('productImage');
+    const imageEl = document.createElement('productImage');
+    imageEl.setAttribute("id", "productImage");
 
     // 요소가 실제로 존재하는지 확인 (에러 방지)
     if (imageEl) {
