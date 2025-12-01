@@ -89,6 +89,7 @@ public class ProductService {
                 return null;
             }
         });
+        System.out.println(ret_val);
         String jsonStr;
         try {
             jsonStr = ret_val.get();
