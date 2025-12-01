@@ -337,7 +337,7 @@ function renderChatList(rooms) {
 
 function connectWebSocket(token) {
     let socket;
-    try { socket = new WebSocket(`ws://together1.kro.kr:8080/ws/chat?token=${token}`); } catch (e) { return; }
+    try { socket = new WebSocket(`ws://together1.kro.kr/ws/chat?token=${token}`); } catch (e) { return; }
 
     socket.onopen = function() { console.log('실시간 채팅 서버 연결됨'); };
     socket.onmessage = function(event) {
