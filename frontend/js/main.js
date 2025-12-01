@@ -114,7 +114,7 @@ function renderCard(groupBuy, container) {
     }
 
     card.innerHTML = `
-        ${imgHtml}
+        ${imageEl}
         <div class="card-info">
             <h3>${groupBuy.title}</h3>
             <p style="color:#666; font-size:14px; margin-bottom:5px;">${product ? product.name : '상품정보 없음'}</p>
