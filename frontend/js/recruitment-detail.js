@@ -37,37 +37,33 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupCommentEvent();
 });
 
-// 상세 정보 로드 함수 (API 2번 호출)
+// 상세 정보 로드 함수 (데이터 누락 시 2번 호출)
 async function loadRecruitmentDetail(groupBuyId) {
     try {
-        // 1차 호출: 모집글 껍데기 정보 가져오기
+        // 1차 호출: 모집글 정보 가져오기
         const groupBuy = await apiFetch(`/api/groupbuys/online/${groupBuyId}`);
         
         // -----------------------------------------------------------
-        // api 프론트에서 2번 호출 (백에서 JOIN FETCH 안해도됨) 상품 정보가 비어있다면 ID로 다시 긁어오기
+        // 상품 정보가 비어있다면 ID로 다시 긁어오기
         // -----------------------------------------------------------
         
-        // Case A: groupBuy.product 객체는 있는데 내용(이름)이 없을 때
-        // Case B: groupBuy.productId 라는 별도 필드로 ID만 있을 때 (백엔드 구조에 따라 다름)
-        // 안전하게 ID를 찾기
+        // 백엔드 구조에 따라 product.id 혹은 productId 필드에 ID가 있을 수 있음
         const productId = groupBuy.product?.id || groupBuy.productId;
 
-        // "상품 ID는 있는데, 상품 이름이 없다?" -> 백엔드가 Lazy Loading 중인 상황
+        // "ID는 있는데 상품명(name)이 없다?" -> 백엔드가 Lazy Loading으로 껍데기만 보낸 상황
         if (productId && (!groupBuy.product || !groupBuy.product.name)) {
-            console.log(`[Frontend Workaround] 상품 정보가 비어있어 ID(${productId})로 2차 조회를 시도합니다...`);
+            console.log(`[Frontend Workaround] 상품 정보 누락. ID(${productId})로 2차 조회 시도...`);
             
             try {
-                // 2차 호출: 상품 상세 API (ProductController)
-                // 만약 이 API(/api/products/{id})가 없다면 이 부분은 실패
+                // 2차 호출: 상품 상세 API
                 const productDetail = await apiFetch(`/api/products/${productId}`);
                 
                 // 받아온 상세 정보를 원래 객체에 덮어씌우기 (합체!)
                 if (productDetail) {
                     groupBuy.product = productDetail;
-                    console.log("[Frontend Workaround] 상품 정보 병합 성공!");
                 }
             } catch (err) {
-                console.error("2차 상품 조회 실패 (상품 API가 없거나 오류):", err);
+                console.warn("2차 상품 조회 실패 (상품 API가 없거나 오류):", err);
                 // 실패하면 어쩔 수 없이 화면에 '상품명 없음'으로 뜸
             }
         }
@@ -79,7 +75,7 @@ async function loadRecruitmentDetail(groupBuyId) {
         const participations = groupBuy.participationList || [];
         isParticipant = participations.some(p => p.user && String(p.user.id) === String(currentUserId));
 
-        // 화면 렌더링 (이제 product 정보가 채워져서 나옴)
+        // 화면 렌더링
         renderRecruitmentDetail(groupBuy, participations);
         
         // 하단 버튼 설정
