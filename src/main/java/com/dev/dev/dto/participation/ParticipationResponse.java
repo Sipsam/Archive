@@ -6,17 +6,10 @@ import lombok.Data;
 @Data
 public class ParticipationResponse {
     private Long id;
-    private String groupTitle;
-    private String productName;
-    private int targetHeadcount;
+    private OnlineGroupBuySimpleDto onlineGroupBuy;  // ★ 프론트가 반드시 요구함
 
     public ParticipationResponse(OnlineParticipation p) {
         this.id = p.getId();
-        this.groupTitle = p.getOnlineGroupBuy().getTitle();
-
-        // ★ 여기 수정됨: product → productId
-        this.productName = p.getOnlineGroupBuy().getProductId().getName();
-
-        this.targetHeadcount = p.getOnlineGroupBuy().getTargetHeadcount();
+        this.onlineGroupBuy = new OnlineGroupBuySimpleDto(p.getOnlineGroupBuy());
     }
 }
