@@ -217,7 +217,6 @@ async function sendMessage() {
     const payload = {
         type: "CHAT", // 백엔드 Enum 타입과 일치해야 함
         roomId: parseInt(currentRoomId),
-        senderId: currentUser.id, // 필요시
         message: message
     };
 
