@@ -112,7 +112,7 @@ async function submitPost(event) {
     };
 
     try {
-        console.log('Bearer '+localStorage.getItem('accessToken'));
+        
         await apiFetch('/api/posts', {
             method: 'POST',
             headers: {
@@ -130,8 +130,8 @@ async function submitPost(event) {
 
         // 목록 화면으로 돌아가기
         switchBoardTab('list');
-
     } catch (error) {
+        console.log('Bearer '+localStorage.getItem('accessToken'));
         console.error('글 작성 실패:', error);
         alert('글 작성 중 오류가 발생했습니다: ' + error.message);
     }
