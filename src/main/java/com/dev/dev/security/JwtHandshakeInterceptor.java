@@ -26,24 +26,23 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
 
         URI uri = request.getURI();
         String query = uri.getQuery(); // token=xxx 형식
-
+        System.out.println("query: " + query);
         if (query == null || !query.startsWith("token=")) {
             return false;
         }
 
         String token = query.substring("token=".length());
-
+        System.out.println("token: " + token);
         if (!jwtUtil.validateToken(token)) { // JwtUtil에 맞게 메서드명 맞춰줘
             return false;
         }
 
         String loginId = String.valueOf(jwtUtil.getUserIdFromToken(token)); // 토큰 subject가 loginId라고 가정
-
+        System.out.println("loginId: " + loginId);
         Optional<User> userOpt = userRepository.findByLoginId(loginId);
         if (userOpt.isEmpty()) {
             return false;
         }
-
         User user = userOpt.get();
         attributes.put("user", user);
 
