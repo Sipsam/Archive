@@ -19,7 +19,6 @@ public class CommunityService {
 
     private final PostRepository postRepository;
     private final UserRepository userRepository;
-    private final PointHistoryRepository pointHistoryRepository;
     private final UserService userService;
 
     public List<PostDto.Response> getPostList(String boardType){
@@ -50,14 +49,6 @@ public class CommunityService {
             int rewardPoints = 100;
 
             author.setPoints(author.getPoints() + rewardPoints);
-
-            PointHistory history = PointHistory.builder()
-                    .user(author)
-                    .amount(rewardPoints)
-                    .relatedId(post.getId())
-                    .createdAt(LocalDateTime.now())
-                    .build();
-            pointHistoryRepository.save(history);
 
         }
 
