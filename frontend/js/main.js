@@ -258,7 +258,7 @@ async function registerGroupBuy(productNumber, productUrl, targetHeadcount, titl
             targetHeadcount: parseInt(targetHeadcount, 10),
             title: title,                   
             content: content,               
-            recruit_end_date: endDate         
+            recruitEndDate: endDate         
         };
 
         const responsePost = await fetch(`${API_BASE}/api/groupbuys/online`, {
