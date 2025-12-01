@@ -12,15 +12,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         return; 
     }
     
-    // 2. 탭 기능 설정
+    // 2. 탭 및 초기 설정
     setupTabs();
 
-    // 3. 사용자 정보 및 내역 로드
     try {
+        // 3. 내 정보 로드
         const myInfo = await apiFetch('/api/users/me'); 
         currentUserInfo = myInfo;
         
-        // UI 바인딩
+        // 프로필 바인딩
         const nameElement = document.getElementById('userName');
         if (nameElement) nameElement.textContent = myInfo.nickname || '사용자';
         
@@ -33,9 +33,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         updatePointUI(myInfo.points);
         populateSettingsForm(myInfo);
         
-        // ⭐ 참여 내역 로드 함수 호출
+        // ⭐ [핵심] 참여 내역 로드 (비상 로직 포함)
         await loadMyParticipations();
         
+        // 포인트 페이지 전용 로직
         if(document.getElementById('pointHistoryList')) await loadMyPointHistory();
         if (document.getElementById('payment-method')) await initPointPayment();
 
@@ -46,33 +47,55 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupSettingsForm();
 });
 
-// ⭐ [참여 내역 로드] 이 부분이 화면에 목록을 그려줍니다.
+// 내 참여 내역 로드 (데이터 누락 시 재요청 로직 추가)
 async function loadMyParticipations() {
     const listContainer = document.getElementById('participationList');
     if (!listContainer) return;
 
     try {
+        // 1. 목록 조회 (백엔드 Lazy Loading으로 인해 껍데기만 올 가능성 있음)
         const data = await apiFetch('/api/users/me/participations');
-        // 데이터 구조: { onlineParticipations: [...], offlineParticipations: [...] }
         const onlineList = data.onlineParticipations || [];
         
-        listContainer.innerHTML = ''; // 초기화
+        listContainer.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">데이터를 불러오는 중...</div>';
 
         if (onlineList.length === 0) {
-            listContainer.innerHTML = `
-                <div style="padding: 40px; text-align: center; color: #999; background-color: #f9f9f9; border-radius: 8px;">
-                    <p>아직 참여한 모집글이 없습니다.</p>
-                    <a href="index.html" style="color: #4a90e2; text-decoration: none; font-weight: bold; margin-top: 10px; display: inline-block;">
-                        모집글 보러 가기 &rarr;
-                    </a>
-                </div>`;
+            listContainer.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">참여한 내역이 없습니다.</div>';
             return;
         }
 
-        onlineList.forEach(item => {
-            const groupBuy = item.onlineGroupBuy; 
+        // 2. 제목이 없는 항목들은 ID로 상세 정보를 다시 긁어옵니다. (수정 api 2번 호출)
+        const enrichedList = await Promise.all(onlineList.map(async (item) => {
+            let groupBuy = item.onlineGroupBuy;
             
-            // 만약 백엔드에서 groupBuy 정보가 안 왔다면 건너뜀 (에러 방지)
+            // "ID는 있는데 제목이 없다?" -> 백엔드가 내용을 안 보내준 상황
+            if (groupBuy && groupBuy.id && !groupBuy.title) {
+                try {
+                    // 상세 API를 호출해서 꽉 찬 정보를 받아옴. (상세 조회 API에서도 product가 Lazy면 상품명은 여전히 없을 수 있음)
+                    const fullInfo = await apiFetch(`/api/groupbuys/online/${groupBuy.id}`);
+                    
+                    // 만약 상세 조회한 정보에 상품 정보가 또 없다면? (3차 비상 - 상품 ID로 조회)
+                    if (fullInfo.product && !fullInfo.product.name && fullInfo.product.id) {
+                         try {
+                             const productInfo = await apiFetch(`/api/products/${fullInfo.product.id}`);
+                             fullInfo.product = productInfo;
+                         } catch(e) {}
+                    }
+
+                    // 정보를 교체
+                    item.onlineGroupBuy = fullInfo;
+                } catch (e) {
+                    console.warn(`공구 ID ${groupBuy.id} 상세 정보 복구 실패`, e);
+                }
+            }
+            return item;
+        }));
+
+        listContainer.innerHTML = ''; // 로딩 문구 제거
+
+        // 3. 화면 그리기
+        enrichedList.forEach(item => {
+            const groupBuy = item.onlineGroupBuy; 
             if (!groupBuy) return;
 
             const product = groupBuy.product;
@@ -93,7 +116,7 @@ async function loadMyParticipations() {
                     </button>
                 `;
             } else {
-                chatButtonHtml = `<span style="font-size:12px; color:#999; margin-top:10px; display:inline-block;">(채팅방 준비중)</span>`;
+                chatButtonHtml = `<span style="font-size:12px; color:#999; display:inline-block; margin-top:10px;">(채팅방 준비중)</span>`;
             }
 
             card.innerHTML = `
@@ -101,7 +124,7 @@ async function loadMyParticipations() {
                     <div>
                         <h3 style="margin-bottom:5px; font-size:16px; color:#333;">
                             <a href="recruitment-detail.html?id=${groupBuy.id}" style="text-decoration:none; color:#333;">
-                                ${groupBuy.title || '제목 없음'}
+                                ${groupBuy.title || '제목 로딩 실패'}
                             </a>
                         </h3>
                         <p style="margin-bottom:5px; color:#666; font-size:14px;">상품: ${product ? product.name : '정보 없음'}</p>
@@ -124,29 +147,78 @@ async function loadMyParticipations() {
     }
 }
 
+// --- [기존 기능 유지] 포인트 결제, 탭, 설정 등 ---
 
-// --- ⭐ 3. 공통 UI 및 헬퍼 함수들 (탭, 포인트표시, 설정폼) ---
+async function initPointPayment() {
+    const clientKey = "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm"; 
+    const tossPayments = TossPayments(clientKey);
+    const customerKey = "user_" + (currentUserInfo?.id || new Date().getTime());
+    
+    paymentWidgets = tossPayments.widgets({ customerKey });
+
+    await paymentWidgets.setAmount({ currency: "KRW", value: 1000 });
+
+    await Promise.all([
+        paymentWidgets.renderPaymentMethods({ selector: "#payment-method", variantKey: "DEFAULT" }),
+        paymentWidgets.renderAgreement({ selector: "#agreement", variantKey: "AGREEMENT" }),
+    ]);
+    
+    document.getElementById('payment-widget-area').style.display = 'block';
+    setupPointPurchaseEvents();
+}
+
+function setupPointPurchaseEvents() {
+    const purchaseItems = document.querySelectorAll('.point-purchase-list .purchase-item');
+    const purchaseBtn = document.getElementById('point-payment-btn');
+    
+    purchaseItems.forEach(item => {
+        item.addEventListener('click', async function() {
+            purchaseItems.forEach(i => i.classList.remove('selected'));
+            this.classList.add('selected');
+            const price = parseInt(this.dataset.price, 10);
+            selectedPointAmount = price;
+            await paymentWidgets.setAmount({ currency: "KRW", value: price });
+            if (purchaseBtn) {
+                purchaseBtn.textContent = `${price.toLocaleString()}원 결제하기`;
+                purchaseBtn.disabled = false;
+            }
+        });
+    });
+
+    if (purchaseBtn) {
+        purchaseBtn.textContent = "충전할 금액을 선택해주세요";
+        purchaseBtn.disabled = true;
+        purchaseBtn.addEventListener('click', async function() {
+            if (selectedPointAmount <= 0) { alert('충전할 포인트를 선택해주세요.'); return; }
+            try {
+                const orderId = "POINT_" + new Date().getTime();
+                await paymentWidgets.requestPayment({
+                    orderId: orderId,
+                    orderName: `포인트 ${selectedPointAmount.toLocaleString()}P 충전`,
+                    successUrl: window.location.origin + "/success.html",
+                    failUrl: window.location.origin + "/fail.html",
+                    customerEmail: currentUserInfo?.email || "unknown@example.com",
+                    customerName: currentUserInfo?.name || "사용자",
+                });
+            } catch (error) { console.error("결제 요청 실패:", error); }
+        });
+    }
+}
 
 function setupTabs() {
     const menuLinks = document.querySelectorAll('.menu-link');
     const tabContents = document.querySelectorAll('.tab-content');
-
     if (!menuLinks.length) return;
-
     menuLinks.forEach(link => {
         link.addEventListener('click', function(e) {
             const targetId = this.dataset.tab;
             if (!targetId) return; 
-
             e.preventDefault();
             menuLinks.forEach(item => item.classList.remove('active'));
             this.classList.add('active');
-
             tabContents.forEach(content => {
                 content.classList.remove('active');
-                if (content.id === targetId) {
-                    content.classList.add('active');
-                }
+                if (content.id === targetId) content.classList.add('active');
             });
         });
     });
@@ -155,10 +227,8 @@ function setupTabs() {
 function updatePointUI(points) {
     const safePoints = points || 0;
     const formatted = new Intl.NumberFormat().format(safePoints);
-    
     const profilePoint = document.getElementById('userPointsProfile');
     const mainPoint = document.getElementById('userPoints');
-    
     if(profilePoint) profilePoint.textContent = formatted;
     if(mainPoint) mainPoint.textContent = formatted + " P";
 }
@@ -166,47 +236,30 @@ function updatePointUI(points) {
 async function loadMyPointHistory() {
     const historyList = document.getElementById('pointHistoryList'); 
     if (!historyList) return; 
-
     try {
         const historyData = await apiFetch('/api/points/history');
         historyList.innerHTML = ''; 
-        
         if (historyData && historyData.length > 0) {
             historyData.forEach(item => {
                 const row = document.createElement('div');
                 row.className = 'activity-item'; 
                 row.style.display = 'flex';
                 row.style.justifyContent = 'space-between';
-                
                 const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '-';
-                const isPositive = (item.amount > 0); // 양수면 획득, 음수면 사용
-                const sign = isPositive ? '+' : ''; // 음수는 숫자에 -가 포함됨
+                const isPositive = (item.amount > 0);
+                const sign = isPositive ? '+' : '';
                 const color = isPositive ? '#4a90e2' : '#ff4444';
-
-                row.innerHTML = `
-                    <div>
-                        <span style="font-weight:bold; color:#555;">[포인트]</span> 
-                        <span style="color:#888; font-size:14px; margin-left:5px;">${dateStr}</span>
-                    </div>
-                    <span style="font-weight:bold; color:${color};">
-                        ${sign}${new Intl.NumberFormat().format(item.amount)} P
-                    </span>
-                `;
+                row.innerHTML = `<div><span style="font-weight:bold; color:#555;">[포인트]</span> <span style="color:#888; font-size:14px; margin-left:5px;">${dateStr}</span></div><span style="font-weight:bold; color:${color};">${sign}${new Intl.NumberFormat().format(item.amount)} P</span>`;
                 historyList.appendChild(row);
             });
         } else {
             historyList.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">포인트 변동 내역이 없습니다.</div>';
         }
-
-    } catch (error) {
-        console.error('포인트 내역 로드 실패:', error);
-    }
+    } catch (error) { console.error('포인트 내역 로드 실패:', error); }
 }
 
-// --- 설정 폼 관련 ---
 function populateSettingsForm(user) {
     if (!document.getElementById('settingsForm')) return;
-    
     setVal('settingName', user.name);
     setVal('settingNickname', user.nickname);
     setVal('settingEmail', user.email);
@@ -216,19 +269,12 @@ function populateSettingsForm(user) {
     setVal('settingZip', user.zipCode);
 }
 
-function setVal(id, val) {
-    const el = document.getElementById(id);
-    if (el) el.value = val || '';
-}
+function setVal(id, val) { const el = document.getElementById(id); if (el) el.value = val || ''; }
 
 function setupSettingsForm() {
     const form = document.getElementById('settingsForm');
     if (!form) return;
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        await saveSettings();
-    });
+    form.addEventListener('submit', async function(e) { e.preventDefault(); await saveSettings(); });
 }
 
 async function saveSettings() {
@@ -236,44 +282,23 @@ async function saveSettings() {
     const newPassword = document.getElementById('newPassword').value;
     const confirmNewPassword = document.getElementById('confirmNewPassword').value;
 
-    if (!password) {
-        alert('정보를 수정하려면 현재 비밀번호를 입력해야 합니다.');
-        return;
-    }
-
-    // 비밀번호 변경 시도 시 확인
+    if (!password) { alert('정보를 수정하려면 현재 비밀번호를 입력해야 합니다.'); return; }
     if (newPassword || confirmNewPassword) {
-        if (newPassword !== confirmNewPassword) {
-            alert('새 비밀번호가 일치하지 않습니다.');
-            return;
-        }
+        if (newPassword !== confirmNewPassword) { alert('새 비밀번호가 일치하지 않습니다.'); return; }
     }
-
-    // TODO: 비밀번호 검증 로직이 필요하다면 백엔드 API 추가 필요
-    // 현재는 정보 수정 요청만 보냄
 
     const updateData = {
         nickname: getInputValue('settingNickname'),
         address: getInputValue('settingAddress'),
         addressDetail: getInputValue('settingAddressDetail'),
         zipCode: getInputValue('settingZip')
-        // 비밀번호 변경은 별도 API가 필요할 수 있음
     };
 
     try {
-        await apiFetch('/api/users/me', {
-            method: 'PUT',
-            body: updateData
-        });
+        await apiFetch('/api/users/me', { method: 'PUT', body: updateData });
         alert('회원 정보가 수정되었습니다.');
         window.location.reload();
-    } catch (error) {
-        console.error(error);
-        alert('정보 수정 실패: ' + error.message);
-    }
+    } catch (error) { console.error(error); alert('정보 수정 실패: ' + error.message); }
 }
 
-function getInputValue(inputId) {
-    const el = document.getElementById(inputId);
-    return el ? el.value : null;
-}
+function getInputValue(inputId) { const el = document.getElementById(inputId); return el ? el.value : null; }
