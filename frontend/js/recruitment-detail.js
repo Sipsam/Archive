@@ -37,14 +37,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupCommentEvent();
 });
 
-// API 1번 호출로 해결!!!!!!!!!!!! (DTO 구조 반영)
+// 상세 정보 로드
 async function loadRecruitmentDetail(groupBuyId) {
     try {
-        // DTO를 통해 데이터를 한 번에 다 받아옵니다. (ResponseOnlineGroupByDto 구조)
         const groupBuy = await apiFetch(`/api/groupbuys/online/${groupBuyId}`);
         currentGroupBuy = groupBuy;
 
-        // 참여자 리스트 확인 (DTO: participationList -> OnlineParticipationDto -> userId)
         const participations = groupBuy.participationList || [];
         
         // 내 아이디가 참여자 목록에 있는지 확인
@@ -63,9 +61,8 @@ async function loadRecruitmentDetail(groupBuyId) {
     }
 }
 
-// 제대로된 DTO 필드명(productName, hostName 등) 사용
+// 화면 렌더링 함수
 function renderRecruitmentDetail(groupBuy, participations) {
-    // 1. 모집자(방장) 정보 (DTO: hostName)
     const hostNameEl = document.getElementById('hostName');
     const recruitDateEl = document.getElementById('recruitDate');
 
@@ -77,14 +74,11 @@ function renderRecruitmentDetail(groupBuy, participations) {
         recruitDateEl.textContent = date;
     }
 
-    // 2. 상품 정보 (DTO: productName, productPrice 등)
     const imageEl = document.getElementById('productImage');
-    // 이미지가 DTO에 없다면 기본 텍스트나 placeholder 유지
     if (imageEl && groupBuy.productImageUrl) { 
         imageEl.innerHTML = `<img src="${groupBuy.productImageUrl}" alt="${groupBuy.productName}" style="width: 100%; height: 100%; object-fit: contain; border-radius: 8px;">`;
     }
     
-
     const productNameEl = document.getElementById('productName');
     if (productNameEl) productNameEl.textContent = groupBuy.productName || '상품명 없음';
 
@@ -92,7 +86,7 @@ function renderRecruitmentDetail(groupBuy, participations) {
     if (priceInfoEl) {
         const totalPrice = groupBuy.productPrice || 0;
         const targetHeadcount = groupBuy.targetHeadcount || 1; 
-        const perPersonPrice = Math.floor(totalPrice / targetHeadcount); // 1/N 가격
+        const perPersonPrice = Math.floor(totalPrice / targetHeadcount); 
 
         priceInfoEl.innerHTML = `
             <span style="font-weight:bold; color:#333;">총 ${totalPrice.toLocaleString()}원</span>
@@ -100,7 +94,6 @@ function renderRecruitmentDetail(groupBuy, participations) {
         `;
     }
 
-    // (참고) 원본 링크도 DTO에 없다면 표시 불가
     if (groupBuy.productLink) {
         const linkRow = document.getElementById('sourceLinkRow');
         const linkTag = document.getElementById('sourceLink');
@@ -110,7 +103,6 @@ function renderRecruitmentDetail(groupBuy, participations) {
         }
     }
 
-    // 3. 인원 정보 (DTO: targetHeadcount, participationList.size)
     const targetCountEl = document.getElementById('targetCount');
     const currentCountEl = document.getElementById('currentCount');
 
@@ -118,7 +110,7 @@ function renderRecruitmentDetail(groupBuy, participations) {
     if (currentCountEl) currentCountEl.textContent = `${participations.length}명`;
 }
 
-// 하단 버튼 상태 관리
+// 버튼 상태 관리 (수정사항!!!)
 function setupJoinButton(groupBuy, participations) {
     const joinBtn = document.querySelector('.btn-join');
     if (!joinBtn) return;
@@ -127,8 +119,12 @@ function setupJoinButton(groupBuy, participations) {
     const targetCount = groupBuy.targetHeadcount || 0;
     const isFull = currentCount >= targetCount;
     
-    // 방장 여부 확인 (DTO: hostId 사용)
+    // 방장 여부 확인
     const isHost = (String(groupBuy.hostId) === String(currentUserId));
+    
+    // 상태 확인
+    const isRecruiting = (groupBuy.status === 'RECRUITING');
+    const isPaying = (groupBuy.status === 'IN_PROGRESS'); // 결제 진행 중 상태
 
     joinBtn.disabled = false;
     joinBtn.style.backgroundColor = '#4a90e2';
@@ -137,19 +133,44 @@ function setupJoinButton(groupBuy, participations) {
 
     if (isHost) {
         // [케이스 1] 방장
-        joinBtn.textContent = '결제 상태로 변경하기 (방장 전용)';
-        joinBtn.onclick = changePaymentStatus;
+        if (isRecruiting) {
+            joinBtn.textContent = '결제 상태로 변경하기 (방장 전용)';
+            joinBtn.onclick = changePaymentStatus;
+        } else if (isPaying) {
+            joinBtn.textContent = '결제 진행 중 (참여자 대기)';
+            joinBtn.disabled = true;
+            joinBtn.style.backgroundColor = '#888';
+        } else {
+            joinBtn.textContent = '모집 완료됨';
+            joinBtn.disabled = true;
+            joinBtn.style.backgroundColor = '#888';
+        }
         
     } else if (isParticipant) {
-        // [케이스 2] 참여자 (채팅방 ID가 DTO에 있으면 이동)
-        joinBtn.textContent = '채팅방으로 이동';
-        joinBtn.onclick = () => {
-            if (groupBuy.chatRoomId) {
-                window.location.href = `chat.html?roomId=${groupBuy.chatRoomId}`;
-            } else {
-                alert('아직 채팅방이 생성되지 않았습니다.');
-            }
-        };
+        // [케이스 2] 참여자
+        
+        if (isPaying) {
+            // [결제 버튼 노출] 결제 진행 중 상태라면 -> 결제 페이지로 이동
+            joinBtn.textContent = '결제하기';
+            joinBtn.style.backgroundColor = '#ff4444'; // 강조색 (빨강)
+            joinBtn.onclick = () => {
+                window.location.href = `payment.html?groupBuyId=${groupBuy.id}`;
+            };
+        } else if (isRecruiting) {
+            // 아직 모집 중이면 채팅방 이동
+            joinBtn.textContent = '채팅방으로 이동';
+            joinBtn.onclick = () => {
+                if (groupBuy.chatRoomId) {
+                    window.location.href = `chat.html?roomId=${groupBuy.chatRoomId}`;
+                } else {
+                    alert('아직 채팅방이 생성되지 않았습니다.');
+                }
+            };
+        } else {
+            joinBtn.textContent = '종료된 공구';
+            joinBtn.disabled = true;
+            joinBtn.style.backgroundColor = '#ccc';
+        }
 
     } else if (isFull) {
         // [케이스 3] 만석
@@ -159,13 +180,13 @@ function setupJoinButton(groupBuy, participations) {
         joinBtn.style.cursor = 'not-allowed';
 
     } else {
-        // [케이스 4] 일반 참여
+        // [케이스 4] 일반 참여 (아직 미참여)
         joinBtn.textContent = '참여하기';
         joinBtn.onclick = () => joinGroupBuy(groupBuy.id);
     }
 }
 
-// [API] 참여하기 요청
+// 참여하기 요청
 async function joinGroupBuy(groupBuyId) {
     if (!confirm('이 공동구매에 참여하시겠습니까?')) return;
 
@@ -174,7 +195,6 @@ async function joinGroupBuy(groupBuyId) {
         
         alert('참여가 완료되었습니다! 채팅방으로 이동할 수 있습니다.');
         
-        // 채팅방 토큰 저장
         const token = getToken();
         if (token && currentGroupBuy?.chatRoomId) {
             localStorage.setItem(`chatRoom_${currentGroupBuy.chatRoomId}`, JSON.stringify({
@@ -191,18 +211,12 @@ async function joinGroupBuy(groupBuyId) {
     }
 }
 
-// [API] 결제 상태 변경 요청
+// 결제 상태 변경 요청
 async function changePaymentStatus() {
     if (!confirm('결제 상태로 변경하시겠습니까?\n변경 후에는 참여자들이 결제를 진행할 수 있게 됩니다.')) return;
 
     try {
-        await fetch('/api/payment/start/${currentGroupBuy.id}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: 'Bearer '+localStorage.getItem('accessToken'),
-        },
-        });
+        await apiFetch(`/api/payment/start/${currentGroupBuy.id}`, { method: 'POST' });
         alert('상태가 변경되었습니다. 참여자들이 이제 결제할 수 있습니다.');
         window.location.reload();
     } catch (error) {
@@ -210,6 +224,7 @@ async function changePaymentStatus() {
     }
 }
 
+// 댓글 작성 이벤트
 function setupCommentEvent() {
     const btnWrite = document.getElementById('btnWriteComment');
     const inputComment = document.getElementById('commentInput');
