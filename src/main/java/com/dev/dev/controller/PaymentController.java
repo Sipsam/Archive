@@ -37,7 +37,6 @@ public class PaymentController {
             HttpServletRequest request,
             @PathVariable Long groupBuyId) {
         Long userId = extractUserId(request);
-        System.out.println("userId = " + userId + ", groupBuyId = " + groupBuyId);
         groupBuyService.startPaymentProcess(userId, groupBuyId);
         return ResponseEntity.ok("결제 프로세스가 시작되었습니다. (참여자별 수량 계산 완료)");
     }

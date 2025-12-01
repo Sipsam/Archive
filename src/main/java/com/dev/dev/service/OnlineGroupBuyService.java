@@ -156,17 +156,17 @@ public class OnlineGroupBuyService {
     public void startPaymentProcess(Long userId, Long groupBuyId) {
         OnlineGroupBuy groupBuy = groupBuyRepository.findById(groupBuyId)
                 .orElseThrow(() -> new IllegalArgumentException("공구 정보를 찾을 수 없습니다."));
-
+        System.out.println("check groupbuy id: " + groupBuy.getId());
         // 1. 방장 권한 체크
         if (!groupBuy.getHostUser().getId().equals(userId)) {
             throw new SecurityException("방장만 결제를 시작할 수 있습니다.");
         }
-
+        System.out.println("checked is host user");
         // 2. 인원 수 체크 (목표 인원과 현재 인원이 정확히 일치해야 함)
         if (groupBuy.getParticipationList().size() != groupBuy.getTargetHeadcount()) {
             throw new IllegalStateException("목표 인원이 정확히 채워져야 결제를 시작할 수 있습니다.");
         }
-
+        System.out.println("checked size matches target headcount");
         Product product = groupBuy.getProductId();
         int targetHeadcount = groupBuy.getTargetHeadcount();
 
@@ -180,6 +180,7 @@ public class OnlineGroupBuyService {
         for (OnlineParticipation participation : participations) {
             participation.setQuantity(individualQuantity);
         }
+        System.out.println("status update complete: " + individualQuantity + " items per participant");
 
         // 5. 공구 상태 변경 (RECRUITING -> PAYING)
         groupBuy.setStatus(GroupBuyStatus.IN_PROGRESS);
