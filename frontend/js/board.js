@@ -116,8 +116,7 @@ async function submitPost(event) {
             method: 'POST',
             headers: {
             'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            ...headers,
+            Authorization: 'Bearer '+localStorage.getItem('accessToken'),
             },
             body: postData
         });
