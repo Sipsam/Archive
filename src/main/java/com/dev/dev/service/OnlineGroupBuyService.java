@@ -37,7 +37,6 @@ public class OnlineGroupBuyService {
                 .collect(Collectors.toList());
     }
 
-    // 2. 공구 생성
     @Transactional
     public ResponseOnlineGroupByDto createGroupBuy(Long userId, RequestOnlineGroupBuyDto.Create req) {
         User host = userRepository.findById(userId)
@@ -53,12 +52,12 @@ public class OnlineGroupBuyService {
             throw new IllegalStateException("공구 생성을 위한 포인트가 부족합니다. (보유: " + currentPoint + ", 필요: " + deposit + ")");
         }
 
-        // 차감 수행
         host.setPoints(currentPoint - deposit);
 
-        OnlineGroupBuy groupBuy = OnlineGroupBuy.builder()//엔터티 생성. 바디를 통해 전달된 req를 반영하여 객체 생성(req는 Dto다)
+        // 1. 공구 생성
+        OnlineGroupBuy groupBuy = OnlineGroupBuy.builder()
                 .hostUser(host)
-                .productId(product) // 엔터티 변수명이 productId라면 맞음 (보통 product 권장)
+                .productId(product)
                 .title(req.getTitle())
                 .content(req.getContent())
                 .targetHeadcount(req.getTargetHeadcount())
@@ -66,13 +65,27 @@ public class OnlineGroupBuyService {
                 .status(GroupBuyStatus.RECRUITING)
                 .build();
 
-        OnlineGroupBuy saved = groupBuyRepository.save(groupBuy);//생성된 객체를 데이터베이스 테이블에 저장
+        OnlineGroupBuy saved = groupBuyRepository.save(groupBuy);
+
+        // 2. 채팅방 생성 및 방장 추가
         ChatRoom room = chatRoomService.createRoomForGroupBuy(saved.getId(), saved.getTitle());
         saved.setChatRoomId(room.getId());
         chatRoomService.addParticipant(room, host);
 
-        return ResponseOnlineGroupByDto.from(saved);//생성된 객체를 다시 ResponseOnlineGroupByDto형식으로 변환하여 반환
+        // ⭐ 3. (추가) 방장을 OnlineParticipation으로 자동 등록
+        OnlineParticipation hostParticipation = OnlineParticipation.builder()
+                .user(host)
+                .onlineGroupBuy(saved)
+                .quantity(null) // 나중에 startPaymentProcess()에서 자동으로 채워짐
+                .paymentStatus(PaymentStatus.PENDING)
+                .build();
+
+        participationRepository.save(hostParticipation);
+
+        // 4. Response 반환
+        return ResponseOnlineGroupByDto.from(saved);
     }
+
 
     // [삭제됨] registerProductFromUrl 메서드
     // 이유: 상품 등록 로직은 이제 ProductService에서 전담합니다.

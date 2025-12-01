@@ -5,10 +5,7 @@ import com.dev.dev.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -45,6 +42,19 @@ public class ProductController {
             result.put("message", "failed");
             return ResponseEntity.ok(result);
         }
+    }
+    // 상품 ID로 상품 조회
+    @GetMapping("/{productId}")
+    public ResponseEntity<?> getProduct(@PathVariable Long productId) {
+        Product product = productService.findById(productId);
+
+        if (product == null) {
+            return ResponseEntity
+                    .status(404)
+                    .body("Product not found: " + productId);
+        }
+
+        return ResponseEntity.ok(product);
     }
     private Map<String, Object> createErrorResponse(String message) {
         Map<String, Object> error = new HashMap<>();
