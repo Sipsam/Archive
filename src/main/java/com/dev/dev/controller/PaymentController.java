@@ -35,9 +35,16 @@ public class PaymentController {
     @PostMapping("/start/{groupBuyId}")
     public ResponseEntity<String> startPaymentProcess(
             HttpServletRequest request,
-            @PathVariable Long groupBuyId) {
+            @PathVariable String groupBuyId) {
         Long userId = extractUserId(request);
-        groupBuyService.startPaymentProcess(userId, groupBuyId);
+        Long parsedGroupBuyId;
+        try {
+            parsedGroupBuyId = Long.parseLong(groupBuyId);
+        } catch (NumberFormatException e) {
+            // 숫자가 아닌 문자열이 들어왔을 때 예외 처리 (선택 사항이지만 추천)
+            return ResponseEntity.badRequest().body("잘못된 공구 ID 형식입니다.");
+        }
+        groupBuyService.startPaymentProcess(userId, parsedGroupBuyId);
         return ResponseEntity.ok("결제 프로세스가 시작되었습니다. (참여자별 수량 계산 완료)");
     }
 
