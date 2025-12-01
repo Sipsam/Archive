@@ -2,45 +2,39 @@ package com.dev.dev.service;
 
 import com.dev.dev.entity.Product;
 import com.dev.dev.repository.ProductRepository;
-import io.github.bonigarcia.wdm.WebDriverManager;
-import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.openqa.selenium.By;
-import org.openqa.selenium.JavascriptExecutor;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeDriverService;
-import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.util.Arrays;
+import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Slf4j
 @Service
 public class ProductService {
+    private final ProductService self;
     private final ProductRepository productRepository;
     @Value("${naver.client.id:7zALpPUHFLIUrlLhcFOi}")
     private String NAVER_CLIENT_ID;
     @Value("${naver.client.secret:4GfMwG3hWC}")
     private String NAVER_CLIENT_SECRET;
 
-    public ProductService(ProductRepository productRepository) {
+    public ProductService(ProductRepository productRepository,
+                          @Lazy ProductService self) {
         this.productRepository = productRepository;
+        this.self = self;
     }
 
     /**
@@ -70,87 +64,80 @@ public class ProductService {
      * URL 기반으로 검색 API 호출 후 결과 로깅
      */
     public Product searchByUrl(String productUrl) {
-        WebDriverManager.chromedriver().setup();
-        ChromeOptions options = new ChromeOptions();
-        options.addArguments("--headless=new");
-        options.addArguments("--no-sandbox");
-        options.addArguments("--window-size=1920,1080");
-        options.addArguments("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36");
-        options.setExperimentalOption("excludeSwitches", Arrays.asList("enable-automation"));
-        options.setExperimentalOption("useAutomationExtension", false);
-        options.addArguments("--verbose");
-        options.addArguments("--log-level=0");
-        ChromeDriverService service = new ChromeDriverService.Builder()
-                .withVerbose(true)
-                .withLogFile(new File("/tmp/chromedriver.log"))
-                .build();
-        WebDriverManager.chromedriver().setup();
-        WebDriver driver = new ChromeDriver(service, options);
-        ((JavascriptExecutor) driver).executeScript(
-                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-        );
-        ((JavascriptExecutor) driver).executeScript(
-                "Object.defineProperty(navigator, 'languages', {get: () => ['ko-KR', 'ko']})"
-        );
-        ((JavascriptExecutor) driver).executeScript(
-                "Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3]})"
-        );
+        CompletableFuture<String> ret_val = CompletableFuture.supplyAsync(() -> {
+            try {
+                ProcessBuilder pb = new ProcessBuilder(
+                        "/opt/pyenv/bin/python",
+                        "/app/crawler/crawler.py",
+                        productUrl
+                );
+                pb.environment().put("PYTHONIOENCODING", "utf-8");
+                pb.redirectErrorStream(true);
+                Process process = pb.start();
+                BufferedReader reader =
+                        new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
+                String line;
+                String result = null;
+                while ((line = reader.readLine()) != null) {
+                    result = line;
+                }
+                process.waitFor();
+                return result;
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                return null;
+            }
+        });
+        String jsonStr;
+        try {
+            jsonStr = ret_val.get();
+        } catch (Exception e) {
+            throw new RuntimeException("Python 실행 실패", e);
+        }
+        if (jsonStr == null) throw new RuntimeException("Python 크롤러 JSON을 받지 못했습니다.");
+        JSONObject obj = new JSONObject(jsonStr);
+        String ogTitle = obj.optString("og_title");
+        log.info("og:title = {}", ogTitle);
+        if (ogTitle == null || ogTitle.isBlank()) throw new RuntimeException("og:title 파싱 실패");
+        String productName = ogTitle.split(" : ")[0].trim();
+        log.info("검색어로 사용할 상품명: {}", productName);
         Product product = null;
         try {
-            // 1. 페이지 접속 후 og:title 추출
-            driver.get(productUrl);
-            log.info("페이지 로드 완료: {}", driver.getPageSource());
-            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-            wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("meta[property='og:title']")));
-            String ogTitle = driver.findElement(By.cssSelector("meta[property='og:title']")).getAttribute("content");
-            log.info("og:title: {}", ogTitle);
-            // 2. ':' 기준으로 분리
-            String[] parts = ogTitle.split(" : ");
-            String productName = parts[0].trim();
-            log.info("검색어로 사용할 상품명: {}", productName);
-            // 3. Naver 쇼핑 API 반복 호출
             int display = 100;
             int start = 1;
             int total = Integer.MAX_VALUE;
             JSONObject matchedItem = null;
             while (start <= total && start <= 1000) {
                 JSONObject response = callNaverApi(productName, display, start);
-                log.info("API 호출 start={} display={}", start, display);
-                log.info("response: {}", response.toString(2));
                 total = response.optInt("total", 0);
                 JSONArray items = response.optJSONArray("items");
                 if (items != null) {
                     for (int i = 0; i < items.length(); i++) {
                         JSONObject item = items.getJSONObject(i);
                         String title = item.optString("title").replaceAll("<.*?>", "").trim();
-                        log.info("상품 {}: {}", start + i, title);
                         if (title.contains(productName)) {
                             matchedItem = item;
                             break;
                         }
                     }
                 }
-                if (matchedItem != null) {
-                    log.info("매칭된 상품 발견: {}", matchedItem.toString(2));
-                    break;
-                }
+                if (matchedItem != null) break;
                 start += display;
                 Thread.sleep(200);
             }
             if (matchedItem != null) {
-                if (productRepository.existsById(matchedItem.optLong("productId"))) {
+                long productId = matchedItem.optLong("productId");
+                if (productRepository.existsById(productId)) {
                     throw new IllegalStateException("EXISTS");
                 }
-                product = createProductFromItem(matchedItem);
+                product = self.createProductFromItem(matchedItem);
                 productRepository.save(product);
-                log.info("생성된 Product: {}", product);
             } else {
                 log.info("매칭된 상품 없음");
             }
         } catch (Exception e) {
             log.error("검색 및 Product 생성 실패", e);
-        } finally {
-            driver.quit();
         }
         return product;
     }
