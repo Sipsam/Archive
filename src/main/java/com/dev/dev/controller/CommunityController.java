@@ -33,6 +33,7 @@ public class CommunityController {
             @RequestBody PostDto.Request requestDto,
             @AuthenticationPrincipal UserDetails userDetails
     ){
+        System.out.println("UserDetails = " + userDetails);
         Long userId = Long.parseLong(userDetails.getUsername());
 
         return ResponseEntity.ok(communityService.createPost(userId, requestDto));

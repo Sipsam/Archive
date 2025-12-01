@@ -12,13 +12,17 @@ import lombok.*;
 @Table(name = "products")
 public class Product {
     @Id
-    private Long id; // 쇼핑 API의 productId를 그대로 사용
+    private Long id;
 
     private String name;
     private Integer price;
 
     @Column(name = "all_quantity")
     private Integer allQuantity;
+
     private String link;
-    private String unit; // g, kg, 개, 팩 등
+    private String unit;
+
+    private String imageUrl;   // ★ 추가됨
 }
+
