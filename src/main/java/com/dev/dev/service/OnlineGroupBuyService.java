@@ -97,6 +97,8 @@ public class OnlineGroupBuyService {
         return ResponseOnlineGroupByDto.from(groupBuy);//상세 조회는 공구 생성 로직에서 결과적으로 반환해서 보여주는 거랑 동일한 반환
     }
 
+
+
     // 5. 참여
     @Transactional
     public void participate(Long userId, Long groupBuyId) {
