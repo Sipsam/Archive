@@ -5,7 +5,7 @@ let paymentWidgets = null;
 let selectedPointAmount = 0; 
 
 document.addEventListener('DOMContentLoaded', async function() {
-    // 1. 인증 확인
+    // 1. 로그인 인증 확인
     if (!checkAuth()) { 
         alert('로그인이 필요합니다.');
         window.location.href = 'login.html';
@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         const myInfo = await apiFetch('/api/users/me'); 
         currentUserInfo = myInfo;
         
-        // 프로필 바인딩
+        // 프로필 UI 바인딩
         const nameElement = document.getElementById('userName');
         if (nameElement) nameElement.textContent = myInfo.nickname || '사용자';
         
@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         updatePointUI(myInfo.points);
         populateSettingsForm(myInfo);
         
-        // ⭐ [핵심] 참여 내역 로드 (비상 로직 포함)
+        // 참여 내역 로드 (비상 로직 포함)
         await loadMyParticipations();
         
         // 포인트 페이지 전용 로직
@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupSettingsForm();
 });
 
-// 내 참여 내역 로드 (데이터 누락 시 재요청 로직 추가)
+// 내 참여 내역 로드 (데이터 누락 시 재요청 로직 강화)
 async function loadMyParticipations() {
     const listContainer = document.getElementById('participationList');
     if (!listContainer) return;
@@ -55,34 +55,45 @@ async function loadMyParticipations() {
     try {
         // 1. 목록 조회 (백엔드 Lazy Loading으로 인해 껍데기만 올 가능성 있음)
         const data = await apiFetch('/api/users/me/participations');
+        
+        // 응답 구조 확인 (DTO 내부 리스트 추출)
         const onlineList = data.onlineParticipations || [];
         
         listContainer.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">데이터를 불러오는 중...</div>';
 
         if (onlineList.length === 0) {
-            listContainer.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">참여한 내역이 없습니다.</div>';
+            listContainer.innerHTML = `
+                <div style="padding: 40px; text-align: center; color: #999; background-color: #f9f9f9; border-radius: 8px;">
+                    <p>아직 참여한 모집글이 없습니다.</p>
+                    <a href="index.html" style="color: #4a90e2; text-decoration: none; font-weight: bold; margin-top: 10px; display: inline-block;">
+                        모집글 보러 가기 &rarr;
+                    </a>
+                </div>`;
             return;
         }
 
-        // 2. 제목이 없는 항목들은 ID로 상세 정보를 다시 긁어옵니다. (수정 api 2번 호출)
+        // 2. 제목이 없는 항목들은 ID로 상세 정보를 다시 긁어옵니다.
         const enrichedList = await Promise.all(onlineList.map(async (item) => {
             let groupBuy = item.onlineGroupBuy;
             
-            // "ID는 있는데 제목이 없다?" -> 백엔드가 내용을 안 보내준 상황
+            // "ID는 있는데 제목(title)이 없다?" -> 백엔드가 내용을 안 보내준 상황 (Lazy Loading)
             if (groupBuy && groupBuy.id && !groupBuy.title) {
                 try {
-                    // 상세 API를 호출해서 꽉 찬 정보를 받아옴. (상세 조회 API에서도 product가 Lazy면 상품명은 여전히 없을 수 있음)
+                    // 상세 API를 호출해서 꽉 찬 정보를 받아옵니다. (2차 호출)
                     const fullInfo = await apiFetch(`/api/groupbuys/online/${groupBuy.id}`);
                     
                     // 만약 상세 조회한 정보에 상품 정보가 또 없다면? (3차 비상 - 상품 ID로 조회)
-                    if (fullInfo.product && !fullInfo.product.name && fullInfo.product.id) {
+                    // (상품 ID는 있는데 이름이 없는 경우)
+                    const pId = fullInfo.product?.id || fullInfo.productId;
+                    if (pId && (!fullInfo.product || !fullInfo.product.name)) {
                          try {
-                             const productInfo = await apiFetch(`/api/products/${fullInfo.product.id}`);
+                             const productInfo = await apiFetch(`/api/products/${pId}`);
+                             // 상품 정보를 수동으로 합체
                              fullInfo.product = productInfo;
                          } catch(e) {}
                     }
 
-                    // 정보를 교체
+                    // 빈 껍데기 정보를 꽉 찬 정보로 교체합니다.
                     item.onlineGroupBuy = fullInfo;
                 } catch (e) {
                     console.warn(`공구 ID ${groupBuy.id} 상세 정보 복구 실패`, e);
@@ -105,13 +116,17 @@ async function loadMyParticipations() {
             card.className = 'activity-item'; 
             card.style.borderLeft = '4px solid #4a90e2';
             card.style.marginBottom = '15px';
+            card.style.padding = '15px';
+            card.style.backgroundColor = '#fff';
+            card.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)';
+            card.style.borderRadius = '8px';
             
             // 채팅방 버튼
             let chatButtonHtml = '';
             if (groupBuy.chatRoomId) {
                 chatButtonHtml = `
                     <button onclick="location.href='chat.html?roomId=${groupBuy.chatRoomId}'" 
-                            style="margin-top:10px; padding:8px 12px; background:#4a90e2; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">
+                            style="margin-top:10px; padding:8px 12px; background:#4a90e2; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size:13px;">
                         💬 채팅방 입장
                     </button>
                 `;
@@ -121,19 +136,19 @@ async function loadMyParticipations() {
 
             card.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:start;">
-                    <div>
-                        <h3 style="margin-bottom:5px; font-size:16px; color:#333;">
+                    <div style="flex: 1;">
+                        <h3 style="margin-bottom:8px; font-size:16px; color:#333; font-weight:bold;">
                             <a href="recruitment-detail.html?id=${groupBuy.id}" style="text-decoration:none; color:#333;">
                                 ${groupBuy.title || '제목 로딩 실패'}
                             </a>
                         </h3>
                         <p style="margin-bottom:5px; color:#666; font-size:14px;">상품: ${product ? product.name : '정보 없음'}</p>
                         <p style="font-size:13px; color:#888;">참여일: ${dateStr}</p>
-                        <span style="display:inline-block; margin-top:5px; font-size:13px; font-weight:bold; color:#4a90e2;">
+                        <span style="display:inline-block; margin-top:8px; font-size:13px; font-weight:bold; color:#4a90e2; background-color:#eef6ff; padding:3px 8px; border-radius:4px;">
                             상태: ${item.paymentStatus || '결제 대기'}
                         </span>
                     </div>
-                    <div style="text-align:right;">
+                    <div style="text-align:right; min-width: 100px;">
                          ${chatButtonHtml}
                     </div>
                 </div>
