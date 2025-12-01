@@ -102,20 +102,16 @@ function renderCard(groupBuy, container) {
     const imageEl = document.createElement('productImage');
     imageEl.setAttribute("id", "productImage");
 
-    // 요소가 실제로 존재하는지 확인 (에러 방지)
-    if (imageEl) {
-        // groupBuy 객체에 이미지 URL이 있는지 확인
-        if (groupBuy && groupBuy.productImageUrl) {
-            // 이미지가 있다면: img 태그를 생성해서 넣음
-            imageEl.innerHTML = `<img src="${groupBuy.productImageUrl}" alt="${groupBuy.productName}" style="width: 100%; height: 100%; object-fit: contain; border-radius: 8px;">`;
-        } else {
-            // 이미지가 없다면: '이미지 없음' 박스로 유지
-            imageEl.innerHTML = `<div class="card-image">이미지 없음</div>`;
-        }
+    // groupBuy 객체에 이미지 URL이 있는지 확인
+    if (groupBuy && groupBuy.productImageUrl) {
+        // 이미지가 있다면: img 태그를 생성해서 넣음
+        imageEl.innerHTML = `<img src="${groupBuy.productImageUrl}" alt="${groupBuy.productName}" style="width: 100%; height: 100%; object-fit: contain; border-radius: 8px;">`;
+    } else {
+        // 이미지가 없다면: '이미지 없음' 박스로 유지
+        imageEl.innerHTML = `<div class="card-image">이미지 없음</div>`;
     }
-
+    card.appendChild(imageEl);
     card.innerHTML = `
-        ${imageEl}
         <div class="card-info">
             <h3>${groupBuy.title}</h3>
             <p style="color:#666; font-size:14px; margin-bottom:5px;">${product ? product.name : '상품정보 없음'}</p>
