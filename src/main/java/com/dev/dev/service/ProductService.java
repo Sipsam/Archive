@@ -36,7 +36,9 @@ public class ProductService {
         this.productRepository = productRepository;
         this.self = self;
     }
-
+    public Product findById(Long id) {
+        return productRepository.findById(id).orElse(null);
+    }
     /**
      * 네이버 쇼핑 검색 API 호출
      */
