@@ -336,7 +336,7 @@ function renderChatList(rooms) {
 }
 
 function connectWebSocket(token) {
-    const socketUrl = 'ws://158.247.200.216/ws/chat'; 
+    const socket = new WebSocket(`ws://together1.kro.kr:8080/ws/chat?token=${token}`);
     let socket;
     try { socket = new WebSocket(socketUrl); } catch (e) { return; }
 
