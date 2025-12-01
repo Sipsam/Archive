@@ -52,3 +52,7 @@ gradle/
 # 빌드 결과물
 build/
 .gradle/
+
+# python 관련 파일들
+crawler/
+requirements.txt
