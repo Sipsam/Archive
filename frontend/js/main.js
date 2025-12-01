@@ -103,6 +103,21 @@ function renderCard(groupBuy, container) {
         imgHtml = `<img src="${product.imageUrl}" class="card-image" style="object-fit:cover;" alt="${product.name}">`;
     }
 
+    // HTML에서 이미지가 들어갈 요소를 선택
+    const imageEl = document.getElementById('productImage');
+
+    // 요소가 실제로 존재하는지 확인
+    if (imageEl) {
+        // groupBuy 객체에 이미지 URL이 있는지 확인
+        if (groupBuy && groupBuy.productImageUrl) {
+            // 이미지가 있다면 img 태그를 삽입
+            imageEl.innerHTML = `<img src="${groupBuy.productImageUrl}" alt="${groupBuy.productName}" style="width: 100%; height: 100%; object-fit: contain; border-radius: 8px;">`;
+        } else {
+            // 이미지가 없다면 기존의 '이미지 없음' 텍스트 유지
+            imageEl.innerHTML = `<div class="card-image">이미지 없음</div>`;
+        }
+    }
+
     card.innerHTML = `
         ${imgHtml}
         <div class="card-info">

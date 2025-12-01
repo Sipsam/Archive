@@ -196,7 +196,7 @@ async function changePaymentStatus() {
     if (!confirm('결제 상태로 변경하시겠습니까?\n변경 후에는 참여자들이 결제를 진행할 수 있게 됩니다.')) return;
 
     try {
-        await apiFetch(`/api/groupbuys/online/${currentGroupBuy.id}/status`, { method: 'POST' });
+        await apiFetch(`/api/payments/start/${currentGroupBuy.id}`, { method: 'POST' });
         alert('상태가 변경되었습니다. 참여자들이 이제 결제할 수 있습니다.');
         window.location.reload();
     } catch (error) {
