@@ -81,6 +81,11 @@ async function loadRecruitmentList() {
                         <div class="recruiter-avatar">👤</div>
                         <div class="recruiter-details">
                             <span class="recruiter-name">${groupBuy.hostUser?.nickname || groupBuy.hostUser?.name || '모집자'}</span>
+                            const scoreElement = document.querySelector('.score');
+                            if (scoreElement) {
+                                const temp = myInfo.mannerTemp !== undefined ? myInfo.mannerTemp : 36.5;
+                                scoreElement.textContent = temp.toFixed(1);
+                            }
                             <span class="recruiter-date">${createdDate}</span>
                         </div>
                     </div>
