@@ -6,14 +6,17 @@ let paymentStatus = 'PENDING';
 let widgets = null; 
 let currentAmount = 0; 
 let selectedRating = 0; 
+let myParticipationId = null; 
 
 document.addEventListener('DOMContentLoaded', async function() {
+    // 1. 로그인 인증 확인
     if (!checkAuth()) {
         alert('로그인이 필요합니다.');
         window.location.href = 'login.html';
         return;
     }
 
+    // 2. URL 파라미터 확인
     const urlParams = new URLSearchParams(window.location.search);
     const groupBuyId = urlParams.get('groupBuyId');
 
@@ -23,18 +26,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         return;
     }
 
+    // 3. 내 정보 로드
     try {
         currentUser = await apiFetch('/api/users/me');
     } catch (e) {
         console.error("User load fail");
     }
 
+    // 4. 데이터 로드 및 초기화
     await loadUserInfo();          
     await loadPaymentInfo(groupBuyId); 
     
+    // 별점 이벤트 초기화
     initStarRating();
 });
 
+// 사용자 정보 로드 및 폼 채우기
 async function loadUserInfo() {
     try {
         const user = await apiFetch('/api/users/me');
@@ -54,21 +61,19 @@ async function loadUserInfo() {
     }
 }
 
+// 결제 정보 로드 (상태 체크 포함)
 async function loadPaymentInfo(groupBuyId) {
     try {
-        // 1. 공구 상세 정보 가져오기
         currentGroupBuy = await apiFetch(`/api/groupbuys/online/${groupBuyId}`);
-        
-        // 2. 별도 API 호출 대신, 상세 정보 안에 있는 참여자 리스트 사용
         const participations = currentGroupBuy.participationList || [];
-        
         const myInfo = await apiFetch('/api/users/me');
         
-        // DTO 구조에 맞춰 userId 비교 (String 변환으로 안전하게 비교)
         const myParticipation = participations.find(p => String(p.userId) === String(myInfo.id));
         
         if (myParticipation) {
             paymentStatus = myParticipation.paymentStatus || 'PENDING';
+            // 내 참여 ID를 저장
+            myParticipationId = myParticipation.id; 
         }
 
         // 이미 결제된 상태(PAID) 체크
@@ -86,7 +91,6 @@ async function loadPaymentInfo(groupBuyId) {
             return; 
         }
 
-        // 상품 정보 표시
         const productNameEl = document.querySelector('.product-name');
         if (productNameEl && currentGroupBuy.productName) {
             productNameEl.textContent = currentGroupBuy.productName;
@@ -104,8 +108,8 @@ async function loadPaymentInfo(groupBuyId) {
     }
 }
 
+// 상품 정보 및 가격 렌더링
 function renderProductInfo(groupBuy) {
-    // DTO 구조 호환성 처리
     const price = groupBuy.productPrice !== undefined ? groupBuy.productPrice : (groupBuy.product ? groupBuy.product.price : 0);
     
     const totalPrice = price || 0;
@@ -134,6 +138,7 @@ function renderProductInfo(groupBuy) {
     return totalAmount;
 }
 
+// 토스 페이먼츠 초기화
 async function initTossPayments(amount) {
     const clientKey = "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm"; 
     const tossPayments = TossPayments(clientKey);
@@ -147,6 +152,7 @@ async function initTossPayments(amount) {
     ]);
 }
 
+// 결제 버튼 상태 관리
 function setupPaymentButton() {
     const paymentBtn = document.getElementById('payment-button');
     if (!paymentBtn) return;
@@ -166,6 +172,7 @@ function setupPaymentButton() {
     }
 }
 
+// 결제 요청 프로세스
 async function processPayment() {
     const username = document.getElementById("username").value;
     const email = document.getElementById("email").value;
@@ -177,10 +184,14 @@ async function processPayment() {
         return;
     }
 
+    // 여기서 myParticipationId를 체크합니다.
+    if (!myParticipationId) {
+        alert("참여 정보를 찾을 수 없습니다. (ID 누락) 페이지를 새로고침해주세요.");
+        return;
+    }
+
     try {
-        // orderId 형식을 백엔드가 파싱할 수 있게 변경
-        // 형식: PART_{참여ID}_{랜덤값}
-        // 백엔드는 '_'로 쪼개서 두 번째 값(myParticipationId)을 사용함
+        // 백엔드가 인식할 수 있는 ID 형식 (PART_{ID}_{TIMESTAMP})
         const orderId = `PART_${myParticipationId}_${new Date().getTime()}`; 
         
         const successUrl = window.location.origin + `/success.html?groupBuyId=${currentGroupBuy.id}`;
@@ -200,7 +211,8 @@ async function processPayment() {
     }
 }
 
-// 별점 및 리뷰 기능
+// 별점 및 리뷰 관련 함수들
+
 function initStarRating() {
     const stars = document.querySelectorAll('.star');
     const ratingValue = document.getElementById('ratingValue');
