@@ -16,7 +16,9 @@ public class CorsConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOriginPatterns(Arrays.asList(
                 "http://localhost:*",
-                "http://127.0.0.1:*"
+                "http://127.0.0.1:*",
+                "https://together1.kro.kr",
+                "http://together1.kro.kr"
         ));
         config.addAllowedMethod("*");
         config.addAllowedHeader("*");
