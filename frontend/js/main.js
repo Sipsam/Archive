@@ -1,12 +1,12 @@
 // frontend/js/main.js
 
 document.addEventListener('DOMContentLoaded', async function() {
-    // 기존 초기화 로직
+    // 1. 초기화 로직
     updateAuthButton(); 
     initChatSidebar();
-    setupModalEvents(); // 모달 이벤트 연결 함수 호출
+    setupModalEvents(); // 모달 이벤트 연결
 
-    // 검색 버튼 및 엔터키 이벤트 연결
+    // 2. 검색 버튼 및 엔터키 이벤트 연결
     const searchBtn = document.getElementById('searchButton');
     const searchInput = document.getElementById('searchInput');
 
@@ -17,15 +17,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    // 초기 화면: 인기 모집글 3개 로드
+    // 3. 인기 모집글 로드
     await loadPopularGroupBuys();
 });
 
 // ==========================================
-// 수정 : 인기 모집글 및 검색 기능
+// 1. 인기 모집글 및 검색 기능
 // ==========================================
 
-// 인기 모집글 로드 함수
+// 인기 모집글 로드 함수 (종료된 공구 제외)
 async function loadPopularGroupBuys() {
     const contentGrid = document.getElementById('contentGrid');
     if (!contentGrid) return;
@@ -33,13 +33,16 @@ async function loadPopularGroupBuys() {
     try {
         const groupBuys = await apiFetch('/api/groupbuys/online');
         
-        // 참여자 수(participationList 크기) 기준으로 내림차순 정렬 후 상위 3개 자르기
+        // 1. status가 'COMPLETED'가 아닌 것만 필터링
+        // 2. 참여자 수(participationList 크기) 기준으로 내림차순 정렬
+        // 3. 상위 3개 자르기
         const popularList = groupBuys
+            .filter(gb => gb.status !== 'COMPLETED') 
             .sort((a, b) => (b.participationList?.length || 0) - (a.participationList?.length || 0))
             .slice(0, 3);
 
         if (popularList.length === 0) {
-            contentGrid.innerHTML = '<p style="text-align:center; color:#888; grid-column:1/-1; padding: 40px;">등록된 모집글이 없습니다.</p>';
+            contentGrid.innerHTML = '<p style="text-align:center; color:#888; grid-column:1/-1; padding: 40px;">진행 중인 인기 모집글이 없습니다.</p>';
             return;
         }
 
@@ -72,7 +75,6 @@ async function searchGroupBuys(keyword) {
         contentGrid.innerHTML = ''; // 초기화
 
         if (results.length === 0) {
-            // 결과 없음 문구 표시
             contentGrid.innerHTML = `
                 <div style="grid-column: 1 / -1; text-align: center; padding: 50px; color: #666;">
                     <p style="font-size: 18px; font-weight: bold;">'${keyword}'에 대한 검색 결과가 없습니다.</p>
@@ -97,39 +99,29 @@ function renderCard(groupBuy, container) {
     const card = document.createElement('div');
     card.className = 'content-card';
     card.onclick = () => window.location.href = `recruitment-detail.html?id=${groupBuy.id}`;
-    // 1) 이미지 요소 추가
-    const imageEl = document.createElement("div");
-    imageEl.id = "productImage";
-    
-    if (groupBuy && groupBuy.productImageUrl) {
-        imageEl.innerHTML = `
-            <img src="${groupBuy.productImageUrl}"
-                 alt="${groupBuy.productName}"
-                 style="width:100%; height:100%; object-fit:contain; border-radius:8px;">
-        `;
-    } else {
-        imageEl.innerHTML = `<div class="card-image">이미지 없음</div>`;
+
+    // 이미지 처리
+    let imgHtml = `<div class="card-image">이미지 없음</div>`;
+    if (groupBuy.productImageUrl) {
+        imgHtml = `<div class="card-image" style="padding:0;"><img src="${groupBuy.productImageUrl}" alt="${groupBuy.productName}" style="width: 100%; height: 100%; object-fit: cover;"></div>`;
     }
-    card.appendChild(imageEl);
-    // 2) info 박스 추가
-    const infoEl = document.createElement("div");
-    infoEl.className = "card-info";
-    infoEl.innerHTML = `
-        <h3>${groupBuy.title}</h3>
-        <p style="color:#666; font-size:14px; margin-bottom:5px;">
-            ${product ? product.name : '상품정보 없음'}
-        </p>
-        <div style="margin-top:10px; display:flex; justify-content:space-between; color:#4a90e2; font-weight:bold;">
-            <span>👤 ${currentCount}명 참여</span>
-            <span>목표 ${groupBuy.targetHeadcount}명</span>
+
+    card.innerHTML = `
+        ${imgHtml}
+        <div class="card-info">
+            <h3>${groupBuy.title}</h3>
+            <p style="color:#666; font-size:14px; margin-bottom:5px;">${product ? product.name : '상품정보 없음'}</p>
+            <div style="margin-top:10px; display:flex; justify-content:space-between; color:#4a90e2; font-weight:bold;">
+                <span>👤 ${currentCount}명 참여</span>
+                <span>목표 ${groupBuy.targetHeadcount}명</span>
+            </div>
         </div>
     `;
-    card.appendChild(infoEl);
     container.appendChild(card);
 }
 
 // ==========================================
-// 2. 기존 기능: UI 및 모집글 등록
+// 2. UI 및 모집글 등록 (모달, 인증 버튼)
 // ==========================================
 
 function setupModalEvents() {
@@ -293,7 +285,7 @@ async function registerGroupBuy(productNumber, productUrl, targetHeadcount, titl
 }
 
 // ==========================================
-// 3. 기존 기능: 실시간 채팅 사이드바
+// 3. 실시간 채팅 사이드바
 // ==========================================
 
 function initChatSidebar() {

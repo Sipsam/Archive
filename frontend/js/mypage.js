@@ -5,22 +5,18 @@ let paymentWidgets = null;
 let selectedPointAmount = 0; 
 
 document.addEventListener('DOMContentLoaded', async function() {
-    // 1. 로그인 인증 확인
     if (!checkAuth()) { 
         alert('로그인이 필요합니다.');
         window.location.href = 'login.html';
         return; 
     }
     
-    // 2. 탭 및 초기 설정
     setupTabs();
 
     try {
-        // 3. 내 정보 로드
         const myInfo = await apiFetch('/api/users/me'); 
         currentUserInfo = myInfo;
         
-        // 프로필 UI 바인딩
         const nameElement = document.getElementById('userName');
         if (nameElement) nameElement.textContent = myInfo.nickname || '사용자';
         
@@ -33,10 +29,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         updatePointUI(myInfo.points);
         populateSettingsForm(myInfo);
         
-        // 참여 내역 로드 (비상 로직 포함)
+        // 참여 내역 로드
         await loadMyParticipations();
         
-        // 포인트 페이지 전용 로직
         if(document.getElementById('pointHistoryList')) await loadMyPointHistory();
         if (document.getElementById('payment-method')) await initPointPayment();
 
@@ -47,122 +42,136 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupSettingsForm();
 });
 
-// 내 참여 내역 로드 (데이터 누락 시 재요청 로직 강화)
+// [수정됨] 참여 내역 로드 및 분류 (진행중 vs 완료됨)
 async function loadMyParticipations() {
-    const listContainer = document.getElementById('participationList');
-    if (!listContainer) return;
+    const activeListContainer = document.getElementById('participationList');
+    const completedListContainer = document.getElementById('completedList'); // [NEW] 완료 목록
+
+    if (!activeListContainer) return;
 
     try {
-        // 1. 목록 조회 (백엔드 Lazy Loading으로 인해 껍데기만 올 가능성 있음)
         const data = await apiFetch('/api/users/me/participations');
-        
-        // 응답 구조 확인 (DTO 내부 리스트 추출)
         const onlineList = data.onlineParticipations || [];
         
-        listContainer.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">데이터를 불러오는 중...</div>';
-
         if (onlineList.length === 0) {
-            listContainer.innerHTML = `
-                <div style="padding: 40px; text-align: center; color: #999; background-color: #f9f9f9; border-radius: 8px;">
-                    <p>아직 참여한 모집글이 없습니다.</p>
-                    <a href="index.html" style="color: #4a90e2; text-decoration: none; font-weight: bold; margin-top: 10px; display: inline-block;">
-                        모집글 보러 가기 &rarr;
-                    </a>
-                </div>`;
+            activeListContainer.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">참여한 내역이 없습니다.</div>';
             return;
         }
 
-        // 2. 제목이 없는 항목들은 ID로 상세 정보를 다시 긁어옵니다.
+        // 상세 정보 보정 (Lazy Loading 대응)
         const enrichedList = await Promise.all(onlineList.map(async (item) => {
             let groupBuy = item.onlineGroupBuy;
-            
-            // "ID는 있는데 제목(title)이 없다?" -> 백엔드가 내용을 안 보내준 상황 (Lazy Loading)
             if (groupBuy && groupBuy.id && !groupBuy.title) {
                 try {
-                    // 상세 API를 호출해서 꽉 찬 정보를 받아옵니다. (2차 호출)
                     const fullInfo = await apiFetch(`/api/groupbuys/online/${groupBuy.id}`);
-                    
-                    // 만약 상세 조회한 정보에 상품 정보가 또 없다면? (3차 비상 - 상품 ID로 조회)
-                    // (상품 ID는 있는데 이름이 없는 경우)
                     const pId = fullInfo.product?.id || fullInfo.productId;
                     if (pId && (!fullInfo.product || !fullInfo.product.name)) {
                          try {
                              const productInfo = await apiFetch(`/api/products/${pId}`);
-                             // 상품 정보를 수동으로 합체
                              fullInfo.product = productInfo;
                          } catch(e) {}
                     }
-
-                    // 빈 껍데기 정보를 꽉 찬 정보로 교체합니다.
                     item.onlineGroupBuy = fullInfo;
-                } catch (e) {
-                    console.warn(`공구 ID ${groupBuy.id} 상세 정보 복구 실패`, e);
-                }
+                } catch (e) {}
             }
             return item;
         }));
 
-        listContainer.innerHTML = ''; // 로딩 문구 제거
+        // 리스트 초기화
+        activeListContainer.innerHTML = '';
+        if (completedListContainer) completedListContainer.innerHTML = '';
 
-        // 3. 화면 그리기
+        // 분류 및 렌더링
         enrichedList.forEach(item => {
-            const groupBuy = item.onlineGroupBuy; 
+            const groupBuy = item.onlineGroupBuy;
             if (!groupBuy) return;
 
-            const product = groupBuy.product;
-            const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '-';
+            // [분류 로직] 상태가 COMPLETED이면 완료된 목록으로, 아니면 참여중 목록으로
+            const isCompleted = (groupBuy.status === 'COMPLETED');
+            const targetContainer = isCompleted ? completedListContainer : activeListContainer;
 
-            const card = document.createElement('div');
-            card.className = 'activity-item'; 
-            card.style.borderLeft = '4px solid #4a90e2';
-            card.style.marginBottom = '15px';
-            card.style.padding = '15px';
-            card.style.backgroundColor = '#fff';
-            card.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)';
-            card.style.borderRadius = '8px';
-            
-            // 채팅방 버튼
-            let chatButtonHtml = '';
-            if (groupBuy.chatRoomId) {
-                chatButtonHtml = `
-                    <button onclick="location.href='chat.html?roomId=${groupBuy.chatRoomId}'" 
-                            style="margin-top:10px; padding:8px 12px; background:#4a90e2; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size:13px;">
-                        💬 채팅방 입장
-                    </button>
-                `;
-            } else {
-                chatButtonHtml = `<span style="font-size:12px; color:#999; display:inline-block; margin-top:10px;">(채팅방 준비중)</span>`;
+            if (targetContainer) {
+                renderParticipationItem(item, targetContainer);
             }
-
-            card.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:start;">
-                    <div style="flex: 1;">
-                        <h3 style="margin-bottom:8px; font-size:16px; color:#333; font-weight:bold;">
-                            <a href="recruitment-detail.html?id=${groupBuy.id}" style="text-decoration:none; color:#333;">
-                                ${groupBuy.title || '제목 로딩 실패'}
-                            </a>
-                        </h3>
-                        <p style="margin-bottom:5px; color:#666; font-size:14px;">상품: ${product ? product.name : '정보 없음'}</p>
-                        <p style="font-size:13px; color:#888;">참여일: ${dateStr}</p>
-                        <span style="display:inline-block; margin-top:8px; font-size:13px; font-weight:bold; color:#4a90e2; background-color:#eef6ff; padding:3px 8px; border-radius:4px;">
-                            상태: ${item.paymentStatus || '결제 대기'}
-                        </span>
-                    </div>
-                    <div style="text-align:right; min-width: 100px;">
-                         ${chatButtonHtml}
-                    </div>
-                </div>
-            `;
-            listContainer.appendChild(card);
         });
+
+        // 빈 상태 처리
+        if (activeListContainer.children.length === 0) {
+            activeListContainer.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">진행 중인 공구가 없습니다.</div>';
+        }
+        if (completedListContainer && completedListContainer.children.length === 0) {
+            completedListContainer.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">완료된 공구가 없습니다.</div>';
+        }
 
     } catch (error) {
         console.error('참여 내역 로드 실패:', error);
-        listContainer.innerHTML = '<div style="padding:20px; text-align:center; color:red;">목록을 불러오지 못했습니다.</div>';
     }
 }
 
-// --- [기존 기능 유지] 포인트 결제, 탭, 설정 등 ---
+// [NEW] 개별 아이템 렌더링 함수
+function renderParticipationItem(item, container) {
+    const groupBuy = item.onlineGroupBuy;
+    const product = groupBuy.product;
+    const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '-';
+    
+    // [수정됨] 상태 텍스트 변환
+    const statusText = getStatusText(item);
+
+    const card = document.createElement('div');
+    card.className = 'activity-item'; 
+    card.style.borderLeft = '4px solid #4a90e2';
+    card.style.marginBottom = '15px';
+    card.style.padding = '15px';
+    card.style.backgroundColor = '#fff';
+    card.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)';
+    card.style.borderRadius = '8px';
+    
+    // 채팅방 버튼
+    let chatButtonHtml = '';
+    if (groupBuy.chatRoomId) {
+        chatButtonHtml = `
+            <button onclick="location.href='chat.html?roomId=${groupBuy.chatRoomId}'" 
+                    style="margin-top:10px; padding:8px 12px; background:#4a90e2; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size:13px;">
+                💬 채팅방
+            </button>
+        `;
+    }
+
+    card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:start;">
+            <div style="flex: 1;">
+                <h3 style="margin-bottom:8px; font-size:16px; color:#333; font-weight:bold;">
+                    <a href="recruitment-detail.html?id=${groupBuy.id}" style="text-decoration:none; color:#333;">
+                        ${groupBuy.title || '제목 로딩 실패'}
+                    </a>
+                </h3>
+                <p style="margin-bottom:5px; color:#666; font-size:14px;">상품: ${product ? product.name : '정보 없음'}</p>
+                <p style="font-size:13px; color:#888;">참여일: ${dateStr}</p>
+                <span style="display:inline-block; margin-top:8px; font-size:13px; font-weight:bold; color:#4a90e2; background-color:#eef6ff; padding:3px 8px; border-radius:4px;">
+                    상태: ${statusText}
+                </span>
+            </div>
+            <div style="text-align:right; min-width: 80px;">
+                 ${chatButtonHtml}
+            </div>
+        </div>
+    `;
+    container.appendChild(card);
+}
+
+// [NEW] 상태 텍스트 변환 헬퍼 함수
+function getStatusText(item) {
+    const gbStatus = item.onlineGroupBuy.status; // RECRUITING, IN_PROGRESS, COMPLETED
+    const myPayStatus = item.paymentStatus;      // PENDING, PAID
+
+    if (gbStatus === 'COMPLETED') return '종료됨 (배송 준비)';
+    if (myPayStatus === 'PAID') return '결제 완료';
+    if (gbStatus === 'IN_PROGRESS') return '결제 진행 중';
+    
+    return '모집 중 (참여 완료)';
+}
+
+// --- 기타 설정 관련 함수들 (기존 유지) ---
 
 async function initPointPayment() {
     const clientKey = "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm"; 
