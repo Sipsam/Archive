@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     await loadPopularGroupBuys();
 });
 
-// 핫한 모집글 로드 (꽉 찬 공구 제외)
+// [핵심 수정] 핫한 모집글 로드 (꽉 찬 공구 제외)
 async function loadPopularGroupBuys() {
     const contentGrid = document.getElementById('contentGrid');
     if (!contentGrid) return;
@@ -38,8 +38,8 @@ async function loadPopularGroupBuys() {
             .filter(gb => {
                 const current = gb.participationList?.length || 0;
                 const target = gb.targetHeadcount || 0;
-                // 종료되지 않았고, 아직 자리가 남은 공구만 통과
-                return gb.PaymentStatus !== 'COMPLETED' && current < target;
+                // [수정 포인트] 종료되지 않았고, 아직 자리가 남은 공구만 통과
+                return gb.status !== 'COMPLETED' && current < target;
             })
             .sort((a, b) => (b.participationList?.length || 0) - (a.participationList?.length || 0));
 
