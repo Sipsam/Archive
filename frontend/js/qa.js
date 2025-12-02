@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // 폼 데이터 가져오기
             const title = this.querySelector('input[name="title"]').value;
-            const message = this.querySelector('textarea[name="content"]').value;
+            const message = this.querySelector('textarea[name="message"]').value;
 
             // API 호출 함수 실행
             await sendQuestion(title, content);
@@ -53,7 +53,7 @@ async function sendQuestion(title, content) {
             },
             body: JSON.stringify({
                 title: title,
-                message: message
+                message: content
             })
         });
 
