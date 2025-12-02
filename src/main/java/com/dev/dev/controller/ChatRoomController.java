@@ -20,11 +20,11 @@ public class ChatRoomController {
     private final ChatRoomService chatRoomService;
     private final ChatMessageService chatMessageService;
 
-    // 사이드바에서 호출하는 API: GET /api/chat/rooms
     @GetMapping("/rooms")
     public List<ChatRoomListResponse> getMyChatRooms(@AuthenticationPrincipal User user) {
         return chatRoomService.getRoomsForUser(user.getId());
     }
+
     @GetMapping("/rooms/{roomId}/messages")
     public List<ChatMessageResponse> getRoomMessages(
             @PathVariable Long roomId,
@@ -33,7 +33,10 @@ public class ChatRoomController {
         // 1. 유저가 이 방의 참여자인지 검증
         chatRoomService.validateParticipant(roomId, user.getId());
 
-        // 2. 메시지 목록 반환 (DTO 형태)
+        // [추가] 2. 메시지 목록을 조회했으므로 '읽음' 처리 (시간 업데이트)
+        chatRoomService.updateLastReadAt(roomId, user.getId());
+
+        // 3. 메시지 목록 반환 (DTO 형태)
         return chatMessageService.getMessagesByRoomId(roomId);
     }
 }
