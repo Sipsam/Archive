@@ -48,9 +48,12 @@ async function loadRecruitmentList() {
             const dateStr = dateObj.toLocaleDateString('ko-KR');
             const createdDate = groupBuy.createdAt ? new Date(groupBuy.createdAt).toLocaleDateString('ko-KR') : '-';
             
-            // 기본값 설정 (API 호출 전)
-            const defaultName = groupBuy.hostName || '모집자';
-            
+            // [수정] 닉네임 및 매너온도 표시 (DTO에서 직접 가져오기)
+            const displayName = groupBuy.hostNickname || groupBuy.hostName || '모집자';
+            const mannerTemp = groupBuy.hostMannerTemp ? groupBuy.hostMannerTemp.toFixed(1) : '36.5';
+
+            const tempHtml = `<span style="color:#4a90e2; font-weight:bold; font-size:0.9em; margin-left:4px;">(${mannerTemp}℃)</span>`;
+
             const itemDiv = document.createElement('div');
             itemDiv.className = 'recruitment-item';
             
@@ -73,9 +76,7 @@ async function loadRecruitmentList() {
                     <div class="recruiter-info">
                         <div class="recruiter-avatar">👤</div>
                         <div class="recruiter-details">
-                            <span class="recruiter-name" id="host-info-${groupBuy.id}">
-                                ${defaultName} <span style="font-size:0.9em; color:#888;">(로딩중...)</span>
-                            </span>
+                            <span class="recruiter-name">${displayName} ${tempHtml}</span>
                             <span class="recruiter-date">${createdDate}</span>
                         </div>
                     </div>
@@ -92,9 +93,6 @@ async function loadRecruitmentList() {
             `;
 
             recruitmentList.appendChild(itemDiv);
-
-            // [추가 API 호출] 방장 정보 가져와서 업데이트
-            loadHostInfo(groupBuy.hostId, groupBuy.id, defaultName);
         });
 
     } catch (error) {
@@ -104,35 +102,5 @@ async function loadRecruitmentList() {
                 <p>모집글을 불러오지 못했습니다.</p>
                 <p style="font-size: 0.9em; margin-top: 10px;">${error.message}</p>
             </div>`;
-    }
-}
-
-// 방장의 리뷰 목록을 조회해서 닉네임과 매너온도를 추출하는 함수
-async function loadHostInfo(hostId, groupBuyId, defaultName) {
-    try {
-        const reviews = await apiFetch(`/api/users/${hostId}/reviews`);
-        const targetEl = document.getElementById(`host-info-${groupBuyId}`);
-        
-        if (!targetEl) return;
-
-        let nickname = defaultName;
-        let mannerTemp = 36.5;
-
-        // 리뷰가 하나라도 있으면 그 안의 유저 정보를 사용
-        if (reviews && reviews.length > 0) {
-            const info = reviews[0].reviewee; // 리뷰 대상자(방장) 정보
-            if (info) {
-                nickname = info.nickname || info.name || defaultName;
-                mannerTemp = info.mannerTemp !== undefined ? info.mannerTemp : 36.5;
-            }
-        }
-
-        // UI 업데이트
-        targetEl.innerHTML = `${nickname} <span style="color:#4a90e2; font-weight:bold; font-size:0.9em;">(${mannerTemp.toFixed(1)}℃)</span>`;
-
-    } catch (error) {
-        // 에러 시(리뷰 없음 등) 기본값 유지
-        const targetEl = document.getElementById(`host-info-${groupBuyId}`);
-        if(targetEl) targetEl.innerHTML = `${defaultName} <span style="color:#4a90e2; font-weight:bold; font-size:0.9em;">(36.5℃)</span>`;
     }
 }

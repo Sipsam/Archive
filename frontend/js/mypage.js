@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         updatePointUI(myInfo.points);
         populateSettingsForm(myInfo);
         
-        // 데이터 로드 (리뷰 로드 삭제됨)
+        // 데이터 로드
         await loadMyParticipations();
         
         if(document.getElementById('pointHistoryList')) await loadMyPointHistory();
@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupSettingsForm();
 });
 
-// 완료된 공구 분류 로직
+// [기능 4] 완료된 공구 분류 (강력하게)
 async function loadMyParticipations() {
     const activeListContainer = document.getElementById('participationList');
     const completedListContainer = document.getElementById('completedList'); 
@@ -58,11 +58,16 @@ async function loadMyParticipations() {
             return;
         }
 
+        // 상세 정보 보정 (Enrichment)
         const enrichedList = await Promise.all(onlineList.map(async (item) => {
             let groupBuy = item.onlineGroupBuy;
-            if (groupBuy && groupBuy.id && !groupBuy.title) {
+            
+            // 상세 정보가 부족하면 한번 더 호출 (Status와 PaymentStatus를 확실히 하기 위해)
+            if (groupBuy && groupBuy.id) {
                 try {
                     const fullInfo = await apiFetch(`/api/groupbuys/online/${groupBuy.id}`);
+                    
+                    // 상품 정보 보정
                     const pId = fullInfo.product?.id || fullInfo.productId;
                     if (pId && (!fullInfo.product || !fullInfo.product.name)) {
                          try {
@@ -70,15 +75,21 @@ async function loadMyParticipations() {
                              fullInfo.product = productInfo;
                          } catch(e) {}
                     }
-                    item.onlineGroupBuy = fullInfo;
                     
+                    // 공구 정보 교체
+                    item.onlineGroupBuy = fullInfo;
+
+                    // 내 결제 상태도 상세 리스트에서 찾아서 업데이트
                     if (fullInfo.participationList && currentUserInfo) {
                         const myPart = fullInfo.participationList.find(p => String(p.userId) === String(currentUserInfo.id));
                         if (myPart) {
                             item.paymentStatus = myPart.paymentStatus;
                         }
                     }
-                } catch (e) {}
+
+                } catch (e) {
+                    console.error("상세 정보 로드 실패", e);
+                }
             }
             return item;
         }));
@@ -90,10 +101,12 @@ async function loadMyParticipations() {
             const groupBuy = item.onlineGroupBuy;
             if (!groupBuy) return;
 
-            const gbStatus = groupBuy.status;
-            const myPayStatus = item.paymentStatus;
+            const gbStatus = groupBuy.status;       
+            const myPayStatus = item.paymentStatus; 
 
-            // [분류 기준] 공구가 종료되었거나(COMPLETED) OR 내 결제가 완료되었으면(PAID) 완료 탭으로
+            // [분류 기준]
+            // 1. 공구 자체가 종료됨 (COMPLETED)
+            // 2. OR 내 결제가 완료됨 (PAID)
             const isFinished = (gbStatus === 'COMPLETED' || myPayStatus === 'PAID');
             
             const targetContainer = isFinished ? completedListContainer : activeListContainer;
@@ -119,7 +132,6 @@ function renderParticipationItem(item, container) {
     const groupBuy = item.onlineGroupBuy;
     const product = groupBuy.product;
     const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '-';
-    
     const statusText = getStatusText(item);
 
     const card = document.createElement('div');
@@ -140,13 +152,19 @@ function renderParticipationItem(item, container) {
         <div style="display:flex; justify-content:space-between; align-items:start;">
             <div style="flex: 1;">
                 <h3 style="margin-bottom:8px; font-size:16px; color:#333; font-weight:bold;">
-                    <a href="recruitment-detail.html?id=${groupBuy.id}" style="text-decoration:none; color:#333;">${groupBuy.title || '제목 로딩 실패'}</a>
+                    <a href="recruitment-detail.html?id=${groupBuy.id}" style="text-decoration:none; color:#333;">
+                        ${groupBuy.title || '제목 로딩 실패'}
+                    </a>
                 </h3>
                 <p style="margin-bottom:5px; color:#666; font-size:14px;">상품: ${product ? product.name : '정보 없음'}</p>
                 <p style="font-size:13px; color:#888;">참여일: ${dateStr}</p>
-                <span style="display:inline-block; margin-top:8px; font-size:13px; font-weight:bold; color:#4a90e2; background-color:#eef6ff; padding:3px 8px; border-radius:4px;">상태: ${statusText}</span>
+                <span style="display:inline-block; margin-top:8px; font-size:13px; font-weight:bold; color:#4a90e2; background-color:#eef6ff; padding:3px 8px; border-radius:4px;">
+                    상태: ${statusText}
+                </span>
             </div>
-            <div style="text-align:right; min-width: 80px;">${chatButtonHtml}</div>
+            <div style="text-align:right; min-width: 80px;">
+                 ${chatButtonHtml}
+            </div>
         </div>
     `;
     container.appendChild(card);
@@ -155,13 +173,14 @@ function renderParticipationItem(item, container) {
 function getStatusText(item) {
     const gbStatus = item.onlineGroupBuy.status; 
     const myPayStatus = item.paymentStatus;      
+
     if (gbStatus === 'COMPLETED') return '종료됨 (배송 준비)';
     if (myPayStatus === 'PAID') return '결제 완료';
     if (gbStatus === 'IN_PROGRESS') return '결제 진행 중';
+    
     return '모집 중 (참여 완료)';
 }
 
-// --- 기타 (포인트 결제, 탭 등) ---
 async function initPointPayment() {
     const clientKey = "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm"; 
     const tossPayments = TossPayments(clientKey);
