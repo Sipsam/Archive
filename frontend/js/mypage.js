@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         // 데이터 로드
         await loadMyParticipations();
-        await loadMyReviews(); // [기능 3] 리뷰 로드
+        await loadMyReviews(); 
         
         if(document.getElementById('pointHistoryList')) await loadMyPointHistory();
         if (document.getElementById('payment-method')) await initPointPayment();
@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupSettingsForm();
 });
 
-// [기능 4] 완료된 공구 분류 로직
+// [기능 4 수정] 완료된 공구 분류 로직 강화
 async function loadMyParticipations() {
     const activeListContainer = document.getElementById('participationList');
     const completedListContainer = document.getElementById('completedList'); 
@@ -59,11 +59,16 @@ async function loadMyParticipations() {
             return;
         }
 
+        // [핵심 수정] 상세 정보를 조회하여 status와 paymentStatus를 채워 넣음
         const enrichedList = await Promise.all(onlineList.map(async (item) => {
             let groupBuy = item.onlineGroupBuy;
-            if (groupBuy && groupBuy.id && !groupBuy.title) {
+            
+            // SimpleDto에는 status가 없으므로, status가 없으면 상세 정보를 가져옵니다.
+            if (groupBuy && groupBuy.id && !groupBuy.status) {
                 try {
                     const fullInfo = await apiFetch(`/api/groupbuys/online/${groupBuy.id}`);
+                    
+                    // 상품 정보 보정
                     const pId = fullInfo.product?.id || fullInfo.productId;
                     if (pId && (!fullInfo.product || !fullInfo.product.name)) {
                          try {
@@ -71,8 +76,22 @@ async function loadMyParticipations() {
                              fullInfo.product = productInfo;
                          } catch(e) {}
                     }
+                    
+                    // 상세 정보로 교체 (이제 status 필드가 생김)
                     item.onlineGroupBuy = fullInfo;
-                } catch (e) {}
+
+                    // [추가] 내 결제 상태(paymentStatus) 찾아서 채우기
+                    // ParticipationResponse에는 없지만, GroupBuy 상세의 participationList에는 있음
+                    if (fullInfo.participationList && currentUserInfo) {
+                        const myPart = fullInfo.participationList.find(p => String(p.userId) === String(currentUserInfo.id));
+                        if (myPart) {
+                            item.paymentStatus = myPart.paymentStatus;
+                        }
+                    }
+
+                } catch (e) {
+                    console.error("상세 정보 로드 실패", e);
+                }
             }
             return item;
         }));
@@ -84,10 +103,10 @@ async function loadMyParticipations() {
             const groupBuy = item.onlineGroupBuy;
             if (!groupBuy) return;
 
-            const gbStatus = groupBuy.status;
-            const myPayStatus = item.paymentStatus;
+            const gbStatus = groupBuy.status;       // 이제 값이 있음 (RECRUITING, COMPLETED 등)
+            const myPayStatus = item.paymentStatus; // 이제 값이 있음 (PENDING, PAID)
 
-            // [분류 기준] 공구가 종료되었거나(COMPLETED) OR 내 결제가 완료되었으면(PAID) 완료 탭으로
+            // [분류 기준] 공구가 종료(COMPLETED)되었거나, 내 결제가 완료(PAID)되었으면 완료 탭으로
             const isFinished = (gbStatus === 'COMPLETED' || myPayStatus === 'PAID');
             
             const targetContainer = isFinished ? completedListContainer : activeListContainer;
@@ -155,13 +174,11 @@ function getStatusText(item) {
     return '모집 중 (참여 완료)';
 }
 
-// [기능 3] 받은 후기 목록 로드
 async function loadMyReviews() {
     const reviewListContainer = document.getElementById('reviewList');
     if (!reviewListContainer) return;
 
     try {
-        // [백엔드 API 호출] 나에게 달린 리뷰 가져오기
         const reviews = await apiFetch(`/api/users/${currentUserInfo.id}/reviews`);
         reviewListContainer.innerHTML = '';
 
@@ -173,7 +190,7 @@ async function loadMyReviews() {
         reviews.forEach(review => {
             const div = document.createElement('div');
             div.className = 'activity-item';
-            div.style.borderLeft = '4px solid #FFD700'; // 골드 색상
+            div.style.borderLeft = '4px solid #FFD700'; 
             div.style.padding = '15px';
             div.style.marginBottom = '10px';
             div.style.background = '#fff';
@@ -197,7 +214,6 @@ async function loadMyReviews() {
     }
 }
 
-// --- 기타 (포인트 결제, 탭 등) ---
 async function initPointPayment() {
     const clientKey = "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm"; 
     const tossPayments = TossPayments(clientKey);
