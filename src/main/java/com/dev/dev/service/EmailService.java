@@ -22,7 +22,7 @@ public class EmailService {
             String templateId
     ) {
         Email from = new Email("noreply@together1.kro.kr");  // SendGrid에서 인증된 발신자
-        Email to = new Email("26bepulwon@gmail.com");            // 관리자 이메일
+        Email to = new Email("jyk9435@naver.com");            // 관리자 이메일
         Mail mail = new Mail();
         mail.setFrom(from);
         mail.setTemplateId(templateId);
