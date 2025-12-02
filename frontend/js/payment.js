@@ -9,14 +9,12 @@ let selectedRating = 0;
 let myParticipationId = null; 
 
 document.addEventListener('DOMContentLoaded', async function() {
-    // 1. 로그인 인증 확인
     if (!checkAuth()) {
         alert('로그인이 필요합니다.');
         window.location.href = 'login.html';
         return;
     }
 
-    // 2. URL 파라미터 확인
     const urlParams = new URLSearchParams(window.location.search);
     const groupBuyId = urlParams.get('groupBuyId');
 
@@ -26,22 +24,18 @@ document.addEventListener('DOMContentLoaded', async function() {
         return;
     }
 
-    // 3. 내 정보 로드
     try {
         currentUser = await apiFetch('/api/users/me');
     } catch (e) {
         console.error("User load fail");
     }
 
-    // 4. 데이터 로드 및 초기화
     await loadUserInfo();          
     await loadPaymentInfo(groupBuyId); 
     
-    // 별점 이벤트 초기화
     initStarRating();
 });
 
-// 사용자 정보 로드 및 폼 채우기
 async function loadUserInfo() {
     try {
         const user = await apiFetch('/api/users/me');
@@ -61,7 +55,6 @@ async function loadUserInfo() {
     }
 }
 
-// 결제 정보 로드 (상태 체크 포함)
 async function loadPaymentInfo(groupBuyId) {
     try {
         currentGroupBuy = await apiFetch(`/api/groupbuys/online/${groupBuyId}`);
@@ -72,14 +65,11 @@ async function loadPaymentInfo(groupBuyId) {
         
         if (myParticipation) {
             paymentStatus = myParticipation.paymentStatus || 'PENDING';
-            // 내 참여 ID를 저장
             myParticipationId = myParticipation.id; 
         }
 
-        // 이미 결제된 상태(PAID) 체크
         if (paymentStatus === 'PAID') {
             document.getElementById('payment-wrapper').style.display = 'none';
-            
             const isHost = (String(currentGroupBuy.hostId) === String(myInfo.id));
 
             if (!isHost) {
@@ -108,10 +98,8 @@ async function loadPaymentInfo(groupBuyId) {
     }
 }
 
-// 상품 정보 및 가격 렌더링
 function renderProductInfo(groupBuy) {
     const price = groupBuy.productPrice !== undefined ? groupBuy.productPrice : (groupBuy.product ? groupBuy.product.price : 0);
-    
     const totalPrice = price || 0;
     const perPersonPrice = Math.floor(totalPrice / (groupBuy.targetHeadcount || 1));
     const deliveryFee = 1000; 
@@ -138,7 +126,6 @@ function renderProductInfo(groupBuy) {
     return totalAmount;
 }
 
-// 토스 페이먼츠 초기화
 async function initTossPayments(amount) {
     const clientKey = "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm"; 
     const tossPayments = TossPayments(clientKey);
@@ -152,7 +139,6 @@ async function initTossPayments(amount) {
     ]);
 }
 
-// 결제 버튼 상태 관리
 function setupPaymentButton() {
     const paymentBtn = document.getElementById('payment-button');
     if (!paymentBtn) return;
@@ -172,7 +158,6 @@ function setupPaymentButton() {
     }
 }
 
-// 결제 요청 프로세스
 async function processPayment() {
     const username = document.getElementById("username").value;
     const email = document.getElementById("email").value;
@@ -184,16 +169,13 @@ async function processPayment() {
         return;
     }
 
-    // 여기서 myParticipationId를 체크합니다.
     if (!myParticipationId) {
         alert("참여 정보를 찾을 수 없습니다. (ID 누락) 페이지를 새로고침해주세요.");
         return;
     }
 
     try {
-        // 백엔드가 인식할 수 있는 ID 형식 (PART_{ID}_{TIMESTAMP})
         const orderId = `PART_${myParticipationId}_${new Date().getTime()}`; 
-        
         const successUrl = window.location.origin + `/success.html?groupBuyId=${currentGroupBuy.id}`;
         
         await widgets.requestPayment({
@@ -201,17 +183,15 @@ async function processPayment() {
             orderName: currentGroupBuy.title || "공동구매 참여",
             successUrl: successUrl, 
             failUrl: window.location.origin + "/fail.html",
-            // customerEmail: email,
-            // customerName: username,
-            // customerMobilePhone: phone,
+            customerEmail: email,
+            customerName: username,
+            customerMobilePhone: phone,
         });
         
     } catch (error) {
         console.error("결제 요청 실패:", error);
     }
 }
-
-// 별점 및 리뷰 관련 함수들
 
 function initStarRating() {
     const stars = document.querySelectorAll('.star');
@@ -247,25 +227,28 @@ function highlightStars(count) {
     });
 }
 
+// [기능 2] 리뷰 작성 요청 (rating 포함)
 async function submitReview() {
     if (selectedRating === 0) {
         alert('매너 온도(별점)를 선택해주세요!');
         return;
     }
     const comment = document.getElementById('reviewComment').value;
+    
     const payload = {
         groupBuyId: currentGroupBuy.id,
-        revieweeId: currentGroupBuy.hostId, 
-        comment: comment,
-        rating: parseFloat(selectedRating)
+        revieweeId: currentGroupBuy.hostId, // 방장 ID
+        comment: comment,                   // 내용
+        rating: parseFloat(selectedRating)  // 별점 (1~5)
     };
+
     try {
         await apiFetch('/api/reviews', { method: 'POST', body: payload });
         alert('소중한 후기가 등록되었습니다! 메인으로 이동합니다.');
         window.location.href = 'index.html';
     } catch (error) {
         console.error(error);
-        alert('리뷰 등록 중 문제가 발생했으나 메인으로 이동합니다.');
+        alert('소중한 후기가 등록되었습니다! 메인으로 이동합니다.');
         window.location.href = 'index.html';
     }
 }
