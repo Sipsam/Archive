@@ -86,7 +86,7 @@ async function loadRecruitmentList() {
                     <p>${groupBuy.content || ''}</p>
                 </div>
                 <div class="recruitment-meta">
-                    <span>상품명: ${groupBuy.product?.name || '상품명 없음'}</span>
+                    <span>상품명: ${groupBuy.productName || '상품명 없음'}</span>
                     <span>목표 인원: ${groupBuy.targetHeadcount || 0}명</span>
                     <span>마감일: ${dateStr}</span>
                 </div>
