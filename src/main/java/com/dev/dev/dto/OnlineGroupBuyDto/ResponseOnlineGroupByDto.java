@@ -33,6 +33,7 @@ public class ResponseOnlineGroupByDto {
     // 3. 방장 정보
     private Long hostId;
     private String hostName;
+    private Double hostMannerTemp;
 
     // 4. 참여자 리스트 (순환 참조 방지를 위해 전용 DTO 사용)
     private List<OnlineParticipationDto> participationList;
@@ -60,6 +61,7 @@ public class ResponseOnlineGroupByDto {
                 // 방장 정보
                 .hostId(entity.getHostUser().getId())
                 .hostName(entity.getHostUser().getName())
+                .hostMannerTemp(entity.getHostUser().getMannerTemp())
 
                 // 참여자 리스트 변환
                 .participationList(entity.getParticipationList().stream()//참여자 리스트에서 참여자들을 하나씩 스트림으로 흘려보냄
