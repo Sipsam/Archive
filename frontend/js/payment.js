@@ -72,13 +72,11 @@ async function loadPaymentInfo(groupBuyId) {
             paymentStatus = myParticipation.paymentStatus || 'PENDING';
         }
 
-        // ============================================================
-        // [핵심 로직] 이미 결제된 상태(PAID)라면 결제창 숨기고 리뷰창 표시
-        // ============================================================
+        // 이미 결제된 상태(PAID)라면 결제창 숨기고 리뷰창 표시
         if (paymentStatus === 'PAID') {
             document.getElementById('payment-wrapper').style.display = 'none';
             
-            // 내가 방장이 아니라면 리뷰창 표시
+            // 내가 방장이 아니라면 리뷰창 표시 (참여자만 후기 작성)
             if (String(currentGroupBuy.hostId) !== String(myInfo.id)) {
                 document.getElementById('review-wrapper').style.display = 'block';
             } else {
@@ -182,7 +180,7 @@ async function processPayment() {
 
     try {
         const orderId = "ORDER_" + new Date().getTime(); 
-        // 결제 성공 시 다시 이 페이지(payment.html)로 돌아오게 함 -> 그러면 로직에 의해 리뷰창이 뜸
+        // 결제 성공 시 다시 이 페이지(payment.html)로 돌아오게 함 -> 그러면 위 로직(paymentStatus === 'PAID')에 의해 리뷰창이 뜸
         const successUrl = window.location.origin + `/success.html?groupBuyId=${currentGroupBuy.id}`;
         
         await widgets.requestPayment({
@@ -200,7 +198,7 @@ async function processPayment() {
     }
 }
 
-// 별점 및 리뷰 관련 함수들
+// 별점 및 리뷰 관련 함수들 (순수 프론트엔드 처리)
 
 // 별점 기능 초기화
 function initStarRating() {
@@ -208,7 +206,7 @@ function initStarRating() {
     const ratingValue = document.getElementById('ratingValue');
 
     stars.forEach(star => {
-        // 1. 마우스 오버: 해당 별과 그 이전 별들을 채움
+        // 1. 마우스 오버: 해당 별과 그 이전 별들을 채움 (CSS class 추가)
         star.addEventListener('mouseover', function() {
             const val = parseInt(this.dataset.value);
             highlightStars(val);
@@ -228,7 +226,7 @@ function initStarRating() {
     });
 }
 
-// 별 색상 변경 처리
+// 별 색상 변경 처리 (CSS filled 클래스 제어)
 function highlightStars(count) {
     const stars = document.querySelectorAll('.star');
     stars.forEach(s => {
@@ -250,24 +248,28 @@ async function submitReview() {
 
     const comment = document.getElementById('reviewComment').value;
     
-    // API 요청 데이터 DTO 매핑
+    // 백엔드 API 규격에 맞는 데이터 생성
     const payload = {
         groupBuyId: currentGroupBuy.id,
         revieweeId: currentGroupBuy.hostId, // 방장 ID
         comment: comment,
-        rating: parseFloat(selectedRating)  // double 타입 매핑
+        rating: parseFloat(selectedRating)  // 별점
     };
 
     try {
+        // 백엔드로 리뷰 전송
         await apiFetch('/api/reviews', {
             method: 'POST',
             body: payload
         });
+        
         alert('소중한 후기가 등록되었습니다! 메인으로 이동합니다.');
         window.location.href = 'index.html';
+        
     } catch (error) {
         console.error(error);
-        alert('리뷰 등록 실패: ' + error.message);
+        alert('리뷰 등록 중 문제가 발생했습니다.');
+        window.location.href = 'index.html';
     }
 }
 
