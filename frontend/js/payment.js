@@ -178,7 +178,11 @@ async function processPayment() {
     }
 
     try {
-        const orderId = "ORDER_" + new Date().getTime(); 
+        // orderId 형식을 백엔드가 파싱할 수 있게 변경
+        // 형식: PART_{참여ID}_{랜덤값}
+        // 백엔드는 '_'로 쪼개서 두 번째 값(myParticipationId)을 사용함
+        const orderId = `PART_${myParticipationId}_${new Date().getTime()}`; 
+        
         const successUrl = window.location.origin + `/success.html?groupBuyId=${currentGroupBuy.id}`;
         
         await widgets.requestPayment({
