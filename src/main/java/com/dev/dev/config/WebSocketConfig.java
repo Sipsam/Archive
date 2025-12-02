@@ -18,6 +18,10 @@ public class WebSocketConfig implements WebSocketConfigurer {
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(chatWebSocketHandler, "/ws/chat")
                 .addInterceptors(jwtHandshakeInterceptor)
-                .setAllowedOriginPatterns("*"); // 필요 시 도메인 제한
+                .setAllowedOriginPatterns(
+                        "https://together1.kro.kr",
+                        "http://localhost:*",
+                        "http://127.0.0.1:*"
+                );
     }
 }
