@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const message = this.querySelector('textarea[name="message"]').value;
 
             // API 호출 함수 실행
-            await sendQuestion(title, content);
+            await sendQuestion(title, message);
         });
     }
     
