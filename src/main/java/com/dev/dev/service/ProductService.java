@@ -123,7 +123,7 @@ public class ProductService {
                 if (items != null) {
                     for (int i = 0; i < items.length(); i++) {
                         JSONObject item = items.getJSONObject(i);
-                        String title = item.optString("title").replaceAll("<.*?>", "").trim();
+                        String title = item.optString("title").trim();
                         String link = item.optString("link").trim();
                         // 1순위: URL 매칭
                         if (!link.isBlank() && link.contains(normalizedUrl)) {
