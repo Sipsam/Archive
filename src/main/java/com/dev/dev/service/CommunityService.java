@@ -19,6 +19,7 @@ public class CommunityService {
 
     private final PostRepository postRepository;
     private final UserRepository userRepository;
+    private final UserReviewRepository userReviewRepository;//추가
     private final UserService userService;
 
     public List<PostDto.Response> getPostList(String boardType){
@@ -69,12 +70,12 @@ public class CommunityService {
                 .comment(requestDto.getComment())
                 .createdAt(LocalDateTime.now())
                 .build();
-        userRepository.save(reviewer);
+        userReviewRepository.save(review);//수정
 
         double tempChange = (requestDto.getRating() - 3.0) * 0.1;
         double newTemp = reviewee.getMannerTemp() +  tempChange;
 
-        review.setRating(newTemp);
+        reviewee.setMannerTemp(newTemp);
 
     }
 }
