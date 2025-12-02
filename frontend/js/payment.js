@@ -233,12 +233,12 @@ async function submitReview() {
         alert('매너 온도(별점)를 선택해주세요!');
         return;
     }
-    const comment = document.getElementById('reviewComment').value;
+    // const comment = document.getElementById('reviewComment').value;
     
     const payload = {
         groupBuyId: currentGroupBuy.id,
         revieweeId: currentGroupBuy.hostId, // 방장 ID
-        comment: comment,                   // 내용
+        // comment: comment,                   // 내용 (제외)
         rating: parseFloat(selectedRating)  // 별점 (1~5)
     };
 
