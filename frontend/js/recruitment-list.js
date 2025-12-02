@@ -34,7 +34,7 @@ async function loadRecruitmentList() {
             return;
         }
 
-        // 정렬: 내가 참여한 글 우선
+        // 정렬
         groupBuys.sort((a, b) => {
             const aJoined = myJoinedIds.includes(a.id);
             const bJoined = myJoinedIds.includes(b.id);
@@ -48,21 +48,31 @@ async function loadRecruitmentList() {
             const dateStr = dateObj.toLocaleDateString('ko-KR');
             const createdDate = groupBuy.createdAt ? new Date(groupBuy.createdAt).toLocaleDateString('ko-KR') : '-';
             
-            // [수정] 닉네임 및 매너온도 표시 (DTO에서 직접 가져오기)
             const displayName = groupBuy.hostNickname || groupBuy.hostName || '모집자';
-            const mannerTemp = groupBuy.hostMannerTemp ? groupBuy.hostMannerTemp.toFixed(1) : '36.5';
+            const mannerTempVal = groupBuy.hostMannerTemp !== undefined ? groupBuy.hostMannerTemp : 36.5;
+            const tempHtml = `<span style="color:#4a90e2; font-weight:bold; font-size:0.9em; margin-left:4px;">(${mannerTempVal.toFixed(1)}℃)</span>`;
+            const productName = groupBuy.productName || '상품명 없음';
 
-            const tempHtml = `<span style="color:#4a90e2; font-weight:bold; font-size:0.9em; margin-left:4px;">(${mannerTemp}℃)</span>`;
+            // [NEW] 이미지 처리
+            let imageHtml = `<div class="recruitment-image-box" style="display:flex; align-items:center; justify-content:center; color:#999; font-size:12px;">이미지 없음</div>`;
+            if (groupBuy.productImageUrl) {
+                imageHtml = `
+                    <div class="recruitment-image-box">
+                        <img src="${groupBuy.productImageUrl}" alt="${productName}">
+                    </div>
+                `;
+            }
 
             const itemDiv = document.createElement('div');
             itemDiv.className = 'recruitment-item';
             
+            // 참여중 뱃지
             let badgeHtml = '';
             if (isJoined) {
-                itemDiv.style.border = '3px solid #4a90e2'; 
+                itemDiv.style.border = '2px solid #4a90e2'; 
                 itemDiv.style.position = 'relative';
                 badgeHtml = `
-                    <div style="position:absolute; top:15px; right:15px; background:#4a90e2; color:white; padding:5px 12px; border-radius:20px; font-size:12px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.2); z-index: 10;">
+                    <div style="position:absolute; top:10px; right:10px; background:#4a90e2; color:white; padding:4px 10px; border-radius:15px; font-size:11px; font-weight:bold; box-shadow:0 1px 3px rgba(0,0,0,0.2); z-index: 10;">
                         참여중
                     </div>
                 `;
@@ -70,25 +80,33 @@ async function loadRecruitmentList() {
 
             itemDiv.onclick = () => navigateTo(`recruitment-detail.html?id=${groupBuy.id}`);
             
+            // [구조 변경] 이미지(왼쪽) + 정보(오른쪽)
             itemDiv.innerHTML = `
                 ${badgeHtml}
-                <div class="recruitment-header">
-                    <div class="recruiter-info">
-                        <div class="recruiter-avatar">👤</div>
-                        <div class="recruiter-details">
-                            <span class="recruiter-name">${displayName} ${tempHtml}</span>
-                            <span class="recruiter-date">${createdDate}</span>
+                
+                ${imageHtml}
+
+                <div class="recruitment-info-box">
+                    <div class="recruitment-header">
+                        <div class="recruiter-info">
+                            <div class="recruiter-avatar">👤</div>
+                            <div class="recruiter-details">
+                                <span class="recruiter-name">${displayName} ${tempHtml}</span>
+                                <span class="recruiter-date">${createdDate}</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="recruitment-content">
-                    <h3>${groupBuy.title || '제목 없음'}</h3>
-                    <p>${groupBuy.content || ''}</p>
-                </div>
-                <div class="recruitment-meta">
-                    <span>상품명: ${groupBuy.productName || '상품명 없음'}</span>
-                    <span>목표 인원: ${groupBuy.targetHeadcount || 0}명</span>
-                    <span>마감일: ${dateStr}</span>
+                    
+                    <div class="recruitment-content">
+                        <h3>${groupBuy.title || '제목 없음'}</h3>
+                        <p>${groupBuy.content || ''}</p>
+                    </div>
+                    
+                    <div class="recruitment-meta">
+                        <span>상품: ${productName}</span>
+                        <span>목표: ${groupBuy.targetHeadcount || 0}명</span>
+                        <span>마감: ${dateStr}</span>
+                    </div>
                 </div>
             `;
 
