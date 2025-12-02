@@ -10,14 +10,11 @@ async function loadRecruitmentList() {
     if (!recruitmentList) return;
 
     try {
-        // 1. 전체 모집글 조회 (백엔드 API 호출)
         const groupBuys = await apiFetch('/api/groupbuys/online');
         
-        // 2. 내 참여 내역 조회 (로그인 상태인 경우에만)
         let myParticipations = [];
         if (checkAuth()) {
             try {
-                // 사용자가 참여한 내역을 가져옴
                 const myData = await apiFetch('/api/users/me/participations');
                 myParticipations = myData.onlineParticipations || [];
             } catch (e) {
@@ -25,10 +22,9 @@ async function loadRecruitmentList() {
             }
         }
 
-        // 내가 참여한 글의 ID 목록 추출
         const myJoinedIds = myParticipations.map(p => p.onlineGroupBuy.id);
 
-        recruitmentList.innerHTML = ''; // 기존 내용 초기화
+        recruitmentList.innerHTML = ''; 
 
         if (!groupBuys || groupBuys.length === 0) {
             recruitmentList.innerHTML = `
@@ -38,12 +34,10 @@ async function loadRecruitmentList() {
             return;
         }
 
-        // 정렬: 내가 참여한 글을 맨 위로 올림
-        // (true인 것이 앞으로 오도록 정렬)
+        // 정렬: 내가 참여한 글 우선
         groupBuys.sort((a, b) => {
             const aJoined = myJoinedIds.includes(a.id);
             const bJoined = myJoinedIds.includes(b.id);
-            // 둘 다 참여했거나 둘 다 안 했으면 순서 유지(0), a만 참여했으면 앞으로(-1), b만 참여했으면 뒤로(1)
             return (aJoined === bJoined) ? 0 : aJoined ? -1 : 1; 
         });
 
@@ -54,16 +48,16 @@ async function loadRecruitmentList() {
             const dateStr = dateObj.toLocaleDateString('ko-KR');
             const createdDate = groupBuy.createdAt ? new Date(groupBuy.createdAt).toLocaleDateString('ko-KR') : '-';
             
+            // 기본값 설정 (API 호출 전)
+            const defaultName = groupBuy.hostName || '모집자';
+            
             const itemDiv = document.createElement('div');
             itemDiv.className = 'recruitment-item';
             
-            // 파란 테두리 + 뱃지를 이용하여 참여 중인 글 디자인 강조함
             let badgeHtml = '';
             if (isJoined) {
-                // 스타일에 직접 접근하여 테두리 추가
                 itemDiv.style.border = '3px solid #4a90e2'; 
                 itemDiv.style.position = 'relative';
-                // 오른쪽 상단에 '참여중' 뱃지 추가
                 badgeHtml = `
                     <div style="position:absolute; top:15px; right:15px; background:#4a90e2; color:white; padding:5px 12px; border-radius:20px; font-size:12px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.2); z-index: 10;">
                         참여중
@@ -71,7 +65,6 @@ async function loadRecruitmentList() {
                 `;
             }
 
-            // 클릭 시 상세 페이지로 이동
             itemDiv.onclick = () => navigateTo(`recruitment-detail.html?id=${groupBuy.id}`);
             
             itemDiv.innerHTML = `
@@ -80,12 +73,9 @@ async function loadRecruitmentList() {
                     <div class="recruiter-info">
                         <div class="recruiter-avatar">👤</div>
                         <div class="recruiter-details">
-                            <span class="recruiter-name">${groupBuy.hostUser?.nickname || groupBuy.hostUser?.name || '모집자'}</span>
-                            const scoreElement = document.querySelector('.score');
-                            if (scoreElement) {
-                                const temp = myInfo.mannerTemp !== undefined ? myInfo.mannerTemp : 36.5;
-                                scoreElement.textContent = temp.toFixed(1);
-                            }
+                            <span class="recruiter-name" id="host-info-${groupBuy.id}">
+                                ${defaultName} <span style="font-size:0.9em; color:#888;">(로딩중...)</span>
+                            </span>
                             <span class="recruiter-date">${createdDate}</span>
                         </div>
                     </div>
@@ -102,6 +92,9 @@ async function loadRecruitmentList() {
             `;
 
             recruitmentList.appendChild(itemDiv);
+
+            // [추가 API 호출] 방장 정보 가져와서 업데이트
+            loadHostInfo(groupBuy.hostId, groupBuy.id, defaultName);
         });
 
     } catch (error) {
@@ -111,5 +104,35 @@ async function loadRecruitmentList() {
                 <p>모집글을 불러오지 못했습니다.</p>
                 <p style="font-size: 0.9em; margin-top: 10px;">${error.message}</p>
             </div>`;
+    }
+}
+
+// 방장의 리뷰 목록을 조회해서 닉네임과 매너온도를 추출하는 함수
+async function loadHostInfo(hostId, groupBuyId, defaultName) {
+    try {
+        const reviews = await apiFetch(`/api/users/${hostId}/reviews`);
+        const targetEl = document.getElementById(`host-info-${groupBuyId}`);
+        
+        if (!targetEl) return;
+
+        let nickname = defaultName;
+        let mannerTemp = 36.5;
+
+        // 리뷰가 하나라도 있으면 그 안의 유저 정보를 사용
+        if (reviews && reviews.length > 0) {
+            const info = reviews[0].reviewee; // 리뷰 대상자(방장) 정보
+            if (info) {
+                nickname = info.nickname || info.name || defaultName;
+                mannerTemp = info.mannerTemp !== undefined ? info.mannerTemp : 36.5;
+            }
+        }
+
+        // UI 업데이트
+        targetEl.innerHTML = `${nickname} <span style="color:#4a90e2; font-weight:bold; font-size:0.9em;">(${mannerTemp.toFixed(1)}℃)</span>`;
+
+    } catch (error) {
+        // 에러 시(리뷰 없음 등) 기본값 유지
+        const targetEl = document.getElementById(`host-info-${groupBuyId}`);
+        if(targetEl) targetEl.innerHTML = `${defaultName} <span style="color:#4a90e2; font-weight:bold; font-size:0.9em;">(36.5℃)</span>`;
     }
 }
