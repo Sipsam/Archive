@@ -39,7 +39,7 @@ async function loadPopularGroupBuys() {
         const popularList = groupBuys
             .filter(gb => gb.status !== 'COMPLETED') 
             .sort((a, b) => (b.participationList?.length || 0) - (a.participationList?.length || 0))
-            .slice(0, 3);
+            .slice(0, 4);
 
         if (popularList.length === 0) {
             contentGrid.innerHTML = '<p style="text-align:center; color:#888; grid-column:1/-1; padding: 40px;">진행 중인 인기 모집글이 없습니다.</p>';
