@@ -57,7 +57,7 @@ public class OnlineGroupBuyController {
             @PathVariable Long id) {
         Long userId = extractUserId(request);
         groupBuyService.participate(userId, id);
-        return ResponseEntity.ok("참여 완료 (수량 미정, 채팅방 입장)");
+        return ResponseEntity.ok("참여 완료 (채팅방 입장)");
     }
 
     // 6. [상태 변경]
