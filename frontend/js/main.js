@@ -1,16 +1,14 @@
 // frontend/js/main.js
 
-let allGroupBuys = []; // 전체 공구 리스트 저장
-let currentPage = 1;   // 현재 페이지
-const itemsPerPage = 4; // 페이지당 4개씩 표시
+let allGroupBuys = []; 
+let currentPage = 1;   
+const itemsPerPage = 4; 
 
 document.addEventListener('DOMContentLoaded', async function() {
-    // 1. 초기화 (로그인 버튼, 채팅 사이드바, 모달)
     updateAuthButton(); 
     initChatSidebar();
     setupModalEvents();
 
-    // 2. 검색 이벤트 연결
     const searchBtn = document.getElementById('searchButton');
     const searchInput = document.getElementById('searchInput');
 
@@ -21,11 +19,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    // 3. 인기 모집글 로드 (페이지네이션 적용)
     await loadPopularGroupBuys();
 });
 
-// [기능 1] 핫한 모집글 로드 및 페이지네이션
+// [수정] 핫한 모집글 로드 (필터링 강화)
 async function loadPopularGroupBuys() {
     const contentGrid = document.getElementById('contentGrid');
     if (!contentGrid) return;
@@ -33,18 +30,23 @@ async function loadPopularGroupBuys() {
     try {
         const groupBuys = await apiFetch('/api/groupbuys/online');
         
-        // 필터링: 종료된(COMPLETED) 공구 제외
-        // 정렬: 참여자 수 내림차순
+        // 필터링 조건:
+        // 1. 상태가 COMPLETED(종료)가 아닐 것
+        // 2. 현재 참여 인원이 목표 인원보다 작을 것 (꽉 차면 안 보임)
         allGroupBuys = groupBuys
-            .filter(gb => gb.status !== 'COMPLETED') 
+            .filter(gb => {
+                const current = gb.participationList ? gb.participationList.length : 0;
+                const target = gb.targetHeadcount || 0;
+                // [핵심] 종료 안 됨 AND 자리 남음
+                return gb.status !== 'COMPLETED' && current < target;
+            })
             .sort((a, b) => (b.participationList?.length || 0) - (a.participationList?.length || 0));
 
         if (allGroupBuys.length === 0) {
-            contentGrid.innerHTML = '<p style="text-align:center; color:#888; grid-column:1/-1; padding: 40px;">진행 중인 모집글이 없습니다.</p>';
+            contentGrid.innerHTML = '<p style="text-align:center; color:#888; grid-column:1/-1; padding: 40px;">참여 가능한 모집글이 없습니다.</p>';
             return;
         }
 
-        // 1페이지 렌더링 시작
         renderPage(1);
 
     } catch (error) {
@@ -52,31 +54,26 @@ async function loadPopularGroupBuys() {
     }
 }
 
-// 페이지 렌더링 함수
 function renderPage(page) {
     currentPage = page;
     const contentGrid = document.getElementById('contentGrid');
+    contentGrid.innerHTML = ''; 
     
-    contentGrid.innerHTML = ''; // 초기화
-    
-    // 데이터 슬라이싱 (예: 1페이지 -> 0~4번 인덱스)
     const start = (page - 1) * itemsPerPage;
     const end = start + itemsPerPage;
     const itemsToShow = allGroupBuys.slice(start, end);
 
-    contentGrid.innerHTML = '<h3 style="grid-column:1/-1; margin-bottom:10px; color:#4a90e2;">🔥 핫한 모집글 (전체보기)</h3>';
+    contentGrid.innerHTML = '<h3 style="grid-column:1/-1; margin-bottom:10px; color:#4a90e2;">🔥 핫한 모집글 (참여 가능)</h3>';
     
     if(itemsToShow.length === 0) {
-        contentGrid.innerHTML += '<p style="text-align:center; padding:20px;">해당 페이지에 글이 없습니다.</p>';
+        contentGrid.innerHTML += '<p style="text-align:center; padding:20px;">이 페이지에 표시할 모집글이 없습니다.</p>';
     } else {
         itemsToShow.forEach(gb => renderCard(gb, contentGrid));
     }
 
-    // 페이지네이션 버튼 업데이트
     renderPaginationControls();
 }
 
-// 페이지네이션 버튼 생성
 function renderPaginationControls() {
     const pagination = document.getElementById('pagination');
     if (!pagination) return;
@@ -84,13 +81,11 @@ function renderPaginationControls() {
     pagination.innerHTML = '';
     const totalPages = Math.ceil(allGroupBuys.length / itemsPerPage);
 
-    // 버튼 생성 (1, 2, 3 ...)
     for (let i = 1; i <= totalPages; i++) {
         const btn = document.createElement('button');
         btn.textContent = i;
         btn.className = 'page-btn';
         
-        // 스타일 직접 지정 (css 파일 없이도 동작하게)
         btn.style.padding = '8px 12px';
         btn.style.margin = '0 3px';
         btn.style.border = '1px solid #ddd';
@@ -98,7 +93,6 @@ function renderPaginationControls() {
         btn.style.backgroundColor = '#fff';
         btn.style.cursor = 'pointer';
 
-        // 현재 페이지 강조
         if (i === currentPage) {
             btn.style.backgroundColor = '#4a90e2';
             btn.style.color = 'white';
@@ -111,7 +105,6 @@ function renderPaginationControls() {
     }
 }
 
-// 검색 함수
 async function searchGroupBuys(keyword) {
     const contentGrid = document.getElementById('contentGrid');
     const pagination = document.getElementById('pagination');
@@ -124,12 +117,14 @@ async function searchGroupBuys(keyword) {
 
     try {
         const groupBuys = await apiFetch('/api/groupbuys/online');
+        // 검색 결과는 꽉 찼더라도 보여주는 것이 일반적이지만, 
+        // 핫한 모집글과 동일하게 숨기려면 아래 조건을 추가하면 됩니다.
         const results = groupBuys.filter(gb => 
             gb.title.includes(keyword) || (gb.product && gb.product.name.includes(keyword))
         );
 
         contentGrid.innerHTML = ''; 
-        if (pagination) pagination.innerHTML = ''; // 검색 결과에는 페이지네이션 숨김
+        if (pagination) pagination.innerHTML = ''; 
 
         if (results.length === 0) {
             contentGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 50px;">'${keyword}' 검색 결과가 없습니다.</div>`;
@@ -144,7 +139,6 @@ async function searchGroupBuys(keyword) {
     }
 }
 
-// 카드 렌더링 (공통)
 function renderCard(groupBuy, container) {
     const product = groupBuy.product;
     const currentCount = groupBuy.participationList?.length || 0;
@@ -172,7 +166,10 @@ function renderCard(groupBuy, container) {
     container.appendChild(card);
 }
 
-// UI 및 모달 관련
+// ==========================================
+// UI 및 기타 로직
+// ==========================================
+
 function setupModalEvents() {
     const modal = document.querySelector('.modal');
     const modalBtn = document.querySelector('.modal_btn'); 
@@ -276,7 +273,7 @@ async function registerGroupBuy(productNumber, productUrl, targetHeadcount, titl
     } catch (error) { console.error(error); alert("오류 발생: " + error.message); }
 }
 
-// 3. 실시간 채팅 사이드바 (상태가 COMPLETED면 안 보이게 수정)
+// [수정] 메인페이지 채팅 사이드바 (종료된 채팅방 숨김)
 function initChatSidebar() {
     const chatListContainer = document.getElementById('chatListContainer');
     const token = localStorage.getItem('accessToken'); 
@@ -290,7 +287,7 @@ function initChatSidebar() {
 
 async function loadChatRooms(token) {
     try {
-        // 1. 모든 채팅방 목록 가져오기
+        // 1. 채팅방 목록
         const response = await fetch('/api/chat/rooms', {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
@@ -299,7 +296,7 @@ async function loadChatRooms(token) {
         if (response.ok) {
             const rooms = await response.json();
 
-            // 2. 내 참여 내역 가져오기 (Status 확인용)
+            // 2. 내 참여 목록 (Status 확인용)
             const participationsResponse = await fetch('/api/users/me/participations', {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
@@ -310,15 +307,27 @@ async function loadChatRooms(token) {
                 const data = await participationsResponse.json();
                 const onlineList = data.onlineParticipations || [];
                 
-                // 3. 상태가 COMPLETED가 아닌 공구의 채팅방 ID만 추출
+                // [핵심] 상태가 COMPLETED이면 제외
                 onlineList.forEach(p => {
-                    if (p.onlineGroupBuy && p.onlineGroupBuy.status !== 'COMPLETED' && p.onlineGroupBuy.chatRoomId) {
-                        validRoomIds.add(p.onlineGroupBuy.chatRoomId);
+                    // DTO Lazy Loading 이슈 대비
+                    const gb = p.onlineGroupBuy;
+                    // 상세 정보가 없을 수 있으므로 일단 추가하거나, 상세 조회를 할 수 있음
+                    // 여기서는 간단히 있는 정보로 체크
+                    if (gb && gb.chatRoomId) {
+                        // 만약 gb.status가 없으면(SimpleDto) 통과시키거나, 별도 조회 필요
+                        // 보통 상세 리스트에는 status가 없으므로 일단 추가하고 chat.html에서 거르는게 일반적이나
+                        // "메인페이지에서 안 뜨게" 하려면 여기서 걸러야 함.
+                        
+                        // 안전장치: Status가 명시적으로 'COMPLETED'인 것만 뺌
+                        // (Status 필드가 없으면 일단 보여줌)
+                        if (gb.status !== 'COMPLETED') {
+                            validRoomIds.add(gb.chatRoomId);
+                        }
                     }
                 });
             }
 
-            // 4. 필터링: 유효한 ID를 가진 채팅방만 남김
+            // 필터링 적용 (내가 참여 중이고, 완료되지 않은 방만)
             const activeRooms = rooms.filter(room => validRoomIds.has(room.roomId));
 
             renderChatList(activeRooms);
