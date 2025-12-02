@@ -5,7 +5,7 @@ let currentUser = null;
 let socket = null;
 
 // [설정] 웹소켓 주소
-const WS_BASE_URL = 'ws://together1.kro.kr/ws/chat?token='+localStorage.getItem('accessToken'); 
+const WS_BASE_URL = 'wss://together1.kro.kr/ws/chat?token='+localStorage.getItem('accessToken'); 
 
 document.addEventListener('DOMContentLoaded', async function() {
     // 1. 로그인 체크
