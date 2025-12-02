@@ -10,6 +10,7 @@ import com.dev.dev.repository.ChatParticipantRepository;
 import com.dev.dev.repository.ChatRoomRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -81,6 +82,15 @@ public class ChatRoomService {
         return chatRoomRepository.findByGroupBuyId(groupBuyId);
     }
 
+@Transactional
+    public void updateLastReadAt(Long roomId, Long userId) {
+        ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndUserId(roomId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 방의 참여자가 아닙니다."));
+
+        participant.setLastReadAt(LocalDateTime.now());
+        // @Transactional에 의해 메서드가 끝날 때 DB에 자동으로 update 쿼리가 날아갑니다.
+    }
+
     public void addParticipant(ChatRoom room, User user) {
         boolean exists = chatParticipantRepository
                 .findByChatRoomIdAndUserId(room.getId(), user.getId())
@@ -95,5 +105,7 @@ public class ChatRoomService {
             chatParticipantRepository.save(cp);
         }
     }
+   
+	
 
 }

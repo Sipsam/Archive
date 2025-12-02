@@ -1,6 +1,7 @@
 package com.dev.dev.websocket;
 
 import com.dev.dev.dto.chat.ChatMessageDto;
+import com.dev.dev.entity.ChatMessage; // [중요] import 추가
 import com.dev.dev.entity.User;
 import com.dev.dev.service.ChatMessageService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -8,12 +9,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.*;
-
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.HashMap; // [중요] import 추가
 import java.util.HashSet;
+import java.util.Map;     // [중요] import 추가
 import java.util.Set;
 
 @Slf4j
@@ -24,7 +26,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     private final ChatMessageService chatMessageService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // 연결된 세션들 관리 (사이드바는 NEW_MESSAGE 신호만 받으면 되기 때문에 전체 브로드캐스트)
+    // 연결된 세션들 관리
     private final Set<WebSocketSession> sessions = Collections.synchronizedSet(new HashSet<>());
 
     @Override
@@ -53,10 +55,35 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             }
 
             if ("CHAT".equalsIgnoreCase(dto.getType())) {
-                // DB에 메시지 저장
-                chatMessageService.saveFromDto(dto, user.getId());
+                // [수정 핵심] DB에 메시지 저장 후, 반환된 엔티티를 savedMsg 변수에 저장해야 함
+                ChatMessage savedMsg = chatMessageService.saveFromDto(dto, user.getId());
 
-                // 모든 클라이언트에게 NEW_MESSAGE 알림
+                // 2. 채팅방에 있는 모든 클라이언트에게 '메시지 내용' 전송 (Type: CHAT)
+                Map<String, Object> chatPayload = new HashMap<>();
+                chatPayload.put("type", "CHAT");
+                chatPayload.put("roomId", dto.getRoomId());
+                chatPayload.put("senderId", user.getId());
+                chatPayload.put("senderNickname", user.getNickname());
+                chatPayload.put("message", dto.getMessage());
+                // savedMsg 변수를 여기서 사용
+                chatPayload.put("sentAt", savedMsg.getSentAt().toString());
+
+                String jsonPayload = objectMapper.writeValueAsString(chatPayload);
+                TextMessage textMessage = new TextMessage(jsonPayload);
+
+                synchronized (sessions) {
+                    for (WebSocketSession s : sessions) {
+                        if (s.isOpen()) {
+                            try {
+                                s.sendMessage(textMessage);
+                            } catch (Exception e) {
+                                log.error("Error sending message", e);
+                            }
+                        }
+                    }
+                }
+
+                // 3. 사이드바 알림용 NEW_MESSAGE 이벤트 전송
                 broadcastNewMessageEvent(dto.getRoomId());
             }
 
