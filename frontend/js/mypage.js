@@ -156,7 +156,7 @@ function renderParticipationItem(item, container) {
                         ${groupBuy.title || '제목 로딩 실패'}
                     </a>
                 </h3>
-                <p style="margin-bottom:5px; color:#666; font-size:14px;">상품: ${product ? productName : '정보 없음'}</p>
+                <p style="margin-bottom:5px; color:#666; font-size:14px;">상품: ${product ? groupBuy.productName : '정보 없음'}</p>
                 <span style="display:inline-block; margin-top:8px; font-size:13px; font-weight:bold; color:#4a90e2; background-color:#eef6ff; padding:3px 8px; border-radius:4px;">
                     상태: ${statusText}
                 </span>
