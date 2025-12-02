@@ -1,11 +1,11 @@
 // frontend/js/payment.js
 
 let currentGroupBuy = null;
-let currentUser = null; // 내 정보 저장용
+let currentUser = null; 
 let paymentStatus = 'PENDING'; 
 let widgets = null; 
 let currentAmount = 0; 
-let selectedRating = 0; // 선택된 별점
+let selectedRating = 0; 
 
 document.addEventListener('DOMContentLoaded', async function() {
     // 1. 로그인 인증 확인
@@ -72,7 +72,9 @@ async function loadPaymentInfo(groupBuyId) {
             paymentStatus = myParticipation.paymentStatus || 'PENDING';
         }
 
-        // 이미 결제된 상태(PAID)라면 결제창 숨기고 리뷰창 표시
+        // ============================================================
+        // [핵심 로직] 이미 결제된 상태(PAID)라면 결제창 숨기고 리뷰창 표시
+        // ============================================================
         if (paymentStatus === 'PAID') {
             document.getElementById('payment-wrapper').style.display = 'none';
             
@@ -81,8 +83,8 @@ async function loadPaymentInfo(groupBuyId) {
                 document.getElementById('review-wrapper').style.display = 'block';
             } else {
                 // 방장이면 리뷰창 없이 알림 후 메인 이동
-                alert('이미 결제가 완료된 공구입니다. (방장)');
-                window.location.href = 'recruitment-detail.html?id=' + groupBuyId;
+                alert('이미 결제가 완료된 공구입니다. (방장은 본인을 평가할 수 없습니다)');
+                window.location.href = 'index.html';
             }
             return; // 이후 결제 로직 실행 안 함
         }
@@ -198,7 +200,7 @@ async function processPayment() {
     }
 }
 
-// 별점 및 리뷰 관련 함수들 (순수 프론트엔드 처리)
+// 별점 및 리뷰 관련 함수들
 
 // 별점 기능 초기화
 function initStarRating() {
@@ -263,12 +265,13 @@ async function submitReview() {
             body: payload
         });
         
+        // 프론트엔드에서는 성공으로 처리
         alert('소중한 후기가 등록되었습니다! 메인으로 이동합니다.');
         window.location.href = 'index.html';
         
     } catch (error) {
         console.error(error);
-        alert('리뷰 등록 중 문제가 발생했습니다.');
+        alert('리뷰 등록 중 문제가 발생했지만, 메인으로 이동합니다.');
         window.location.href = 'index.html';
     }
 }

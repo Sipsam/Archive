@@ -119,7 +119,7 @@ function renderRecruitmentDetail(groupBuy, participations) {
     if (currentCountEl) currentCountEl.textContent = `${participations.length}명`;
 }
 
-// 하단 버튼 상태 관리 로직
+// [핵심] 하단 버튼 상태 관리 로직
 function setupJoinButton(groupBuy, participations) {
     const joinBtn = document.querySelector('.btn-join');
     if (!joinBtn) return;
@@ -141,15 +141,20 @@ function setupJoinButton(groupBuy, participations) {
     joinBtn.style.cursor = 'pointer';
     joinBtn.onclick = null; 
 
+    // 공통 결제 페이지 이동 함수
+    const goToPayment = () => {
+        window.location.href = `payment.html?groupBuyId=${groupBuy.id}`;
+    };
+
     if (isHost) {
         // [케이스 1] 방장
         if (isRecruiting) {
             joinBtn.textContent = '결제 상태로 변경하기 (방장 전용)';
             joinBtn.onclick = changePaymentStatus;
         } else if (isPaying) {
-            joinBtn.textContent = '결제 진행 중 (참여자 결제 대기)';
-            joinBtn.disabled = true;
-            joinBtn.style.backgroundColor = '#888';
+            joinBtn.textContent = '결제하기 (방장)';
+            joinBtn.style.backgroundColor = '#ff4444'; 
+            joinBtn.onclick = goToPayment;
         } else {
             joinBtn.textContent = '종료된 공구';
             joinBtn.disabled = true;
@@ -162,9 +167,7 @@ function setupJoinButton(groupBuy, participations) {
             // [결제 버튼 노출] 결제 진행 중 상태라면 -> 결제 페이지로 이동
             joinBtn.textContent = '결제하기';
             joinBtn.style.backgroundColor = '#ff4444'; // 빨간색 강조
-            joinBtn.onclick = () => {
-                window.location.href = `payment.html?groupBuyId=${groupBuy.id}`;
-            };
+            joinBtn.onclick = goToPayment;
         } else if (isRecruiting) {
             // 아직 모집 중이면 채팅방 이동
             joinBtn.textContent = '채팅방으로 이동';
@@ -224,7 +227,7 @@ async function joinGroupBuy(groupBuyId) {
 
 // [API] 결제 상태 변경 요청 (방장 전용)
 async function changePaymentStatus() {
-    if (!confirm('결제 상태로 변경하시겠습니까?\n변경 후에는 참여자들이 결제를 진행할 수 있게 됩니다.')) return;
+    if (!confirm('결제 상태로 변경하시겠습니까?\n변경 후에는 본인을 포함한 모든 참여자가 결제를 진행해야 합니다.')) return;
 
     try {
         await apiFetch(`/api/payment/start/${currentGroupBuy.id}`, { method: 'POST' });
