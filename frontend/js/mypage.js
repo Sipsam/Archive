@@ -42,10 +42,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupSettingsForm();
 });
 
-// [수정됨] 참여 내역 로드 및 분류 (진행중 vs 완료됨)
+// [수정됨] 참여 내역 로드 및 분류
 async function loadMyParticipations() {
     const activeListContainer = document.getElementById('participationList');
-    const completedListContainer = document.getElementById('completedList'); // [NEW] 완료 목록
+    const completedListContainer = document.getElementById('completedList'); 
 
     if (!activeListContainer) return;
 
@@ -86,9 +86,15 @@ async function loadMyParticipations() {
             const groupBuy = item.onlineGroupBuy;
             if (!groupBuy) return;
 
-            // [분류 로직] 상태가 COMPLETED이면 완료된 목록으로, 아니면 참여중 목록으로
-            const isCompleted = (groupBuy.status === 'COMPLETED');
-            const targetContainer = isCompleted ? completedListContainer : activeListContainer;
+            const gbStatus = groupBuy.status;
+            const myPayStatus = item.paymentStatus;
+
+            // [핵심 수정] 완료된 목록으로 보내는 기준 변경
+            // 1. 공구 자체가 종료됨 (COMPLETED)
+            // 2. OR 내 결제가 완료됨 (PAID) -> 내 할일은 끝났으므로 완료 탭으로 이동
+            const isFinished = (gbStatus === 'COMPLETED' || myPayStatus === 'PAID');
+            
+            const targetContainer = isFinished ? completedListContainer : activeListContainer;
 
             if (targetContainer) {
                 renderParticipationItem(item, targetContainer);
@@ -108,13 +114,12 @@ async function loadMyParticipations() {
     }
 }
 
-// [NEW] 개별 아이템 렌더링 함수
 function renderParticipationItem(item, container) {
     const groupBuy = item.onlineGroupBuy;
     const product = groupBuy.product;
     const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '-';
     
-    // [수정됨] 상태 텍스트 변환
+    // 상태 텍스트 변환
     const statusText = getStatusText(item);
 
     const card = document.createElement('div');
@@ -159,10 +164,9 @@ function renderParticipationItem(item, container) {
     container.appendChild(card);
 }
 
-// [NEW] 상태 텍스트 변환 헬퍼 함수
 function getStatusText(item) {
-    const gbStatus = item.onlineGroupBuy.status; // RECRUITING, IN_PROGRESS, COMPLETED
-    const myPayStatus = item.paymentStatus;      // PENDING, PAID
+    const gbStatus = item.onlineGroupBuy.status; 
+    const myPayStatus = item.paymentStatus;      
 
     if (gbStatus === 'COMPLETED') return '종료됨 (배송 준비)';
     if (myPayStatus === 'PAID') return '결제 완료';
@@ -170,8 +174,6 @@ function getStatusText(item) {
     
     return '모집 중 (참여 완료)';
 }
-
-// --- 기타 설정 관련 함수들 (기존 유지) ---
 
 async function initPointPayment() {
     const clientKey = "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm"; 
