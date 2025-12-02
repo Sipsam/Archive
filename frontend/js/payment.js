@@ -183,9 +183,9 @@ async function processPayment() {
             orderName: currentGroupBuy.title || "공동구매 참여",
             successUrl: successUrl, 
             failUrl: window.location.origin + "/fail.html",
-            customerEmail: email,
-            customerName: username,
-            customerMobilePhone: phone,
+            // customerEmail: email,
+            // customerName: username,
+            // customerMobilePhone: phone,
         });
         
     } catch (error) {
