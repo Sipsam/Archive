@@ -156,7 +156,7 @@ function renderCard(groupBuy, container) {
         ${imgHtml}
         <div class="card-info">
             <h3>${groupBuy.title}</h3>
-            <p style="color:#666; font-size:14px; margin-bottom:5px;">${product ? productName : '상품정보 없음'}</p>
+            <p style="color:#666; font-size:14px; margin-bottom:5px;">${product ? groupBuy.productName : '상품정보 없음'}</p>
             <div style="margin-top:10px; display:flex; justify-content:space-between; color:#4a90e2; font-weight:bold;">
                 <span>👤 ${currentCount}명 참여</span>
                 <span>목표 ${groupBuy.targetHeadcount}명</span>
