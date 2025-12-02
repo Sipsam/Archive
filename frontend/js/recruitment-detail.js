@@ -164,7 +164,7 @@ function setupJoinButton(groupBuy, participations) {
                 joinBtn.style.cursor = 'default';
             } else {
                 joinBtn.textContent = '결제하기 (방장)';
-                joinBtn.style.backgroundColor = '#ff4444'; 
+                joinBtn.style.backgroundColor = '#4a90e2'; 
                 joinBtn.onclick = goToPayment;
             }
         } else {
@@ -182,7 +182,7 @@ function setupJoinButton(groupBuy, participations) {
         } 
         else if (isPaying) {
             joinBtn.textContent = '결제하기';
-            joinBtn.style.backgroundColor = '#ff4444'; 
+            joinBtn.style.backgroundColor = '#4a90e2'; 
             joinBtn.onclick = goToPayment;
         } else if (isRecruiting) {
             joinBtn.textContent = '채팅방 입장 (상단 버튼)';
