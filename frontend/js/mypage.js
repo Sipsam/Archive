@@ -71,7 +71,7 @@ async function loadMyParticipations() {
                     const pId = fullInfo.product?.id || fullInfo.productId;
                     if (pId && (!fullInfo.product || !fullInfo.product.name)) {
                          try {
-                             const productInfo = await apiFetch(`/api/products/${pId}`);
+                             const productInfo = await apiFetch(`/api/groupbuys/${pId}`);
                              fullInfo.product = productInfo;
                          } catch(e) {}
                     }
