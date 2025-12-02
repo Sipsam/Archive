@@ -92,6 +92,11 @@ function renderRecruitmentDetail(groupBuy, participations) {
     // 1. 방장 정보
     const hostNameEl = document.getElementById('hostName');
     const recruitDateEl = document.getElementById('recruitDate');
+    const scoreElement = document.querySelector('.score');
+        if (scoreElement) {
+            const temp = myInfo.mannerTemp !== undefined ? myInfo.mannerTemp : 36.5;
+            scoreElement.textContent = temp.toFixed(1);
+        }
 
     if (hostNameEl) hostNameEl.textContent = groupBuy.hostName || '알 수 없음';
     if (recruitDateEl) {
