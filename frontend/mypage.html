@@ -46,8 +46,8 @@
 
                 <div class="menu-section">
                     <ul class="mypage-menu">
-                        <li><a class="menu-link active" data-tab="section-orders">주문 내역 (참여글)</a></li>
-                        <li><a class="menu-link" href="#">찜한 상품 (준비중)</a></li>
+                        <li><a class="menu-link active" data-tab="section-orders">주문 내역 (참여중)</a></li>
+                        <li><a class="menu-link" data-tab="section-completed">완료된 공구 (찜한 상품)</a></li>
                         <li><a class="menu-link" href="#">내 후기 (준비중)</a></li>
                         <li><a class="menu-link" data-tab="section-settings">설정</a></li>
                         <li><a href="#" onclick="logout()">로그아웃</a></li>
@@ -60,6 +60,12 @@
                 <div id="section-orders" class="tab-content active content-card">
                     <h2>참여 중인 모집글</h2>
                     <div class="participation-list" id="participationList">
+                        </div>
+                </div>
+
+                <div id="section-completed" class="tab-content content-card">
+                    <h2>완료된 모집글</h2>
+                    <div class="participation-list" id="completedList">
                         </div>
                 </div>
 
