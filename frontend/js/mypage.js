@@ -29,8 +29,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         updatePointUI(myInfo.points);
         populateSettingsForm(myInfo);
         
-        // 참여 내역 로드
+        // 데이터 로드
         await loadMyParticipations();
+        await loadMyReviews(); // [기능 3] 리뷰 로드
         
         if(document.getElementById('pointHistoryList')) await loadMyPointHistory();
         if (document.getElementById('payment-method')) await initPointPayment();
@@ -42,7 +43,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupSettingsForm();
 });
 
-// [수정됨] 참여 내역 로드 및 분류
+// [기능 4] 완료된 공구 분류 로직
 async function loadMyParticipations() {
     const activeListContainer = document.getElementById('participationList');
     const completedListContainer = document.getElementById('completedList'); 
@@ -58,7 +59,6 @@ async function loadMyParticipations() {
             return;
         }
 
-        // 상세 정보 보정 (Lazy Loading 대응)
         const enrichedList = await Promise.all(onlineList.map(async (item) => {
             let groupBuy = item.onlineGroupBuy;
             if (groupBuy && groupBuy.id && !groupBuy.title) {
@@ -77,11 +77,9 @@ async function loadMyParticipations() {
             return item;
         }));
 
-        // 리스트 초기화
         activeListContainer.innerHTML = '';
         if (completedListContainer) completedListContainer.innerHTML = '';
 
-        // 분류 및 렌더링
         enrichedList.forEach(item => {
             const groupBuy = item.onlineGroupBuy;
             if (!groupBuy) return;
@@ -89,9 +87,7 @@ async function loadMyParticipations() {
             const gbStatus = groupBuy.status;
             const myPayStatus = item.paymentStatus;
 
-            // [핵심 수정] 완료된 목록으로 보내는 기준 변경
-            // 1. 공구 자체가 종료됨 (COMPLETED)
-            // 2. OR 내 결제가 완료됨 (PAID) -> 내 할일은 끝났으므로 완료 탭으로 이동
+            // [분류 기준] 공구가 종료되었거나(COMPLETED) OR 내 결제가 완료되었으면(PAID) 완료 탭으로
             const isFinished = (gbStatus === 'COMPLETED' || myPayStatus === 'PAID');
             
             const targetContainer = isFinished ? completedListContainer : activeListContainer;
@@ -101,7 +97,6 @@ async function loadMyParticipations() {
             }
         });
 
-        // 빈 상태 처리
         if (activeListContainer.children.length === 0) {
             activeListContainer.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">진행 중인 공구가 없습니다.</div>';
         }
@@ -119,7 +114,6 @@ function renderParticipationItem(item, container) {
     const product = groupBuy.product;
     const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '-';
     
-    // 상태 텍스트 변환
     const statusText = getStatusText(item);
 
     const card = document.createElement('div');
@@ -131,34 +125,22 @@ function renderParticipationItem(item, container) {
     card.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)';
     card.style.borderRadius = '8px';
     
-    // 채팅방 버튼
     let chatButtonHtml = '';
     if (groupBuy.chatRoomId) {
-        chatButtonHtml = `
-            <button onclick="location.href='chat.html?roomId=${groupBuy.chatRoomId}'" 
-                    style="margin-top:10px; padding:8px 12px; background:#4a90e2; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size:13px;">
-                💬 채팅방
-            </button>
-        `;
+        chatButtonHtml = `<button onclick="location.href='chat.html?roomId=${groupBuy.chatRoomId}'" style="margin-top:10px; padding:8px 12px; background:#4a90e2; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size:13px;">💬 채팅방</button>`;
     }
 
     card.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:start;">
             <div style="flex: 1;">
                 <h3 style="margin-bottom:8px; font-size:16px; color:#333; font-weight:bold;">
-                    <a href="recruitment-detail.html?id=${groupBuy.id}" style="text-decoration:none; color:#333;">
-                        ${groupBuy.title || '제목 로딩 실패'}
-                    </a>
+                    <a href="recruitment-detail.html?id=${groupBuy.id}" style="text-decoration:none; color:#333;">${groupBuy.title || '제목 로딩 실패'}</a>
                 </h3>
                 <p style="margin-bottom:5px; color:#666; font-size:14px;">상품: ${product ? product.name : '정보 없음'}</p>
                 <p style="font-size:13px; color:#888;">참여일: ${dateStr}</p>
-                <span style="display:inline-block; margin-top:8px; font-size:13px; font-weight:bold; color:#4a90e2; background-color:#eef6ff; padding:3px 8px; border-radius:4px;">
-                    상태: ${statusText}
-                </span>
+                <span style="display:inline-block; margin-top:8px; font-size:13px; font-weight:bold; color:#4a90e2; background-color:#eef6ff; padding:3px 8px; border-radius:4px;">상태: ${statusText}</span>
             </div>
-            <div style="text-align:right; min-width: 80px;">
-                 ${chatButtonHtml}
-            </div>
+            <div style="text-align:right; min-width: 80px;">${chatButtonHtml}</div>
         </div>
     `;
     container.appendChild(card);
@@ -167,28 +149,65 @@ function renderParticipationItem(item, container) {
 function getStatusText(item) {
     const gbStatus = item.onlineGroupBuy.status; 
     const myPayStatus = item.paymentStatus;      
-
     if (gbStatus === 'COMPLETED') return '종료됨 (배송 준비)';
     if (myPayStatus === 'PAID') return '결제 완료';
     if (gbStatus === 'IN_PROGRESS') return '결제 진행 중';
-    
     return '모집 중 (참여 완료)';
 }
 
+// [기능 3] 받은 후기 목록 로드
+async function loadMyReviews() {
+    const reviewListContainer = document.getElementById('reviewList');
+    if (!reviewListContainer) return;
+
+    try {
+        // [백엔드 API 호출] 나에게 달린 리뷰 가져오기
+        const reviews = await apiFetch(`/api/users/${currentUserInfo.id}/reviews`);
+        reviewListContainer.innerHTML = '';
+
+        if (reviews.length === 0) {
+            reviewListContainer.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">받은 후기가 없습니다.</div>';
+            return;
+        }
+
+        reviews.forEach(review => {
+            const div = document.createElement('div');
+            div.className = 'activity-item';
+            div.style.borderLeft = '4px solid #FFD700'; // 골드 색상
+            div.style.padding = '15px';
+            div.style.marginBottom = '10px';
+            div.style.background = '#fff';
+            div.style.borderRadius = '8px';
+
+            const stars = '★'.repeat(Math.round(review.rating));
+            
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                    <span style="font-weight:bold; color:#333;">별점: <span style="color:#FFD700;">${stars}</span> (${review.rating})</span>
+                    <span style="font-size:12px; color:#888;">${new Date(review.createdAt).toLocaleDateString()}</span>
+                </div>
+                <p style="color:#555; font-size:14px;">${review.comment}</p>
+            `;
+            reviewListContainer.appendChild(div);
+        });
+
+    } catch (error) {
+        console.error('리뷰 로드 실패:', error);
+        reviewListContainer.innerHTML = '<div style="padding:20px; text-align:center; color:red;">후기를 불러오지 못했습니다.</div>';
+    }
+}
+
+// --- 기타 (포인트 결제, 탭 등) ---
 async function initPointPayment() {
     const clientKey = "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm"; 
     const tossPayments = TossPayments(clientKey);
     const customerKey = "user_" + (currentUserInfo?.id || new Date().getTime());
-    
     paymentWidgets = tossPayments.widgets({ customerKey });
-
     await paymentWidgets.setAmount({ currency: "KRW", value: 1000 });
-
     await Promise.all([
         paymentWidgets.renderPaymentMethods({ selector: "#payment-method", variantKey: "DEFAULT" }),
         paymentWidgets.renderAgreement({ selector: "#agreement", variantKey: "AGREEMENT" }),
     ]);
-    
     document.getElementById('payment-widget-area').style.display = 'block';
     setupPointPurchaseEvents();
 }
@@ -196,7 +215,6 @@ async function initPointPayment() {
 function setupPointPurchaseEvents() {
     const purchaseItems = document.querySelectorAll('.point-purchase-list .purchase-item');
     const purchaseBtn = document.getElementById('point-payment-btn');
-    
     purchaseItems.forEach(item => {
         item.addEventListener('click', async function() {
             purchaseItems.forEach(i => i.classList.remove('selected'));
@@ -210,7 +228,6 @@ function setupPointPurchaseEvents() {
             }
         });
     });
-
     if (purchaseBtn) {
         purchaseBtn.textContent = "충전할 금액을 선택해주세요";
         purchaseBtn.disabled = true;
@@ -307,19 +324,16 @@ async function saveSettings() {
     const password = document.getElementById('settingPassword').value;
     const newPassword = document.getElementById('newPassword').value;
     const confirmNewPassword = document.getElementById('confirmNewPassword').value;
-
     if (!password) { alert('정보를 수정하려면 현재 비밀번호를 입력해야 합니다.'); return; }
     if (newPassword || confirmNewPassword) {
         if (newPassword !== confirmNewPassword) { alert('새 비밀번호가 일치하지 않습니다.'); return; }
     }
-
     const updateData = {
         nickname: getInputValue('settingNickname'),
         address: getInputValue('settingAddress'),
         addressDetail: getInputValue('settingAddressDetail'),
         zipCode: getInputValue('settingZip')
     };
-
     try {
         await apiFetch('/api/users/me', { method: 'PUT', body: updateData });
         alert('회원 정보가 수정되었습니다.');
