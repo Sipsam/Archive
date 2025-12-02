@@ -228,19 +228,7 @@ async function joinGroupBuy(groupBuyId) {
     if (!confirm('이 공동구매에 참여하시겠습니까?')) return;
 
     try {
-        // await apiFetch(`/api/groupbuys/online/${groupBuyId}/participate`, { method: 'POST' });
-        const participate_token = getToken();
-
-        const response = await fetch(`/api/groupbuys/online/${groupBuyId}/participate`, {
-            method : 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(participate_token ? { Authorization: `Bearer ${participate_tokentoken}` } : {}),
-                ...headers,
-            },
-            body: body ? JSON.stringify(body) : undefined,
-        });
-
+        await apiFetch(`/api/groupbuys/online/${groupBuyId}/participate`, { method: 'POST' });
         
         alert('참여가 완료되었습니다! 채팅방으로 이동할 수 있습니다.');
         

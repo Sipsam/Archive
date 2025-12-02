@@ -32,26 +32,18 @@ function login(userData) {
     }
 }
 
-/**
- * 로그아웃 처리 (수정했음)
- * 함수 실행 시 확인 창을 띄우고, 확인을 눌러야만 로그아웃이 진행됨
- */
 function logout() {
-    // 1. 확인 창 띄우기
     if (!confirm("정말 로그아웃 하시겠습니까?")) {
-        return; // 취소 버튼을 누르면 함수 종료 (로그아웃 안 함)
+        return; 
     }
-
-    // 2. 확인 버튼을 눌렀을 때만 실행
     localStorage.removeItem('accessToken');
     localStorage.removeItem('user'); 
-    
-    alert("로그아웃 되었습니다."); // 선택 사항
+    alert("로그아웃 되었습니다.");
     window.location.href = 'index.html';
 }
 
 
-// 3. 🌐 공통 API 호출 래퍼 (apiFetch)
+// 3. 🌐 공통 API 호출 래퍼 (apiFetch) - [핵심 수정됨]
 
 async function apiFetch(path, { method = 'GET', headers = {}, body } = {}) {
     const token = getToken();
@@ -67,10 +59,6 @@ async function apiFetch(path, { method = 'GET', headers = {}, body } = {}) {
     });
 
     if (response.status === 401) {
-        // 여기서 logout()을 호출하면 401 에러 시에도 "로그아웃 하시겠습니까?"가 뜰 수 있기 때문에
-        // 강제 로그아웃이 필요할 때는 confirm 없이 처리하는 것이 좋으므로,
-        // 여기서는 수동으로 삭제하거나 별도 함수를 쓰는 것이 좋지만,
-        // 일단 기존 흐름 유지를 위해 logout() 대신 로컬스토리지 삭제만 수행
         localStorage.removeItem('accessToken');
         localStorage.removeItem('user');
         alert('로그인이 만료되었거나 권한이 없습니다. 다시 로그인해주세요.');
@@ -81,15 +69,29 @@ async function apiFetch(path, { method = 'GET', headers = {}, body } = {}) {
     if (!response.ok) {
         let errorMessage = `API Error: ${response.status}`;
         try {
-            const errorJson = await response.json();
-            errorMessage = errorJson.message || errorMessage;
+            // 에러 메시지도 JSON인지 텍스트인지 확인
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                const errorJson = await response.json();
+                errorMessage = errorJson.message || errorMessage;
+            } else {
+                errorMessage = await response.text();
+            }
         } catch (e) {
-            errorMessage = await response.text();
+            // 무시
         }
         throw new Error(errorMessage);
     }
 
-    return response.status === 204 ? null : response.json();
+    if (response.status === 204) return null;
+
+    // [핵심 수정] 응답 타입에 따라 JSON 또는 텍스트로 자동 변환
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+        return response.json();
+    } else {
+        return response.text(); // 텍스트만 반환하는 경우 대응 (SyntaxError 방지)
+    }
 }
 
 
