@@ -170,7 +170,8 @@ async function processPayment() {
     }
 
     if (!myParticipationId) {
-        alert("참여 정보를 찾을 수 없습니다. (ID 누락) 페이지를 새로고침해주세요.");
+        alert("참여 정보를 찾을 수 없습니다. 다시 시도해주세요.");
+        window.location.reload();
         return;
     }
 
@@ -183,9 +184,6 @@ async function processPayment() {
             orderName: currentGroupBuy.title || "공동구매 참여",
             successUrl: successUrl, 
             failUrl: window.location.origin + "/fail.html",
-            // customerEmail: email,
-            // customerName: username,
-            // customerMobilePhone: phone,
         });
         
     } catch (error) {
@@ -227,28 +225,26 @@ function highlightStars(count) {
     });
 }
 
-// [기능 2] 리뷰 작성 요청 (rating 포함)
 async function submitReview() {
     if (selectedRating === 0) {
         alert('매너 온도(별점)를 선택해주세요!');
         return;
     }
-    // const comment = document.getElementById('reviewComment').value;
     
+    // [수정] 코멘트 입력창이 없어졌으므로 빈 문자열 전송
     const payload = {
         groupBuyId: currentGroupBuy.id,
-        revieweeId: currentGroupBuy.hostId, // 방장 ID
-        // comment: comment,                   // 내용 (제외)
-        rating: parseFloat(selectedRating)  // 별점 (1~5)
+        revieweeId: currentGroupBuy.hostId, 
+        comment: "", // 빈 문자열
+        rating: parseFloat(selectedRating)
     };
-
     try {
         await apiFetch('/api/reviews', { method: 'POST', body: payload });
-        alert('소중한 후기가 등록되었습니다! 메인으로 이동합니다.');
+        alert('별점 평가가 완료되었습니다! 메인으로 이동합니다.');
         window.location.href = 'index.html';
     } catch (error) {
         console.error(error);
-        alert('소중한 후기가 등록되었습니다! 메인으로 이동합니다.');
+        alert('별점 평가가 완료되었습니다! 메인으로 이동합니다.');
         window.location.href = 'index.html';
     }
 }
