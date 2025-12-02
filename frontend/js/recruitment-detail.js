@@ -52,13 +52,38 @@ async function loadRecruitmentDetail(groupBuyId) {
         // 화면 렌더링
         renderRecruitmentDetail(groupBuy, participations);
         
-        // 버튼 설정
+        // 하단 메인 버튼 설정 (참여하기/결제하기 등)
         setupJoinButton(groupBuy, participations);
+
+        // 상단 헤더 채팅 버튼 설정
+        setupHeaderChatButton(groupBuy);
 
     } catch (error) {
         console.error('상세 정보 로드 실패:', error);
         alert('모집글 정보를 불러오지 못했습니다.');
         window.location.href = 'recruitment-list.html';
+    }
+}
+
+// 상단 헤더 채팅 버튼 로직
+function setupHeaderChatButton(groupBuy) {
+    const btnHeaderChat = document.getElementById('btnHeaderChat');
+    if (!btnHeaderChat) return;
+
+    // 참여자이거나 방장인 경우에만 버튼 표시
+    const isHost = (String(groupBuy.hostId) === String(currentUserId));
+    
+    if (isParticipant || isHost) {
+        btnHeaderChat.style.display = 'block'; // 버튼 보이기
+        btnHeaderChat.onclick = () => {
+            if (groupBuy.chatRoomId) {
+                window.location.href = `chat.html?roomId=${groupBuy.chatRoomId}`;
+            } else {
+                alert('아직 채팅방이 생성되지 않았습니다.');
+            }
+        };
+    } else {
+        btnHeaderChat.style.display = 'none';
     }
 }
 
@@ -153,7 +178,7 @@ function setupJoinButton(groupBuy, participations) {
             joinBtn.onclick = changePaymentStatus;
         } else if (isPaying) {
             joinBtn.textContent = '결제하기 (방장)';
-            joinBtn.style.backgroundColor = '#ff4444'; 
+            joinBtn.style.backgroundColor = '#4a90e2'; 
             joinBtn.onclick = goToPayment;
         } else {
             joinBtn.textContent = '종료된 공구';
@@ -164,13 +189,12 @@ function setupJoinButton(groupBuy, participations) {
     } else if (isParticipant) {
         // [케이스 2] 참여자
         if (isPaying) {
-            // [결제 버튼 노출] 결제 진행 중 상태라면 -> 결제 페이지로 이동
             joinBtn.textContent = '결제하기';
-            joinBtn.style.backgroundColor = '#ff4444'; // 빨간색 강조
+            joinBtn.style.backgroundColor = '#4a90e2'; 
             joinBtn.onclick = goToPayment;
         } else if (isRecruiting) {
-            // 아직 모집 중이면 채팅방 이동
-            joinBtn.textContent = '채팅방으로 이동';
+            // 아직 모집 중이면 상단 버튼 이용 유도 (혹은 채팅방 이동)
+            joinBtn.textContent = '채팅방 입장 (상단 버튼)';
             joinBtn.onclick = () => {
                 if (groupBuy.chatRoomId) {
                     window.location.href = `chat.html?roomId=${groupBuy.chatRoomId}`;
@@ -208,7 +232,7 @@ async function joinGroupBuy(groupBuyId) {
         
         alert('참여가 완료되었습니다! 채팅방으로 이동할 수 있습니다.');
         
-        // 채팅방 토큰 저장 (선택 사항)
+        // 채팅방 토큰 저장
         const token = getToken();
         if (token && currentGroupBuy?.chatRoomId) {
             localStorage.setItem(`chatRoom_${currentGroupBuy.chatRoomId}`, JSON.stringify({
