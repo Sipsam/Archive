@@ -66,6 +66,9 @@ public class ProductService {
      * URL 기반으로 검색 API 호출 후 결과 로깅
      */
     public Product searchByUrl(String productUrl) {
+        String normalizedUrl = toSmartStoreUrl(productUrl);
+        if (normalizedUrl == null) throw new RuntimeException("상품 ID 추출 실패");
+        log.info("정규화된 SmartStore URL = {}", normalizedUrl);
         CompletableFuture<String> ret_val = CompletableFuture.supplyAsync(() -> {
             try {
                 ProcessBuilder pb = new ProcessBuilder(
@@ -105,6 +108,7 @@ public class ProductService {
         if (ogTitle == null || ogTitle.isBlank()) throw new RuntimeException("og:title 파싱 실패");
         String productName = ogTitle.split(" : ")[0].trim();
         log.info("검색어로 사용할 상품명: {}", productName);
+
         Product product = null;
         try {
             int display = 100;
@@ -115,12 +119,22 @@ public class ProductService {
                 JSONObject response = callNaverApi(productName, display, start);
                 total = response.optInt("total", 0);
                 JSONArray items = response.optJSONArray("items");
+
                 if (items != null) {
                     for (int i = 0; i < items.length(); i++) {
                         JSONObject item = items.getJSONObject(i);
                         String title = item.optString("title").replaceAll("<.*?>", "").trim();
+                        String link = item.optString("link").trim();
+                        // 1순위: URL 매칭
+                        if (!link.isBlank() && link.contains(normalizedUrl)) {
+                            matchedItem = item;
+                            log.info("URL match success: {}", link);
+                            break;
+                        }
+                        // 2순위: 제목 매칭
                         if (title.contains(productName)) {
                             matchedItem = item;
+                            log.info("제목 match success: {}", title);
                             break;
                         }
                     }
@@ -129,6 +143,7 @@ public class ProductService {
                 start += display;
                 Thread.sleep(200);
             }
+
             if (matchedItem != null) {
                 long productId = matchedItem.optLong("productId");
                 if (productRepository.existsById(productId)) {
@@ -137,10 +152,10 @@ public class ProductService {
                 product = self.createProductFromItem(matchedItem);
                 productRepository.save(product);
             } else {
-                log.info("매칭된 상품 없음");
+                log.info("do not find matched item");
             }
         } catch (Exception e) {
-            log.error("검색 및 Product 생성 실패", e);
+            log.error("can't search and cannot create product", e);
         }
         return product;
     }
@@ -188,5 +203,12 @@ public class ProductService {
                 .unit(unit)
                 .imageUrl(imageUrl)   // ★ 이미지 저장!
                 .build();
+    }
+    private String toSmartStoreUrl(String url) {
+        Pattern p = Pattern.compile("/products/(\\d+)");
+        Matcher m = p.matcher(url);
+        if (!m.find()) return null;
+        String id = m.group(1);
+        return "https://smartstore.naver.com/main/products/" + id;
     }
 }
