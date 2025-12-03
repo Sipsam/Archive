@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     await loadPopularGroupBuys();
 });
 
-// [수정] 핫한 모집글 로드 (필터링 강화)
+// 핫한 모집글 로드 (필터링 강화했음)
 async function loadPopularGroupBuys() {
     const contentGrid = document.getElementById('contentGrid');
     if (!contentGrid) return;
@@ -117,8 +117,6 @@ async function searchGroupBuys(keyword) {
 
     try {
         const groupBuys = await apiFetch('/api/groupbuys/online');
-        // 검색 결과는 꽉 찼더라도 보여주는 것이 일반적이지만, 
-        // 핫한 모집글과 동일하게 숨기려면 아래 조건을 추가하면 됩니다.
         const results = groupBuys.filter(gb => 
             gb.title.includes(keyword) || (gb.product && gb.product.name.includes(keyword))
         );
@@ -165,10 +163,7 @@ function renderCard(groupBuy, container) {
     container.appendChild(card);
 }
 
-// ==========================================
 // UI 및 기타 로직
-// ==========================================
-
 function setupModalEvents() {
     const modal = document.querySelector('.modal');
     const modalBtn = document.querySelector('.modal_btn'); 
@@ -306,7 +301,7 @@ async function loadChatRooms(token) {
                 const data = await participationsResponse.json();
                 const onlineList = data.onlineParticipations || [];
                 
-                // [핵심] 상태가 COMPLETED이면 제외
+                // 상태가 COMPLETED이면 제외
                 onlineList.forEach(p => {
                     // DTO Lazy Loading 이슈 대비
                     const gb = p.onlineGroupBuy;
