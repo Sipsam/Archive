@@ -85,7 +85,7 @@ async function apiFetch(path, { method = 'GET', headers = {}, body } = {}) {
 
     if (response.status === 204) return null;
 
-    // [핵심 수정] 응답 타입에 따라 JSON 또는 텍스트로 자동 변환
+    // 응답 타입에 따라 JSON 또는 텍스트로 자동 변환
     const contentType = response.headers.get("content-type");
     if (contentType && contentType.includes("application/json")) {
         return response.json();
