@@ -53,7 +53,7 @@ async function loadRecruitmentList() {
             const tempHtml = `<span style="color:#4a90e2; font-weight:bold; font-size:0.9em; margin-left:4px;">(${mannerTempVal.toFixed(1)}℃)</span>`;
             const productName = groupBuy.productName || '상품명 없음';
 
-            // [NEW] 이미지 처리
+            // 이미지 처리
             let imageHtml = `<div class="recruitment-image-box" style="display:flex; align-items:center; justify-content:center; color:#999; font-size:12px;">이미지 없음</div>`;
             if (groupBuy.productImageUrl) {
                 imageHtml = `
