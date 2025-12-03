@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // 2. Q/A 항목 클릭 시 상세 보기 (기존 로직 유지)
+    // 2. Q/A 항목 클릭 시 상세 보기
     const qaItems = document.querySelectorAll('.qa-item');
     qaItems.forEach(item => {
         item.addEventListener('click', function() {
@@ -59,7 +59,7 @@ async function sendQuestion(title, content) {
 
         // 응답 처리
         if (res.ok) {
-            alert("Q/A 전송 성공");
+            alert("Q/A 전송 성공! 관리자의 이메일로 전송됩니다.");
             // 성공 시 폼 초기화
             const form = document.querySelector('.qa-form');
             if (form) form.reset();
