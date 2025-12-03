@@ -33,7 +33,7 @@ async function loadChatRoomList() {
     if (!listContainer) return;
 
     try {
-        // 백엔드의 "내 참여 내역" API를 재활용하여 채팅방 목록을 구성합니다.
+        // 백엔드의 "내 참여 내역" API를 재활용하여 채팅방 목록을 구성
         const data = await apiFetch('/api/users/me/participations');
         
         // 온라인/오프라인 참여 내역 합치기 (필요시) - 지금은 온라인만 예시
