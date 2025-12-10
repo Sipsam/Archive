@@ -7,11 +7,14 @@ import com.dev.dev.entity.*;
 import com.dev.dev.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor// private final 키워드가 붙은 필드들의 생성자를 자동으로 만들어줌. 생성자 호출은 Service에너테이션이 알아서 new를 통해 만듦.
 @Transactional(readOnly = true)
@@ -37,59 +40,69 @@ public class OnlineGroupBuyService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void deleteProductInNewTx(Long productId) {
+        try {
+            productRepository.deleteById(productId);
+        } catch (Exception ex) {
+            log.error("Failed to delete product in compensation transaction. productId={}", productId, ex);
+        }
+    }
+
     @Transactional
     public ResponseOnlineGroupByDto createGroupBuy(Long userId, RequestOnlineGroupBuyDto.Create req) {
         User host = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
         Product product = productRepository.findById(req.getProductId())
                 .orElseThrow(() -> new IllegalArgumentException("Product not found"));
+        try{
+            // 포인트 차감
+            int deposit = 1000;
+            int currentPoint = host.getPoints() == null ? 0 : host.getPoints();
 
-        // 포인트 차감
-        int deposit = 1000;
-        int currentPoint = host.getPoints() == null ? 0 : host.getPoints();
+            if (currentPoint < deposit) {
+                throw new IllegalStateException("공구 생성을 위한 포인트가 부족합니다. (보유: " + currentPoint + ", 필요: " + deposit + ")");
+            }
 
-        if (currentPoint < deposit) {
-            throw new IllegalStateException("공구 생성을 위한 포인트가 부족합니다. (보유: " + currentPoint + ", 필요: " + deposit + ")");
+            host.setPoints(currentPoint - deposit);
+
+            // 1. 공구 생성
+            OnlineGroupBuy groupBuy = OnlineGroupBuy.builder()
+                    .hostUser(host)
+                    .productId(product)
+                    .title(req.getTitle())
+                    .content(req.getContent())
+                    .targetHeadcount(req.getTargetHeadcount())
+                    .recruitEndDate(req.getRecruitEndDate())
+                    .status(GroupBuyStatus.RECRUITING)
+                    .build();
+
+            OnlineGroupBuy saved = groupBuyRepository.save(groupBuy);
+
+            // 2. 채팅방 생성 및 방장 추가
+            ChatRoom room = chatRoomService.createRoomForGroupBuy(saved.getId(), saved.getTitle());
+            saved.setChatRoomId(room.getId());
+            chatRoomService.addParticipant(room, host);
+
+            // 3. (추가) 방장을 OnlineParticipation으로 자동 등록
+            OnlineParticipation hostParticipation = OnlineParticipation.builder()
+                    .user(host)
+                    .onlineGroupBuy(saved)
+                    .quantity(null) // 나중에 startPaymentProcess()에서 자동으로 채워짐
+                    .paymentStatus(PaymentStatus.PENDING)
+                    .build();
+
+            participationRepository.save(hostParticipation);
+
+            // 4. Response 반환
+            return ResponseOnlineGroupByDto.from(saved);
+        }catch(RuntimeException e){
+            deleteProductInNewTx(product.getId());
+            throw e;
         }
-
-        host.setPoints(currentPoint - deposit);
-
-        // 1. 공구 생성
-        OnlineGroupBuy groupBuy = OnlineGroupBuy.builder()
-                .hostUser(host)
-                .productId(product)
-                .title(req.getTitle())
-                .content(req.getContent())
-                .targetHeadcount(req.getTargetHeadcount())
-                .recruitEndDate(req.getRecruitEndDate())
-                .status(GroupBuyStatus.RECRUITING)
-                .build();
-
-        OnlineGroupBuy saved = groupBuyRepository.save(groupBuy);
-
-        // 2. 채팅방 생성 및 방장 추가
-        ChatRoom room = chatRoomService.createRoomForGroupBuy(saved.getId(), saved.getTitle());
-        saved.setChatRoomId(room.getId());
-        chatRoomService.addParticipant(room, host);
-
-        // ⭐ 3. (추가) 방장을 OnlineParticipation으로 자동 등록
-        OnlineParticipation hostParticipation = OnlineParticipation.builder()
-                .user(host)
-                .onlineGroupBuy(saved)
-                .quantity(null) // 나중에 startPaymentProcess()에서 자동으로 채워짐
-                .paymentStatus(PaymentStatus.PENDING)
-                .build();
-
-        participationRepository.save(hostParticipation);
-
-        // 4. Response 반환
-        return ResponseOnlineGroupByDto.from(saved);
     }
-
-
     // [삭제됨] registerProductFromUrl 메서드
     // 이유: 상품 등록 로직은 이제 ProductService에서 전담합니다.
-
     // 4. 상세 조회
     public ResponseOnlineGroupByDto getGroupBuyDetail(Long id) {
         OnlineGroupBuy groupBuy = groupBuyRepository.findById(id)
