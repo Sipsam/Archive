@@ -94,6 +94,7 @@ public class ProductService {
     private String normalizeTitleForSearch(String rawTitle) {
         if (rawTitle == null) return "";
         String t = rawTitle;
+        t = removeOriginInfo(t);
         t = t.replace("<br>", " ")
                 .replace("</br>", " ")
                 .replace("<br/>", " ")
@@ -103,9 +104,18 @@ public class ProductService {
         return t;
     }
 
+    private String removeOriginInfo(String title) {
+        if (title == null) return "";
+        String t = title;
+        t = t.replaceAll("\\[[^\\]]*원산지[^\\]]*\\]", " ");
+        t = t.replaceAll("\\s+", " ").trim();
+        return t;
+    }
+
     private Product searchAndCreateProduct(String productName, String extractedId) {
         if (productName == null || productName.isBlank()) return null;
         productName = productName.trim();
+        productName = removeOriginInfo(productName);
         log.info("Trying search with product name: {}", productName);
         try {
             int display = 100;
