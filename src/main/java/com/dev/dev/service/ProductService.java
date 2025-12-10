@@ -103,10 +103,10 @@ public class ProductService {
         }
         if (jsonStr == null) throw new RuntimeException("could not get json from Python crawler");
         JSONObject obj = new JSONObject(jsonStr);
+        String title_t = obj.optString("title");
         String ogTitle = obj.optString("og_title");
-        log.info("og:title = {}", ogTitle);
-        if (ogTitle == null || ogTitle.isBlank()) throw new RuntimeException("og:title parsing failed");
-        String productName = ogTitle.split(" : ")[0].trim();
+        String usedTitle = (title_t != null && !title_t.isBlank()) ? title_t : ogTitle;
+        String productName = usedTitle.split(" : ")[0].trim();
         log.info("Product Name used for search: {}", productName);
 
         Product product = null;
