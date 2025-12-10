@@ -17,6 +17,8 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -62,102 +64,119 @@ public class ProductService {
         con.disconnect();
         return new JSONObject(sb.toString());
     }
-    /**
-     * URL 기반으로 검색 API 호출 후 결과 로깅
-     */
-    public Product searchByUrl(String productUrl) {
-        String extractedId = extractProductIdFromUrl(productUrl);
-        if (extractedId == null) throw new RuntimeException("could not extract product id from url");
-        log.info("extracted Id = {}", extractedId);
-        CompletableFuture<String> ret_val = CompletableFuture.supplyAsync(() -> {
-            try {
-                ProcessBuilder pb = new ProcessBuilder(
-                        "/opt/pyenv/bin/python",
-                        "/app/crawler/crawler.py",
-                        productUrl
-                );
-                pb.environment().put("PYTHONIOENCODING", "utf-8");
-                pb.redirectErrorStream(true);
-                Process process = pb.start();
-                BufferedReader reader =
-                        new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
-                String line;
-                String result = null;
-                while ((line = reader.readLine()) != null) {
-                    result = line;
-                }
-                process.waitFor();
-                return result;
 
-            } catch (Exception e) {
-                e.printStackTrace();
-                return null;
-            }
-        });
-        System.out.println(ret_val);
-        String jsonStr;
+    private String executePythonCrawler(String productUrl) {
         try {
-            jsonStr = ret_val.get();
+            ProcessBuilder pb = new ProcessBuilder(
+                    "/opt/pyenv/bin/python",
+                    "/app/crawler/crawler.py",
+                    productUrl
+            );
+            pb.environment().put("PYTHONIOENCODING", "utf-8");
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            String lastLine = null;
+            try (BufferedReader reader =
+                         new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    lastLine = line;
+                }
+            }
+            int exitCode = process.waitFor();
+            if (exitCode != 0) throw new IllegalStateException("Python crawler exited with code: " + exitCode);
+            return lastLine;
         } catch (Exception e) {
-            throw new RuntimeException("Python failed to run", e);
+            throw new RuntimeException("Python crawler execution failed", e);
         }
-        if (jsonStr == null) throw new RuntimeException("could not get json from Python crawler");
-        JSONObject obj = new JSONObject(jsonStr);
-        System.out.println("Crawling result : \n" + obj.toString(2));
-        String title_t = obj.optString("title");
-        String ogTitle = obj.optString("og_title");
-        String usedTitle = (title_t != null && !title_t.isBlank()) ? title_t : ogTitle;
-        String productName = usedTitle.split(" : ")[0].trim();
-        log.info("Product Name used for search: {}", productName);
+    }
 
-        Product product = null;
+    private String normalizeTitleForSearch(String rawTitle) {
+        if (rawTitle == null) return "";
+        String t = rawTitle;
+        t = t.replace("<br>", " ")
+                .replace("</br>", " ")
+                .replace("<br/>", " ")
+                .replace("<br />", " ");
+        t = t.replaceAll("<[^>]*>", " ");
+        t = t.replaceAll("\\s+", " ").trim();
+        return t;
+    }
+
+    private Product searchAndCreateProduct(String productName, String extractedId) {
+        if (productName == null || productName.isBlank()) return null;
+        productName = productName.trim();
+        log.info("Trying search with product name: {}", productName);
         try {
             int display = 100;
             int start = 1;
             int total = Integer.MAX_VALUE;
             JSONObject matchedItem = null;
-            while (start <= total && start <= 1000) {
+            while (start <= total && start <= 1000 && matchedItem == null) {
                 JSONObject response = callNaverApi(productName, display, start);
                 total = response.optInt("total", 0);
                 JSONArray items = response.optJSONArray("items");
-
                 if (items != null) {
                     for (int i = 0; i < items.length(); i++) {
                         JSONObject item = items.getJSONObject(i);
-                        String title = item.optString("title").trim();
-                        String link = item.optString("link").trim();
-                        // 1순위: URL ID 매칭
+                        String rawTitle = item.optString("title", "").trim();
+                        String link = item.optString("link", "").trim();
+                        String normalizedTitle = normalizeTitleForSearch(rawTitle);
                         if (!link.isBlank() && link.contains(extractedId)) {
                             matchedItem = item;
-                            log.info("URL match success: {}", link);
+                            log.info("URL match success (query={}, link={})", productName, link);
                             break;
                         }
-                        // 2순위: 제목 매칭
-                        if (title.contains(productName)) {
+                        if (normalizedTitle.contains(productName)) {
                             matchedItem = item;
-                            log.info("Title match success: {}", title);
+                            log.info("Title match success (query={}, title={})", productName, normalizedTitle);
                             break;
                         }
                     }
                 }
-                if (matchedItem != null) break;
-                start += display;
-                Thread.sleep(200);
+                if (matchedItem == null) {
+                    start += display;
+                    Thread.sleep(200);
+                }
             }
-
             if (matchedItem != null) {
                 long productId = matchedItem.optLong("productId");
-                if (productRepository.existsById(productId)) {
-                    throw new IllegalStateException("EXISTS");
-                }
-                product = self.createProductFromItem(matchedItem);
+                if (productRepository.existsById(productId)) throw new IllegalStateException("EXISTS");
+                Product product = self.createProductFromItem(matchedItem);
                 productRepository.save(product);
+                return product;
             } else {
-                log.info("do not find matched item");
+                log.info("No matched item for query: {}", productName);
             }
         } catch (Exception e) {
-            log.error("can't search and cannot create product", e);
+            log.error("Failed to search and create product for query: {}", productName, e);
         }
+        return null;
+    }
+
+    public Product searchByUrl(String productUrl) {
+        String extractedId = extractProductIdFromUrl(productUrl);
+        if (extractedId == null) throw new RuntimeException("could not extract product id from url");
+        log.info("extracted Id = {}", extractedId);
+        String jsonStr = executePythonCrawler(productUrl);
+        if (jsonStr == null) throw new RuntimeException("could not get json from Python crawler");
+        JSONObject obj = new JSONObject(jsonStr);
+        log.info("Crawling result : \n{}", obj.toString(2));
+        String title_t = obj.optString("title", "").trim();
+        String ogTitle = obj.optString("og_title", "").trim();
+        List<String> candidateNames = new ArrayList<>();
+        if (!title_t.isBlank()) candidateNames.add(title_t.split(" : ")[0].trim());
+        if (!ogTitle.isBlank()) {
+            String fromOg = ogTitle.split(" : ")[0].trim();
+            if (candidateNames.stream().noneMatch(c -> c.equals(fromOg))) candidateNames.add(fromOg);
+        }
+        if (candidateNames.isEmpty()) throw new RuntimeException("no usable title from crawler");
+        Product product = null;
+        for (String candidate : candidateNames) {
+            product = searchAndCreateProduct(candidate, extractedId);
+            if (product != null) break;
+        }
+        if (product == null) log.info("do not find matched item for url: {}", productUrl);
         return product;
     }
     @Transactional
