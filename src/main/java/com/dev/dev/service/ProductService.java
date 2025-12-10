@@ -66,9 +66,9 @@ public class ProductService {
      * URL 기반으로 검색 API 호출 후 결과 로깅
      */
     public Product searchByUrl(String productUrl) {
-        String normalizedUrl = toSmartStoreUrl(productUrl);
-        if (normalizedUrl == null) throw new RuntimeException("상품 ID 추출 실패");
-        log.info("정규화된 SmartStore URL = {}", normalizedUrl);
+        String extractedId = extractProductIdFromUrl(productUrl);
+        if (extractedId == null) throw new RuntimeException("could not extract product id from url");
+        log.info("extracted Id = {}", extractedId);
         CompletableFuture<String> ret_val = CompletableFuture.supplyAsync(() -> {
             try {
                 ProcessBuilder pb = new ProcessBuilder(
@@ -99,15 +99,15 @@ public class ProductService {
         try {
             jsonStr = ret_val.get();
         } catch (Exception e) {
-            throw new RuntimeException("Python 실행 실패", e);
+            throw new RuntimeException("Python failed to run", e);
         }
-        if (jsonStr == null) throw new RuntimeException("Python 크롤러 JSON을 받지 못했습니다.");
+        if (jsonStr == null) throw new RuntimeException("could not get json from Python crawler");
         JSONObject obj = new JSONObject(jsonStr);
         String ogTitle = obj.optString("og_title");
         log.info("og:title = {}", ogTitle);
-        if (ogTitle == null || ogTitle.isBlank()) throw new RuntimeException("og:title 파싱 실패");
+        if (ogTitle == null || ogTitle.isBlank()) throw new RuntimeException("og:title parsing failed");
         String productName = ogTitle.split(" : ")[0].trim();
-        log.info("검색어로 사용할 상품명: {}", productName);
+        log.info("Product Name used for search: {}", productName);
 
         Product product = null;
         try {
@@ -125,8 +125,8 @@ public class ProductService {
                         JSONObject item = items.getJSONObject(i);
                         String title = item.optString("title").trim();
                         String link = item.optString("link").trim();
-                        // 1순위: URL 매칭
-                        if (!link.isBlank() && link.contains(normalizedUrl)) {
+                        // 1순위: URL ID 매칭
+                        if (!link.isBlank() && link.contains(extractedId)) {
                             matchedItem = item;
                             log.info("URL match success: {}", link);
                             break;
@@ -134,7 +134,7 @@ public class ProductService {
                         // 2순위: 제목 매칭
                         if (title.contains(productName)) {
                             matchedItem = item;
-                            log.info("제목 match success: {}", title);
+                            log.info("Title match success: {}", title);
                             break;
                         }
                     }
@@ -204,11 +204,12 @@ public class ProductService {
                 .imageUrl(imageUrl)   // ★ 이미지 저장!
                 .build();
     }
-    private String toSmartStoreUrl(String url) {
-        Pattern p = Pattern.compile("/products/(\\d+)");
-        Matcher m = p.matcher(url);
-        if (!m.find()) return null;
-        String id = m.group(1);
-        return "https://smartstore.naver.com/main/products/" + id;
+    private String extractProductIdFromUrl(String url) {
+        Pattern pattern = Pattern.compile("/products/(\\d+)");
+        Matcher matcher = pattern.matcher(url);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
     }
 }
