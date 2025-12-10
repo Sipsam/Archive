@@ -103,6 +103,7 @@ public class ProductService {
         }
         if (jsonStr == null) throw new RuntimeException("could not get json from Python crawler");
         JSONObject obj = new JSONObject(jsonStr);
+        System.out.println("Crawling result : \n" + obj.toString(2));
         String title_t = obj.optString("title");
         String ogTitle = obj.optString("og_title");
         String usedTitle = (title_t != null && !title_t.isBlank()) ? title_t : ogTitle;
