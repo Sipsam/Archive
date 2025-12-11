@@ -109,6 +109,9 @@ public class ProductService {
         String t = title;
         t = t.replaceAll("\\[[^\\]]*원산지[^\\]]*\\]", " ");
         t = t.replaceAll("\\s+", " ").trim();
+        t = t.split(" : ")[0].trim();
+        t = t.split("\\s*\\|\\s*")[0].trim();
+        t = t.replaceAll("\\s+", " ").trim();
         return t;
     }
 
