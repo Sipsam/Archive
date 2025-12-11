@@ -107,11 +107,11 @@ public class ProductService {
     private String removeOriginInfo(String title) {
         if (title == null) return "";
         String t = title;
-        t = t.replaceAll("\\[[^\\]]*원산지[^\\]]*\\]", " ");
-        t = t.replaceAll("\\s+", " ").trim();
-        t = t.split(" : ")[0].trim();
-        t = t.split("\\s*\\|\\s*")[0].trim();
-        t = t.replaceAll("\\s+", " ").trim();
+        t = t.replaceAll("\\[[^]]*\\]", " "); // 대괄호 제거
+        t = t.replaceAll("\\([^)]*\\)", " "); // 소괄호 제거
+        t = t.split(" : ")[0].trim(); // : 기준 앞부분만 사용
+        t = t.split("\\s*\\|\\s*")[0].trim(); // | 기준 앞부분만 사용
+        t = t.replaceAll("\\s+", " ").trim(); // 여러 공백, 탭 등 제거
         return t;
     }
 
