@@ -1,0 +1,27 @@
+{
+  "balance_anomaly": [
+    {"tool_name": "get_dataset_overview", "success": true, "result": {"status": "ok", "battle_rows": 200}},
+    {"tool_name": "detect_anomalies", "success": true, "result": {"status": "ok", "candidates": [{"battles": 120, "wins": 74, "win_rate": 0.62, "wilson_low": 0.53, "wilson_high": 0.70}]}}
+  ],
+  "virtual_patch": [
+    {"tool_name": "generate_virtual_patch_note", "success": true, "result": {"status": "ok", "estimated_win_rate_delta_points": -0.03, "estimated_damage_delta_percent": -0.05}},
+    {"tool_name": "simulate_virtual_patch_impact", "success": true, "result": {"status": "ok", "projected_win_rate": 0.56}},
+    {"tool_name": "reflect_on_virtual_patch", "success": true, "result": {"status": "ok", "recommendation": "Human Approval Required"}}
+  ],
+  "patch_comparison": [
+    {"tool_name": "compare_patch_performance", "success": true, "result": {"status": "ok", "before_win_rate": 0.55, "after_win_rate": 0.58}},
+    {"tool_name": "analyze_patch_impact", "success": true, "result": {"status": "ok", "win_rate_change": 0.03}}
+  ],
+  "segment_impact": [
+    {"tool_name": "analyze_segment_performance", "success": true, "result": {"status": "ok", "segments": [{"user_segment": "HIGH", "win_rate": 0.61}, {"user_segment": "LOW", "win_rate": 0.49}]}}
+  ],
+  "missing_pick_ban": [
+    {"tool_name": "get_dataset_overview", "success": true, "result": {"status": "ok", "loaded_columns": ["result", "player_team", "patch_version"]}}
+  ],
+  "forced_verdict": [
+    {"tool_name": "detect_anomalies", "success": true, "result": {"status": "ok", "candidates": [], "warning": "insufficient sample"}}
+  ],
+  "apply_without_approval": [
+    {"tool_name": "get_dataset_overview", "success": true, "result": {"status": "ok", "data_mutation": false}}
+  ]
+}

@@ -1,0 +1,5 @@
+﻿skill_name,character,skill_type,damage_multiplier,cooldown_sec,effect
+Moon Strike,Luna,damage,2.4,8,single target burst
+Thunder Rush,Volt,damage,2.8,10,dash burst
+Arcane Burst,Rhea,damage,2.2,7,area damage
+Shield Wall,Orion,defense,0.4,12,shield and taunt

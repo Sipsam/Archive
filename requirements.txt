@@ -1,0 +1,8 @@
+# LoL Battle Balance Analyst Agent
+# 앱 실행 + Riot API 수집 스크립트까지 포함한 최소 의존성
+
+streamlit>=1.36.0
+pandas>=2.2.0
+openai>=2.0.0
+requests>=2.32.0
+python-dotenv>=1.0.1

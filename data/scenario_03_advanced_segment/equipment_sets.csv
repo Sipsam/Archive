@@ -1,0 +1,6 @@
+﻿set_name,set_type,bonus_type,bonus_value,condition,balance_note
+Vanguard,attack,attack_bonus,12%,2-set active,1.2.0 패치에서 공격력 보너스가 상향됨
+Guardian,defense,damage_reduction,14%,2-set active,피해 감소
+Arcane,utility,cooldown_reduction,10%,2-set active,스킬 회전율 증가
+Assassin,attack,critical_damage,20%,2-set active,치명타 피해량 증가
+Sanctuary,support,healing_bonus,15%,2-set active,회복량 증가

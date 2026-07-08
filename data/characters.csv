@@ -1,0 +1,10 @@
+﻿name,role,element,base_attack,base_hp,main_skill
+Luna,DPS,Light,132,820,Moon Strike
+Orion,Tank,Earth,88,1300,Shield Wall
+Kai,Support,Water,74,940,Heal Pulse
+Rhea,Mage,Fire,121,760,Arcane Burst
+Volt,Assassin,Lightning,145,700,Thunder Rush
+Mina,Support,Nature,69,900,Green Blessing
+Ares,Fighter,Fire,138,1020,Blade Crash
+Nova,Mage,Dark,127,720,Void Star
+Eve,Ranger,Wind,118,780,Piercing Shot
