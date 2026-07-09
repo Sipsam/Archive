@@ -3,6 +3,7 @@
 These functions perform no network or filesystem I/O and preserve the legacy
 fetchMatch.py contracts.
 """
+
 from __future__ import annotations
 
 import re
@@ -13,6 +14,7 @@ import pandas as pd
 
 
 def parse_riot_id(riot_id: str) -> tuple[str, str]:
+    """Split a ``gameName#tagLine`` Riot ID into validated parts."""
     riot_id = riot_id.strip()
 
     if "#" not in riot_id:
@@ -28,14 +30,18 @@ def parse_riot_id(riot_id: str) -> tuple[str, str]:
 
     return game_name, tag_line
 
+
 def safe_filename(text: str) -> str:
+    """Return a filesystem-safe filename fragment for Riot identifiers."""
     text = text.strip()
     text = text.replace("#", "_")
     text = re.sub(r"[\\/:*?\"<>|]+", "_", text)
     text = re.sub(r"\s+", "_", text)
     return text
 
+
 def timestamp_to_iso_kst(ms: Optional[int]) -> Optional[str]:
+    """Convert a Riot millisecond timestamp to a KST datetime string."""
     if ms is None or pd.isna(ms):
         return None
 
@@ -44,11 +50,14 @@ def timestamp_to_iso_kst(ms: Optional[int]) -> Optional[str]:
         time.gmtime(float(ms) / 1000 + 9 * 3600),
     )
 
+
 def compute_kda(kills: int, deaths: int, assists: int) -> float:
+    """Compute a rounded KDA ratio using kills, deaths, and assists."""
     if deaths == 0:
         return float(kills + assists)
 
     return round((kills + assists) / deaths, 2)
+
 
 def extract_raw_patch_version(game_version: Optional[str]) -> Optional[str]:
     """
@@ -68,6 +77,7 @@ def extract_raw_patch_version(game_version: Optional[str]) -> Optional[str]:
         return f"{parts[0]}.{parts[1]}"
 
     return str(game_version).strip()
+
 
 def map_game_version_to_patch_version(game_version: Optional[str]) -> Optional[str]:
     """
@@ -101,7 +111,9 @@ def map_game_version_to_patch_version(game_version: Optional[str]) -> Optional[s
 
     return f"{major + 10}.{minor:02d}"
 
+
 def patch_version_mapping_rule(game_version: Optional[str]) -> str:
+    """Describe which assignment patch mapping rule applies to a gameVersion."""
     raw = extract_raw_patch_version(game_version)
 
     if not raw:
@@ -118,7 +130,9 @@ def patch_version_mapping_rule(game_version: Optional[str]) -> str:
 
     return "game_version_15_plus_mapped_to_patch_version_25_plus"
 
+
 def queue_to_battle_mode(queue_id: Any) -> str:
+    """Map Riot queue IDs to stable battle mode labels."""
     try:
         q = int(float(queue_id))
     except Exception:
@@ -137,14 +151,18 @@ def queue_to_battle_mode(queue_id: Any) -> str:
 
     return queue_map.get(q, f"QUEUE_{q}")
 
+
 def truthy_win(value: Any) -> bool:
+    """Normalize varied win flags to a boolean."""
     if isinstance(value, bool):
         return value
 
     text = str(value).strip().lower()
     return text in {"true", "1", "win", "w", "yes"}
 
+
 def normalize_item_id(value: Any) -> Optional[int]:
+    """Convert a Riot item value to a positive item ID or ``None``."""
     if value is None or pd.isna(value):
         return None
 
@@ -158,10 +176,14 @@ def normalize_item_id(value: Any) -> Optional[int]:
 
     return item_id
 
+
 def extract_patch_version(game_version: Optional[str]) -> Optional[str]:
+    """Compatibility wrapper for assignment patch version extraction."""
     return map_game_version_to_patch_version(game_version)
 
+
 def get_primary_perk(participant: dict[str, Any]) -> Optional[int]:
+    """Return the participant's primary keystone perk ID when present."""
     styles = participant.get("perks", {}).get("styles", [])
 
     if not styles:
@@ -174,7 +196,9 @@ def get_primary_perk(participant: dict[str, Any]) -> Optional[int]:
 
     return selections[0].get("perk")
 
+
 def get_sub_style(participant: dict[str, Any]) -> Optional[int]:
+    """Return the participant's secondary rune style ID when present."""
     styles = participant.get("perks", {}).get("styles", [])
 
     if len(styles) < 2:

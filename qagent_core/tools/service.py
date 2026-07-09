@@ -15,12 +15,16 @@ def build_tool_functions(context: AnalysisContext) -> dict[str, Any]:
     """Build the stable Tool-name registry for one loaded dataset."""
     tools: dict[str, Any] = {}
     for builder in (
-        build_dataset_tools, build_balance_tools, build_patch_tools,
+        build_dataset_tools,
+        build_balance_tools,
+        build_patch_tools,
         build_virtual_patch_tools,
     ):
         tools.update(builder(context))
-    tools.update({
-        "assess_balance_risk": assess_balance_risk,
-        "generate_retest_plan": generate_retest_plan,
-    })
+    tools.update(
+        {
+            "assess_balance_risk": assess_balance_risk,
+            "generate_retest_plan": generate_retest_plan,
+        }
+    )
     return tools

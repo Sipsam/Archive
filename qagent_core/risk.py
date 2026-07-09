@@ -1,4 +1,5 @@
 """Pure balance risk and QA retest policy functions."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -11,6 +12,7 @@ def assess_balance_risk(
     patch_win_rate_change: float = 0.0,
     estimated_damage_increase_rate: float = 0.0,
 ) -> dict[str, Any]:
+    """Score balance risk from win-rate, patch impact, and damage signals."""
     score = 0
     reasons = []
 
@@ -67,6 +69,7 @@ def generate_retest_plan(
     skill_used_most: str,
     risk_level: str = "Medium",
 ) -> dict[str, Any]:
+    """Build a segment-based QA retest plan for a balance candidate."""
     if risk_level == "High":
         battles_per_segment = 300
     elif risk_level == "Medium":

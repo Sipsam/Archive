@@ -12,9 +12,15 @@ from pathlib import Path
 import pandas as pd
 
 from qagent_core.data_io import (
-    DataLoadError, EXPECTED_DATA_FILES, REQUIRED_COLUMNS, clear_data_cache,
-    create_dataset_summary, discover_data_folders, load_data_folder,
-    summarize_battle_metrics, validate_data_folder,
+    DataLoadError,
+    EXPECTED_DATA_FILES,
+    REQUIRED_COLUMNS,
+    clear_data_cache,
+    create_dataset_summary,
+    discover_data_folders,
+    load_data_folder,
+    summarize_battle_metrics,
+    validate_data_folder,
 )
 from qagent_core.config import get_secret
 from qagent_core.persistence import (
@@ -25,15 +31,20 @@ from qagent_core.persistence import (
     save_review_with_mirrors,
 )
 from qagent_core.statistics import (
-    analyze_balance_stages, benjamini_hochberg, binomial_upper_tail, detect_balance_candidates,
-    normalize_win_results, project_patch_scenario,
+    analyze_balance_stages,
+    benjamini_hochberg,
+    binomial_upper_tail,
+    detect_balance_candidates,
+    normalize_win_results,
+    project_patch_scenario,
     wilson_interval,
     win_rate,
 )
 from qagent_core.runtime import input_summary, new_run_id, output_summary, safe_for_log
 from qagent_core.risk import assess_balance_risk, generate_retest_plan
 from qagent_core.simulation import (
-    SCENARIO_WARNINGS, project_patch_scenario as simulate_patch_scenario,
+    SCENARIO_WARNINGS,
+    project_patch_scenario as simulate_patch_scenario,
     project_patch_scenario_range,
 )
 from qagent_core.tool_executor import ToolExecutor
@@ -45,7 +56,9 @@ class DataIoTests(unittest.TestCase):
     def _write_dataset(folder, marker="first"):
         for name, filename in EXPECTED_DATA_FILES.items():
             values = {column: [marker] for column in REQUIRED_COLUMNS[name]}
-            pd.DataFrame(values).to_csv(folder / filename, index=False, encoding="utf-8-sig")
+            pd.DataFrame(values).to_csv(
+                folder / filename, index=False, encoding="utf-8-sig"
+            )
 
     def test_environment_secret_loading(self):
         os.environ["QAGENT_TEST_SECRET"] = " test-value "
@@ -55,11 +68,13 @@ class DataIoTests(unittest.TestCase):
             os.environ.pop("QAGENT_TEST_SECRET", None)
 
     def test_runtime_log_redacts_secrets_and_user_input(self):
-        safe = safe_for_log({
-            "api_key": "not-for-logs",
-            "nested": {"authorization": "Bearer secret-value"},
-            "message": "sk-example-secret-value",
-        })
+        safe = safe_for_log(
+            {
+                "api_key": "not-for-logs",
+                "nested": {"authorization": "Bearer secret-value"},
+                "message": "sk-example-secret-value",
+            }
+        )
         self.assertEqual(safe["api_key"], "[REDACTED]")
         self.assertEqual(safe["nested"]["authorization"], "[REDACTED]")
         self.assertNotIn("secret-value", safe["message"])
@@ -79,7 +94,9 @@ class DataIoTests(unittest.TestCase):
             self._write_dataset(folder)
             battles = pd.read_csv(folder / "battle_logs.csv")
             battles = battles.rename(columns={"patch_version": "\ufeffpatch_version"})
-            battles.to_csv(folder / "battle_logs.csv", index=False, encoding="utf-8-sig")
+            battles.to_csv(
+                folder / "battle_logs.csv", index=False, encoding="utf-8-sig"
+            )
             loaded = load_data_folder(folder)
             self.assertEqual(set(loaded), set(EXPECTED_DATA_FILES))
             self.assertIn("patch_version", loaded["battle_logs"].columns)
@@ -94,7 +111,9 @@ class DataIoTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp)
             self._write_dataset(folder)
-            pd.DataFrame({"battle_id": [1]}).to_csv(folder / "battle_logs.csv", index=False)
+            pd.DataFrame({"battle_id": [1]}).to_csv(
+                folder / "battle_logs.csv", index=False
+            )
             with self.assertRaises(DataLoadError) as raised:
                 load_data_folder(folder)
             self.assertIn("[DATA_COLUMNS_MISSING]", str(raised.exception))
@@ -108,7 +127,9 @@ class DataIoTests(unittest.TestCase):
             self._write_dataset(folder, "a-longer-second-value")
             second = load_data_folder(folder)
             self.assertEqual(first["battle_logs"].iloc[0]["battle_id"], "first")
-            self.assertEqual(second["battle_logs"].iloc[0]["battle_id"], "a-longer-second-value")
+            self.assertEqual(
+                second["battle_logs"].iloc[0]["battle_id"], "a-longer-second-value"
+            )
 
     def test_cached_frames_are_isolated_and_summary_uses_loaded_data(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -147,7 +168,9 @@ class DataIoTests(unittest.TestCase):
             self._touch_required_files(depth_two)
             self._touch_required_files(depth_three)
 
-            self.assertEqual(discover_data_folders([root], max_depth=2), [depth_two.resolve()])
+            self.assertEqual(
+                discover_data_folders([root], max_depth=2), [depth_two.resolve()]
+            )
 
     def test_explicit_folder_remains_directly_validatable(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -170,17 +193,26 @@ class DataIoTests(unittest.TestCase):
             self.assertLess(elapsed, 2.0)
 
     def test_battle_metric_summary_keeps_virtual_patch_contract(self):
-        frame = pd.DataFrame({
-            "result": ["win", " loss ", " Win "],
-            "total_damage": [100, 200, 300],
-            "duration_sec": [10, 20, 30],
-            "kda": [1.0, 2.0, 3.0],
-        })
+        frame = pd.DataFrame(
+            {
+                "result": ["win", " loss ", " Win "],
+                "total_damage": [100, 200, 300],
+                "duration_sec": [10, 20, 30],
+                "kda": [1.0, 2.0, 3.0],
+            }
+        )
         summary = summarize_battle_metrics(frame)
 
         self.assertEqual(
             set(summary),
-            {"battles", "wins", "win_rate", "avg_damage", "avg_duration_sec", "avg_kda"},
+            {
+                "battles",
+                "wins",
+                "win_rate",
+                "avg_damage",
+                "avg_duration_sec",
+                "avg_kda",
+            },
         )
         self.assertEqual(summary["wins"], 2)
         self.assertEqual(summary["win_rate"], round(2 / 3, 4))
@@ -193,7 +225,9 @@ class StatisticsTests(unittest.TestCase):
         self.assertEqual(win_rate(pd.Series(dtype=str)), 0.0)
 
     def test_result_normalization_handles_whitespace_case_missing_and_unknown(self):
-        results = pd.Series(["win", " win ", " Win ", " WIN ", "loss", " Loss ", None, pd.NA, "unknown"])
+        results = pd.Series(
+            ["win", " win ", " Win ", " WIN ", "loss", " Loss ", None, pd.NA, "unknown"]
+        )
         normalized = normalize_win_results(results)
 
         self.assertEqual(
@@ -221,10 +255,14 @@ class StatisticsTests(unittest.TestCase):
         expected_low, expected_high = wilson_interval(40, 40)
         self.assertAlmostEqual(overall, 0.5)
         self.assertEqual(candidate["wins"], 40)
-        self.assertAlmostEqual(candidate["win_rate"], candidate["wins"] / candidate["battles"])
+        self.assertAlmostEqual(
+            candidate["win_rate"], candidate["wins"] / candidate["battles"]
+        )
         self.assertAlmostEqual(candidate["win_rate_ci_low"], expected_low)
         self.assertAlmostEqual(candidate["win_rate_ci_high"], expected_high)
-        self.assertAlmostEqual(candidate["p_value"], binomial_upper_tail(40, 40, overall))
+        self.assertAlmostEqual(
+            candidate["p_value"], binomial_upper_tail(40, 40, overall)
+        )
 
     def test_wilson_interval_narrows_with_sample_size(self):
         small = wilson_interval(8, 10)
@@ -240,7 +278,10 @@ class StatisticsTests(unittest.TestCase):
         for index in range(100, 200):
             rows.append(self._battle(index, "B", "win" if index < 130 else "loss"))
         overall, candidates = detect_balance_candidates(
-            pd.DataFrame(rows), min_samples=30, win_rate_threshold=0.75, win_rate_gap_threshold=0.20
+            pd.DataFrame(rows),
+            min_samples=30,
+            win_rate_threshold=0.75,
+            win_rate_gap_threshold=0.20,
         )
         self.assertAlmostEqual(overall, 0.60)
         self.assertEqual(candidates.iloc[0]["player_team"], "A")
@@ -250,7 +291,9 @@ class StatisticsTests(unittest.TestCase):
         self.assertAlmostEqual(candidates.iloc[0]["global_win_rate"], 0.60)
         self.assertAlmostEqual(candidates.iloc[0]["win_rate_diff"], 0.30)
         self.assertGreater(candidates.iloc[0]["win_rate_ci_low"], overall)
-        self.assertEqual(candidates.iloc[0]["anomaly_score"], candidates.iloc[0]["candidate_score"])
+        self.assertEqual(
+            candidates.iloc[0]["anomaly_score"], candidates.iloc[0]["candidate_score"]
+        )
         self.assertLessEqual(candidates.iloc[0]["fdr_q_value"], 0.05)
         self.assertEqual(candidates.iloc[0]["n"], candidates.iloc[0]["battles"])
         self.assertIn("검토 후보", candidates.iloc[0]["candidate_reason"])
@@ -277,8 +320,11 @@ class StatisticsTests(unittest.TestCase):
             row["user_segment"] = "LOW"
             rows.append(row)
         _, candidates = detect_balance_candidates(
-            pd.DataFrame(rows), min_samples=30, win_rate_threshold=0.75,
-            win_rate_gap_threshold=0.20, segment_by="user_segment",
+            pd.DataFrame(rows),
+            min_samples=30,
+            win_rate_threshold=0.75,
+            win_rate_gap_threshold=0.20,
+            segment_by="user_segment",
         )
         self.assertIn("user_segment", candidates.iloc[0]["group_by"])
         self.assertIn("HIGH", candidates.iloc[0]["entity"])
@@ -319,14 +365,22 @@ class StatisticsTests(unittest.TestCase):
             rows.append(row)
 
         result = analyze_balance_stages(
-            pd.DataFrame(rows), min_samples=60, win_rate_threshold=0.65,
+            pd.DataFrame(rows),
+            min_samples=60,
+            win_rate_threshold=0.65,
             effect_size_threshold=0.15,
         )
 
-        self.assertEqual([stage["stage"] for stage in result["stages"]], [
-            "1_champion_screening", "2_patch_reproducibility", "3_segment_check",
-            "4_item_driver", "5_patch_review_candidate",
-        ])
+        self.assertEqual(
+            [stage["stage"] for stage in result["stages"]],
+            [
+                "1_champion_screening",
+                "2_patch_reproducibility",
+                "3_segment_check",
+                "4_item_driver",
+                "5_patch_review_candidate",
+            ],
+        )
         self.assertEqual(result["data_availability"]["pick_rate"], "not_available")
         self.assertEqual(result["data_availability"]["ban_rate"], "not_available")
         self.assertTrue(any("FDR" in warning for warning in result["warnings"]))
@@ -337,16 +391,33 @@ class StatisticsTests(unittest.TestCase):
         self.assertEqual(candidate["recommendation_level"], "우선 검토 후보")
         self.assertIn("2/2", candidate["reproducibility_note"])
         self.assertIn("아이템", candidate["possible_driver"])
-        self.assertEqual(set(candidate), {
-            "stage", "entity", "n", "wins", "win_rate", "global_win_rate",
-            "win_rate_diff", "wilson_low", "wilson_high", "reproducibility_note",
-            "possible_driver", "recommendation_level", "warnings",
-        })
+        self.assertEqual(
+            set(candidate),
+            {
+                "stage",
+                "entity",
+                "n",
+                "wins",
+                "win_rate",
+                "global_win_rate",
+                "win_rate_diff",
+                "wilson_low",
+                "wilson_high",
+                "reproducibility_note",
+                "possible_driver",
+                "recommendation_level",
+                "warnings",
+            },
+        )
 
     def test_staged_analysis_empty_data_is_safe(self):
         columns = [
-            "battle_id", "patch_version", "player_team", "equipment_set",
-            "skill_used_most", "result",
+            "battle_id",
+            "patch_version",
+            "player_team",
+            "equipment_set",
+            "skill_used_most",
+            "result",
         ]
         result = analyze_balance_stages(pd.DataFrame(columns=columns))
         self.assertEqual(result["candidates"], [])
@@ -360,8 +431,14 @@ class StatisticsTests(unittest.TestCase):
 
     def test_empty_and_missing_data_handling(self):
         columns = [
-            "battle_id", "patch_version", "player_team", "equipment_set",
-            "skill_used_most", "result", "total_damage", "duration_sec",
+            "battle_id",
+            "patch_version",
+            "player_team",
+            "equipment_set",
+            "skill_used_most",
+            "result",
+            "total_damage",
+            "duration_sec",
         ]
         overall, candidates = detect_balance_candidates(pd.DataFrame(columns=columns))
         self.assertEqual(overall, 0.0)
@@ -403,7 +480,9 @@ class RiskAndSimulationTests(unittest.TestCase):
         self.assertEqual(risk["status"], "ok")
         self.assertEqual(risk["risk_score"], 100)
         self.assertEqual(risk["risk_level"], "High")
-        self.assertEqual(risk["recommended_decision"], "긴급 재테스트 및 부분 하향 검토")
+        self.assertEqual(
+            risk["recommended_decision"], "긴급 재테스트 및 부분 하향 검토"
+        )
         self.assertEqual(plan["status"], "ok")
         self.assertEqual(plan["total_required_battles"], 900)
         self.assertEqual(len(plan["plan"]), 3)
@@ -413,10 +492,14 @@ class RiskAndSimulationTests(unittest.TestCase):
 
         self.assertEqual(set(scenarios), {"conservative", "baseline", "aggressive"})
         required = {
-            "assumed_effect_multiplier", "scenario_win_rate",
-            "scenario_damage_change", "risk_note",
+            "assumed_effect_multiplier",
+            "scenario_win_rate",
+            "scenario_damage_change",
+            "risk_note",
         }
-        self.assertTrue(all(set(scenario) == required for scenario in scenarios.values()))
+        self.assertTrue(
+            all(set(scenario) == required for scenario in scenarios.values())
+        )
         self.assertEqual(scenarios["conservative"]["assumed_effect_multiplier"], 0.5)
         self.assertEqual(scenarios["baseline"]["assumed_effect_multiplier"], 1.0)
         self.assertEqual(scenarios["aggressive"]["assumed_effect_multiplier"], 1.5)
@@ -428,12 +511,15 @@ class RiskAndSimulationTests(unittest.TestCase):
         )
 
     def test_scenario_warnings_state_all_required_limitations(self):
-        self.assertEqual(SCENARIO_WARNINGS, [
-            "휴리스틱 기반 추정",
-            "실제 예측 모델 아님",
-            "게임 엔진 시뮬레이션 아님",
-            "실제 패치 전 QA 테스트 필요",
-        ])
+        self.assertEqual(
+            SCENARIO_WARNINGS,
+            [
+                "휴리스틱 기반 추정",
+                "실제 예측 모델 아님",
+                "게임 엔진 시뮬레이션 아님",
+                "실제 패치 전 QA 테스트 필요",
+            ],
+        )
 
 
 class ToolExecutorTests(unittest.TestCase):
@@ -626,15 +712,23 @@ class ContractAndPersistenceTests(unittest.TestCase):
         schemas = None
         for node in ast.walk(module):
             if isinstance(node, ast.Assign) and any(
-                isinstance(target, ast.Name) and target.id == "TOOL_SCHEMAS" for target in node.targets
+                isinstance(target, ast.Name) and target.id == "TOOL_SCHEMAS"
+                for target in node.targets
             ):
                 schemas = ast.literal_eval(node.value)
 
         empty = pd.DataFrame()
-        returned_tools = set(build_tool_functions(AnalysisContext(
-            battles=empty, characters=empty, skills=empty,
-            equipment_sets=empty, patch_notes=empty,
-        )))
+        returned_tools = set(
+            build_tool_functions(
+                AnalysisContext(
+                    battles=empty,
+                    characters=empty,
+                    skills=empty,
+                    equipment_sets=empty,
+                    patch_notes=empty,
+                )
+            )
+        )
 
         self.assertIsNotNone(schemas)
         schema_names = set()
@@ -648,9 +742,13 @@ class ContractAndPersistenceTests(unittest.TestCase):
     def test_review_log_rejects_duplicate_id(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "reviews.csv"
-            append_csv_record(path, {"review_id": "one", "status": "approved"}, "review_id")
+            append_csv_record(
+                path, {"review_id": "one", "status": "approved"}, "review_id"
+            )
             with self.assertRaises(ValueError):
-                append_csv_record(path, {"review_id": "one", "status": "rejected"}, "review_id")
+                append_csv_record(
+                    path, {"review_id": "one", "status": "rejected"}, "review_id"
+                )
             self.assertEqual(len(pd.read_csv(path)), 1)
 
     def _save_with_mirrors(self, temp: str, **overrides):
@@ -696,7 +794,8 @@ class ContractAndPersistenceTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temp:
             repository, result, options = self._save_with_mirrors(
-                temp, json_exporter=fail_json,
+                temp,
+                json_exporter=fail_json,
             )
 
             self.assertEqual(result["status"], "partial")
@@ -713,7 +812,8 @@ class ContractAndPersistenceTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temp:
             repository, result, options = self._save_with_mirrors(
-                temp, csv_exporter=fail_csv,
+                temp,
+                csv_exporter=fail_csv,
             )
 
             self.assertEqual(result["status"], "partial")
@@ -742,10 +842,14 @@ class ContractAndPersistenceTests(unittest.TestCase):
             json_path = Path(temp) / "record.json"
             with self.assertRaises(ReviewPersistenceError) as raised:
                 save_review_with_mirrors(
-                    FailingRepository(), self._review(),
-                    csv_path=csv_path, csv_row={"review_id": "review-one"},
-                    json_path=json_path, json_artifact={"review_id": "review-one"},
-                    csv_exporter=record_csv, json_exporter=record_json,
+                    FailingRepository(),
+                    self._review(),
+                    csv_path=csv_path,
+                    csv_row={"review_id": "review-one"},
+                    json_path=json_path,
+                    json_artifact={"review_id": "review-one"},
+                    csv_exporter=record_csv,
+                    json_exporter=record_json,
                 )
 
             self.assertEqual(raised.exception.storage_result["status"], "failed")
@@ -765,9 +869,12 @@ class ContractAndPersistenceTests(unittest.TestCase):
 
             with self.assertRaises(DuplicateReviewError):
                 save_review_with_mirrors(
-                    repository, self._review(),
-                    csv_path=csv_path, csv_row={"review_id": "review-one"},
-                    json_path=json_path, json_artifact={"review_id": "review-one"},
+                    repository,
+                    self._review(),
+                    csv_path=csv_path,
+                    csv_row={"review_id": "review-one"},
+                    json_path=json_path,
+                    json_artifact={"review_id": "review-one"},
                 )
 
             self.assertFalse(csv_path.exists())
@@ -778,11 +885,15 @@ class ExtractedToolIntegrationTests(unittest.TestCase):
     def test_all_registered_tools_execute_after_module_extraction(self):
         frames = load_data_folder(Path("data"), use_cache=False)
         row = frames["battle_logs"].iloc[0]
-        tools = build_tool_functions(AnalysisContext(
-            battles=frames["battle_logs"], characters=frames["characters"],
-            skills=frames["skills"], equipment_sets=frames["equipment_sets"],
-            patch_notes=frames["patch_notes"],
-        ))
+        tools = build_tool_functions(
+            AnalysisContext(
+                battles=frames["battle_logs"],
+                characters=frames["characters"],
+                skills=frames["skills"],
+                equipment_sets=frames["equipment_sets"],
+                patch_notes=frames["patch_notes"],
+            )
+        )
         values = {
             "player_team": str(row["player_team"]),
             "equipment_set": str(row["equipment_set"]),
@@ -804,7 +915,9 @@ class ExtractedToolIntegrationTests(unittest.TestCase):
 
         self.assertEqual(len(results), 16)
         self.assertTrue(all(isinstance(result, dict) for result in results.values()))
-        self.assertTrue(all(result.get("status", "ok") != "error" for result in results.values()))
+        self.assertTrue(
+            all(result.get("status", "ok") != "error" for result in results.values())
+        )
 
 
 if __name__ == "__main__":

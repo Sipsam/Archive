@@ -25,13 +25,25 @@ class MatchNormalizationTests(unittest.TestCase):
                 parse_riot_id(invalid)
 
     def test_safe_filename_preserves_legacy_replacement_rules(self):
-        self.assertEqual(safe_filename(' A/B:# C? '), "A_B___C_")
+        self.assertEqual(safe_filename(" A/B:# C? "), "A_B___C_")
 
     def test_patch_mapping_contract(self):
         cases = {
-            "14.10.123": ("14.10", "14.10", "game_version_1_to_14_same_as_patch_version"),
-            "15.12.688.6522": ("15.12", "25.12", "game_version_15_plus_mapped_to_patch_version_25_plus"),
-            "16.3.744.7656": ("16.3", "26.03", "game_version_15_plus_mapped_to_patch_version_25_plus"),
+            "14.10.123": (
+                "14.10",
+                "14.10",
+                "game_version_1_to_14_same_as_patch_version",
+            ),
+            "15.12.688.6522": (
+                "15.12",
+                "25.12",
+                "game_version_15_plus_mapped_to_patch_version_25_plus",
+            ),
+            "16.3.744.7656": (
+                "16.3",
+                "26.03",
+                "game_version_15_plus_mapped_to_patch_version_25_plus",
+            ),
             None: (None, None, "unknown"),
         }
         for value, expected in cases.items():
@@ -56,9 +68,14 @@ class MatchNormalizationTests(unittest.TestCase):
     def test_timestamp_and_perk_helpers(self):
         self.assertEqual(timestamp_to_iso_kst(0), "1970-01-01 09:00:00")
         self.assertIsNone(timestamp_to_iso_kst(None))
-        participant = {"perks": {"styles": [
-            {"selections": [{"perk": 8005}]}, {"style": 8100},
-        ]}}
+        participant = {
+            "perks": {
+                "styles": [
+                    {"selections": [{"perk": 8005}]},
+                    {"style": 8100},
+                ]
+            }
+        }
         self.assertEqual(get_primary_perk(participant), 8005)
         self.assertEqual(get_sub_style(participant), 8100)
         self.assertIsNone(get_primary_perk({}))

@@ -110,6 +110,15 @@ def render_live_trace(trace: List[Dict[str, Any]], current_message: str = "") ->
 
 
 def summarize_tool_result(tool_name: str, result: Dict[str, Any]) -> str:
+    """Create a compact human-readable summary for one tool result.
+
+    Args:
+        tool_name: Registered Agent tool name.
+        result: Sanitized tool result dictionary.
+
+    Returns:
+        A short Markdown-safe sentence for live trace and review displays.
+    """
     if not isinstance(result, dict):
         return "도구 실행 결과를 요약할 수 없습니다."
 
@@ -122,7 +131,7 @@ def summarize_tool_result(tool_name: str, result: Dict[str, Any]) -> str:
     if tool_name == "get_dataset_overview":
         return (
             f"전투 로그 {result.get('battle_rows', 0):,}건, "
-            f"전체 승률 {float(result.get('overall_win_rate', 0))*100:.1f}%, "
+            f"전체 승률 {float(result.get('overall_win_rate', 0)) * 100:.1f}%, "
             f"패치 버전 {result.get('patch_versions', [])} 확인"
         )
 
@@ -132,7 +141,7 @@ def summarize_tool_result(tool_name: str, result: Dict[str, Any]) -> str:
             top = anomalies[0]
             return (
                 f"검토 후보 {len(anomalies)}건 탐지. "
-                f"최상위 후보: {top.get('player_team')} / 승률 {float(top.get('win_rate', 0))*100:.1f}%"
+                f"최상위 후보: {top.get('player_team')} / 승률 {float(top.get('win_rate', 0)) * 100:.1f}%"
             )
         return "현재 통계 기준을 모두 통과한 추가 검토 후보가 없습니다."
 
@@ -140,8 +149,8 @@ def summarize_tool_result(tool_name: str, result: Dict[str, Any]) -> str:
         impact = result.get("impact", {})
         if impact:
             return (
-                f"패치 전후 승률 변화 {float(impact.get('win_rate_change', 0))*100:.1f}%p, "
-                f"피해량 변화 {float(impact.get('damage_change_rate', 0))*100:.1f}% 계산"
+                f"패치 전후 승률 변화 {float(impact.get('win_rate_change', 0)) * 100:.1f}%p, "
+                f"피해량 변화 {float(impact.get('damage_change_rate', 0)) * 100:.1f}% 계산"
             )
         return "패치 전후 비교가 가능한 충분한 데이터가 없습니다."
 
@@ -164,13 +173,13 @@ def summarize_tool_result(tool_name: str, result: Dict[str, Any]) -> str:
         defense = result.get("defense", {})
         haste = result.get("haste", {})
         return (
-            f"물리 피해 감소 {float(defense.get('physical_damage_reduction', 0))*100:.1f}%, "
-            f"마법 피해 감소 {float(defense.get('magic_damage_reduction', 0))*100:.1f}%, "
-            f"스킬 가속 쿨감 {float(haste.get('cooldown_reduction', 0))*100:.1f}% 계산"
+            f"물리 피해 감소 {float(defense.get('physical_damage_reduction', 0)) * 100:.1f}%, "
+            f"마법 피해 감소 {float(defense.get('magic_damage_reduction', 0)) * 100:.1f}%, "
+            f"스킬 가속 쿨감 {float(haste.get('cooldown_reduction', 0)) * 100:.1f}% 계산"
         )
 
     if tool_name == "simulate_stat_impact":
-        return f"예상 피해량 증가율 {float(result.get('estimated_increase_rate', 0))*100:.1f}% 계산"
+        return f"예상 피해량 증가율 {float(result.get('estimated_increase_rate', 0)) * 100:.1f}% 계산"
 
     if tool_name == "calculate_adjustment_options":
         return f"조정안 {len(result.get('actions', []))}건 생성"
@@ -191,7 +200,7 @@ def summarize_tool_result(tool_name: str, result: Dict[str, Any]) -> str:
     if tool_name == "simulate_virtual_patch_impact":
         after = result.get("projected_after", {})
         return (
-            f"가상 적용 시나리오 승률 {float(after.get('win_rate', 0))*100:.1f}%, "
+            f"가상 적용 시나리오 승률 {float(after.get('win_rate', 0)) * 100:.1f}%, "
             f"시나리오 평균 피해량 {float(after.get('avg_damage', 0)):,.0f}, "
             f"신뢰도 {result.get('confidence', 'unknown')}"
         )

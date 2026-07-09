@@ -7,8 +7,12 @@ TOOL_SCHEMAS = [
         "function": {
             "name": "get_dataset_overview",
             "description": "데이터셋의 전체 규모, 패치 버전, 평균 승률, 평균 피해량 등 기본 정보를 확인한다.",
-            "parameters": {"type": "object", "properties": {}, "additionalProperties": False}
-        }
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+        },
     },
     {
         "type": "function",
@@ -20,14 +24,21 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "group_by": {
                         "type": "string",
-                        "enum": ["player_team", "equipment_set", "main_dealer", "skill_used_most", "user_segment", "patch_version"]
+                        "enum": [
+                            "player_team",
+                            "equipment_set",
+                            "main_dealer",
+                            "skill_used_most",
+                            "user_segment",
+                            "patch_version",
+                        ],
                     },
-                    "top_n": {"type": "integer", "minimum": 1, "maximum": 30}
+                    "top_n": {"type": "integer", "minimum": 1, "maximum": 30},
                 },
                 "required": ["group_by"],
-                "additionalProperties": False
-            }
-        }
+                "additionalProperties": False,
+            },
+        },
     },
     {
         "type": "function",
@@ -38,17 +49,36 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "min_samples": {"type": "integer", "minimum": 10, "maximum": 200},
-                    "win_rate_threshold": {"type": "number", "minimum": 0.5, "maximum": 0.99},
-                    "win_rate_gap_threshold": {"type": "number", "minimum": 0.01, "maximum": 0.6},
-                    "wilson_lower_gap_threshold": {"type": "number", "minimum": 0.0, "maximum": 0.3},
-                    "segment_by": {"type": "string", "enum": ["", "none", "user_segment", "battle_mode"]},
+                    "win_rate_threshold": {
+                        "type": "number",
+                        "minimum": 0.5,
+                        "maximum": 0.99,
+                    },
+                    "win_rate_gap_threshold": {
+                        "type": "number",
+                        "minimum": 0.01,
+                        "maximum": 0.6,
+                    },
+                    "wilson_lower_gap_threshold": {
+                        "type": "number",
+                        "minimum": 0.0,
+                        "maximum": 0.3,
+                    },
+                    "segment_by": {
+                        "type": "string",
+                        "enum": ["", "none", "user_segment", "battle_mode"],
+                    },
                     "fdr_alpha": {"type": "number", "minimum": 0.001, "maximum": 0.25},
-                    "top_n": {"type": "integer", "minimum": 1, "maximum": 20}
+                    "top_n": {"type": "integer", "minimum": 1, "maximum": 20},
                 },
-                "required": ["min_samples", "win_rate_threshold", "win_rate_gap_threshold"],
-                "additionalProperties": False
-            }
-        }
+                "required": [
+                    "min_samples",
+                    "win_rate_threshold",
+                    "win_rate_gap_threshold",
+                ],
+                "additionalProperties": False,
+            },
+        },
     },
     {
         "type": "function",
@@ -60,11 +90,11 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "player_team": {"type": "string"},
                     "equipment_set": {"type": "string"},
-                    "skill_used_most": {"type": "string"}
+                    "skill_used_most": {"type": "string"},
                 },
-                "additionalProperties": False
-            }
-        }
+                "additionalProperties": False,
+            },
+        },
     },
     {
         "type": "function",
@@ -77,12 +107,12 @@ TOOL_SCHEMAS = [
                     "player_team": {"type": "string"},
                     "equipment_set": {"type": "string"},
                     "skill_used_most": {"type": "string"},
-                    "current_patch_version": {"type": "string"}
+                    "current_patch_version": {"type": "string"},
                 },
                 "required": ["player_team"],
-                "additionalProperties": False
-            }
-        }
+                "additionalProperties": False,
+            },
+        },
     },
     {
         "type": "function",
@@ -94,12 +124,12 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "player_team": {"type": "string"},
                     "equipment_set": {"type": "string"},
-                    "skill_used_most": {"type": "string"}
+                    "skill_used_most": {"type": "string"},
                 },
                 "required": ["player_team"],
-                "additionalProperties": False
-            }
-        }
+                "additionalProperties": False,
+            },
+        },
     },
     {
         "type": "function",
@@ -112,12 +142,12 @@ TOOL_SCHEMAS = [
                     "player_team": {"type": "string"},
                     "equipment_set": {"type": "string"},
                     "skill_used_most": {"type": "string"},
-                    "patch_version": {"type": "string"}
+                    "patch_version": {"type": "string"},
                 },
                 "required": ["player_team", "patch_version"],
-                "additionalProperties": False
-            }
-        }
+                "additionalProperties": False,
+            },
+        },
     },
     {
         "type": "function",
@@ -129,19 +159,23 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "query": {"type": "string"},
                     "stats": {"type": "array"},
-                    "max_rows": {"type": "integer", "minimum": 1, "maximum": 50}
+                    "max_rows": {"type": "integer", "minimum": 1, "maximum": 50},
                 },
-                "additionalProperties": False
-            }
-        }
+                "additionalProperties": False,
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "calculate_lol_stat_formulas",
             "description": "LoL 기본 스탯 공식으로 방어/마저/가속/공속 값을 계산한다.",
-            "parameters": {"type": "object", "properties": {}, "additionalProperties": False}
-        }
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+        },
     },
     {
         "type": "function",
@@ -154,12 +188,12 @@ TOOL_SCHEMAS = [
                     "player_team": {"type": "string"},
                     "equipment_set": {"type": "string"},
                     "skill_used_most": {"type": "string"},
-                    "patch_version": {"type": "string"}
+                    "patch_version": {"type": "string"},
                 },
                 "required": ["player_team", "patch_version"],
-                "additionalProperties": False
-            }
-        }
+                "additionalProperties": False,
+            },
+        },
     },
     {
         "type": "function",
@@ -173,12 +207,16 @@ TOOL_SCHEMAS = [
                     "equipment_set": {"type": "string"},
                     "skill_used_most": {"type": "string"},
                     "patch_version": {"type": "string"},
-                    "rollback_strength": {"type": "number", "minimum": 0.0, "maximum": 1.0}
+                    "rollback_strength": {
+                        "type": "number",
+                        "minimum": 0.0,
+                        "maximum": 1.0,
+                    },
                 },
                 "required": ["player_team", "patch_version"],
-                "additionalProperties": False
-            }
-        }
+                "additionalProperties": False,
+            },
+        },
     },
     {
         "type": "function",
@@ -192,12 +230,12 @@ TOOL_SCHEMAS = [
                     "win_rate": {"type": "number"},
                     "win_rate_gap": {"type": "number"},
                     "patch_win_rate_change": {"type": "number"},
-                    "estimated_damage_increase_rate": {"type": "number"}
+                    "estimated_damage_increase_rate": {"type": "number"},
                 },
                 "required": ["player_team", "win_rate", "win_rate_gap"],
-                "additionalProperties": False
-            }
-        }
+                "additionalProperties": False,
+            },
+        },
     },
     {
         "type": "function",
@@ -210,12 +248,12 @@ TOOL_SCHEMAS = [
                     "player_team": {"type": "string"},
                     "equipment_set": {"type": "string"},
                     "skill_used_most": {"type": "string"},
-                    "risk_level": {"type": "string"}
+                    "risk_level": {"type": "string"},
                 },
                 "required": ["player_team"],
-                "additionalProperties": False
-            }
-        }
+                "additionalProperties": False,
+            },
+        },
     },
     {
         "type": "function",
@@ -232,12 +270,12 @@ TOOL_SCHEMAS = [
                     "risk_level": {"type": "string"},
                     "adjustment_direction": {"type": "string"},
                     "adjustment_intensity": {"type": "number"},
-                    "reasoning": {"type": "string"}
+                    "reasoning": {"type": "string"},
                 },
                 "required": ["player_team", "patch_version"],
-                "additionalProperties": False
-            }
-        }
+                "additionalProperties": False,
+            },
+        },
     },
     {
         "type": "function",
@@ -253,12 +291,12 @@ TOOL_SCHEMAS = [
                     "base_patch_version": {"type": "string"},
                     "virtual_patch_version": {"type": "string"},
                     "expected_win_rate_delta_points": {"type": "number"},
-                    "expected_damage_delta_percent": {"type": "number"}
+                    "expected_damage_delta_percent": {"type": "number"},
                 },
                 "required": ["player_team"],
-                "additionalProperties": False
-            }
-        }
+                "additionalProperties": False,
+            },
+        },
     },
     {
         "type": "function",
@@ -275,11 +313,11 @@ TOOL_SCHEMAS = [
                     "virtual_patch_version": {"type": "string"},
                     "projected_win_rate": {"type": "number"},
                     "projected_damage_delta_percent": {"type": "number"},
-                    "human_decision_context": {"type": "string"}
+                    "human_decision_context": {"type": "string"},
                 },
                 "required": ["player_team"],
-                "additionalProperties": False
-            }
-        }
+                "additionalProperties": False,
+            },
+        },
     },
 ]

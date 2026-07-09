@@ -4,7 +4,11 @@ import json
 import time
 from typing import Any, Dict, List, Optional
 
-from qagent_core.config import AGENT_TIMEOUT_SECONDS, MAX_AGENT_ITERATIONS, MAX_TOOL_CALLS
+from qagent_core.config import (
+    AGENT_TIMEOUT_SECONDS,
+    MAX_AGENT_ITERATIONS,
+    MAX_TOOL_CALLS,
+)
 from qagent_core.runtime import new_run_id, safe_error_message, safe_for_log
 from qagent_core.tool_executor import ToolExecutor
 from qagent_core.tool_registry import TOOL_SCHEMAS
@@ -13,7 +17,10 @@ from .followup import ensure_virtual_patch_followup_tools
 
 from .presentation import TOOL_DISPLAY_INFO, summarize_tool_result
 
-def convert_chat_tools_to_responses_tools(chat_tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+
+def convert_chat_tools_to_responses_tools(
+    chat_tools: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
     """Chat Completions 형식의 function tool schema를 Responses API 형식으로 변환한다."""
     response_tools = []
     for tool in chat_tools:
@@ -22,18 +29,25 @@ def convert_chat_tools_to_responses_tools(chat_tools: List[Dict[str, Any]]) -> L
         fn = tool.get("function", {})
         if not fn.get("name"):
             continue
-        response_tools.append({
-            "type": "function",
-            "name": fn.get("name"),
-            "description": fn.get("description", ""),
-            "parameters": fn.get("parameters", {"type": "object", "properties": {}}),
-        })
+        response_tools.append(
+            {
+                "type": "function",
+                "name": fn.get("name"),
+                "description": fn.get("description", ""),
+                "parameters": fn.get(
+                    "parameters", {"type": "object", "properties": {}}
+                ),
+            }
+        )
     return response_tools
 
+
 def obj_get(obj: Any, key: str, default: Any = None) -> Any:
+    """Read an attribute or dictionary key from OpenAI SDK response objects."""
     if isinstance(obj, dict):
         return obj.get(key, default)
     return getattr(obj, key, default)
+
 
 def extract_response_text(response: Any) -> str:
     """Responses API 응답에서 최종 텍스트를 최대한 안정적으로 추출한다."""
@@ -52,18 +66,22 @@ def extract_response_text(response: Any) -> str:
                         parts.append(str(text))
     return "\n".join(parts).strip()
 
+
 def extract_response_function_calls(response: Any) -> List[Dict[str, Any]]:
     """Responses API output에서 function_call item을 추출한다."""
     calls = []
     for item in obj_get(response, "output", []) or []:
         if obj_get(item, "type") == "function_call":
-            calls.append({
-                "id": obj_get(item, "id", ""),
-                "call_id": obj_get(item, "call_id", ""),
-                "name": obj_get(item, "name", ""),
-                "arguments": obj_get(item, "arguments", "{}") or "{}",
-            })
+            calls.append(
+                {
+                    "id": obj_get(item, "id", ""),
+                    "call_id": obj_get(item, "call_id", ""),
+                    "name": obj_get(item, "name", ""),
+                    "arguments": obj_get(item, "arguments", "{}") or "{}",
+                }
+            )
     return calls
+
 
 def run_generative_agent_with_responses_api(
     client: Any,
@@ -93,9 +111,13 @@ def run_generative_agent_with_responses_api(
 
     runtime_state = runtime_state or {"tool_calls": 0}
     tool_executor = tool_executor or ToolExecutor(
-        tool_functions=tool_functions, trace=trace, run_id=run_id,
-        runtime_state=runtime_state, started_at=started_at,
-        max_tool_calls=MAX_TOOL_CALLS, timeout_seconds=AGENT_TIMEOUT_SECONDS,
+        tool_functions=tool_functions,
+        trace=trace,
+        run_id=run_id,
+        runtime_state=runtime_state,
+        started_at=started_at,
+        max_tool_calls=MAX_TOOL_CALLS,
+        timeout_seconds=AGENT_TIMEOUT_SECONDS,
         result_summarizer=summarize_tool_result,
     )
     for turn in range(max_turns):
@@ -103,7 +125,9 @@ def run_generative_agent_with_responses_api(
             return safe_error_message("timeout"), trace, safe_for_log(messages_for_log)
         if runtime_state["tool_calls"] >= tool_executor.max_tool_calls:
             return safe_error_message("limit"), trace, safe_for_log(messages_for_log)
-        update_live(f"Turn {turn + 1}: Responses API에서 다음 Tool을 선택하는 중입니다.")
+        update_live(
+            f"Turn {turn + 1}: Responses API에서 다음 Tool을 선택하는 중입니다."
+        )
 
         request_kwargs: Dict[str, Any] = {
             "model": model,
@@ -120,7 +144,11 @@ def run_generative_agent_with_responses_api(
         try:
             request_timeout = tool_executor.deadline.bounded_timeout(60.0)
             if request_timeout <= 0:
-                return safe_error_message("timeout"), trace, safe_for_log(messages_for_log)
+                return (
+                    safe_error_message("timeout"),
+                    trace,
+                    safe_for_log(messages_for_log),
+                )
             request_kwargs["timeout"] = request_timeout
             response = client.responses.create(**request_kwargs)
         except Exception as error:
@@ -157,7 +185,11 @@ def run_generative_agent_with_responses_api(
             if progress_placeholder is not None:
                 progress_placeholder.progress(1.0, text="Agent 분석 완료")
             final_answer = ensure_virtual_patch_followup_tools(
-                final_answer, trace, tool_functions, update_live, tool_executor=tool_executor
+                final_answer,
+                trace,
+                tool_functions,
+                update_live,
+                tool_executor=tool_executor,
             )
             return final_answer, trace, safe_for_log(messages_for_log)
 
@@ -173,20 +205,28 @@ def run_generative_agent_with_responses_api(
             update_live(f"{info.get('label', name)} 완료")
 
             output_text = json.dumps(result, ensure_ascii=False)
-            tool_outputs.append({
-                "type": "function_call_output",
-                "call_id": call.get("call_id") or call.get("id"),
-                "output": output_text,
-            })
-            messages_for_log.append({
-                "role": "tool",
-                "tool_call_id": call.get("call_id") or call.get("id"),
-                "name": name,
-                "content": output_text,
-            })
+            tool_outputs.append(
+                {
+                    "type": "function_call_output",
+                    "call_id": call.get("call_id") or call.get("id"),
+                    "output": output_text,
+                }
+            )
+            messages_for_log.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": call.get("call_id") or call.get("id"),
+                    "name": name,
+                    "content": output_text,
+                }
+            )
 
         if tool_timed_out:
             return safe_error_message("timeout"), trace, safe_for_log(messages_for_log)
         next_input = tool_outputs
 
-    return "최대 Agent 반복 횟수에 도달했습니다. 지시문을 더 구체화하세요.", trace, safe_for_log(messages_for_log)
+    return (
+        "최대 Agent 반복 횟수에 도달했습니다. 지시문을 더 구체화하세요.",
+        trace,
+        safe_for_log(messages_for_log),
+    )

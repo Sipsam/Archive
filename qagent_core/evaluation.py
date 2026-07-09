@@ -1,4 +1,5 @@
 """Deterministic checks for fixture-based Agent quality evaluation."""
+
 from __future__ import annotations
 
 import re
@@ -13,6 +14,8 @@ LIST_PREFIX_PATTERN = re.compile(r"(?m)^\s*\d+[.)]\s+")
 
 @dataclass(frozen=True)
 class EvaluationResult:
+    """Structured result for one fixture-based Agent response evaluation."""
+
     case_id: str
     missing_tools: tuple[str, ...]
     forbidden_claims: tuple[str, ...]
@@ -22,17 +25,27 @@ class EvaluationResult:
 
     @property
     def passed(self) -> bool:
-        return not any((
-            self.missing_tools,
-            self.forbidden_claims,
-            self.missing_keywords,
-            self.missing_limitations,
-            self.unsupported_numbers,
-        ))
+        """Return whether all evaluation rule groups passed."""
+        return not any(
+            (
+                self.missing_tools,
+                self.forbidden_claims,
+                self.missing_keywords,
+                self.missing_limitations,
+                self.unsupported_numbers,
+            )
+        )
 
 
 def _canonical_number(value: str | int | float) -> str | None:
-    text = str(value).removesuffix("%p").removesuffix("%").removesuffix("전").removesuffix("개")
+    """Normalize a numeric value or token for fixture comparison."""
+    text = (
+        str(value)
+        .removesuffix("%p")
+        .removesuffix("%")
+        .removesuffix("전")
+        .removesuffix("개")
+    )
     try:
         number = Decimal(text)
     except InvalidOperation:
@@ -42,6 +55,7 @@ def _canonical_number(value: str | int | float) -> str | None:
 
 
 def _numbers_in_value(value: Any) -> set[str]:
+    """Collect normalized numeric tokens from nested evaluation values."""
     supported: set[str] = set()
     if isinstance(value, bool) or value is None:
         return supported
@@ -77,23 +91,34 @@ def evaluate_agent_response(
 ) -> EvaluationResult:
     """Evaluate one canned response without making an external LLM request."""
     trace_rows = list(trace)
-    called_tools = [str(row.get("tool_name") or row.get("tool") or "") for row in trace_rows]
+    called_tools = [
+        str(row.get("tool_name") or row.get("tool") or "") for row in trace_rows
+    ]
     lowered = response.casefold()
 
-    missing_tools = tuple(tool for tool in case["expected_tools"] if tool not in called_tools)
-    forbidden = tuple(claim for claim in case["forbidden_claims"] if claim.casefold() in lowered)
+    missing_tools = tuple(
+        tool for tool in case["expected_tools"] if tool not in called_tools
+    )
+    forbidden = tuple(
+        claim for claim in case["forbidden_claims"] if claim.casefold() in lowered
+    )
     missing_keywords = tuple(
-        keyword for keyword in case["required_output_keywords"] if keyword.casefold() not in lowered
+        keyword
+        for keyword in case["required_output_keywords"]
+        if keyword.casefold() not in lowered
     )
     missing_limitations = tuple(
-        limitation for limitation in case["expected_limitations"] if limitation.casefold() not in lowered
+        limitation
+        for limitation in case["expected_limitations"]
+        if limitation.casefold() not in lowered
     )
 
-    supported_numbers = _numbers_in_value([
-        row.get("result", {}) for row in trace_rows if row.get("success", True)
-    ])
+    supported_numbers = _numbers_in_value(
+        [row.get("result", {}) for row in trace_rows if row.get("success", True)]
+    )
     supported_numbers.update(
-        number for value in case.get("allowed_numeric_literals", [])
+        number
+        for value in case.get("allowed_numeric_literals", [])
         if (number := _canonical_number(value)) is not None
     )
     response_without_list_numbers = LIST_PREFIX_PATTERN.sub("", response)

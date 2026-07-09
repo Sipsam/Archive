@@ -1,129 +1,227 @@
-# QAgent — LoL 게임 밸런스 분석 AI Agent
+# QAgent
 
-게임 전투 로그를 분석해 밸런스 검토 후보를 찾고, 패치·세그먼트 근거와 가상 조정 시나리오를 Human-in-the-loop(HITL) 검토로 전달하는 PoC입니다.
+## Recent Agent API/RAG/Security Updates
 
-**현재 버전**: v2.8.0
+### Agent API
 
-## 빠른 실행
+FastAPI endpoint:
 
-### 준비
+```http
+POST /api/agent/run
+```
+
+External callers must authenticate with either header:
+
+```http
+Authorization: Bearer <AGENT_API_KEY>
+X-API-Key: <AGENT_API_KEY>
+```
+
+Request example:
+
+```json
+{
+  "query": "패치노트 기반으로 밸런스 후보를 분석해줘",
+  "model": "gpt-4.1-mini",
+  "reasoning_effort": "medium",
+  "context": {},
+  "stream": false
+}
+```
+
+Response metadata includes `rag_status`, `rag_sources`, `guardrail_warnings`, and `execution_nodes`.
+
+### Server-side Secret Handling
+
+`OPENAI_API_KEY` is used only on the server to create the OpenAI client. The Streamlit UI does not provide an API-key input field, and UI/API responses/log traces must not expose the raw server key. External API authentication uses a separate `AGENT_API_KEY`.
+
+### RAG
+
+QAgent uses lightweight file-based RAG without a vector database. It searches:
+
+- `README.md`
+- `docs/**/*.md`
+- `data/**/README.md`
+- `data/**/agent_prompt_v2.txt`
+- `data/**/patch_notes.csv`
+
+Retrieved text is appended to the Agent prompt as untrusted reference evidence, not as instructions.
+
+### Guardrails
+
+Shared UI/API guardrails block examples such as:
+
+- empty `query`
+- `query` longer than `MAX_AGENT_QUERY_CHARS`
+- invalid model names containing unsupported characters
+- unsupported `reasoning_effort`
+- oversized `context`
+
+Prompt-injection-like patterns are flagged in `guardrail_warnings`; secret-looking output is masked before UI/API return.
+
+### Security Notes
+
+See:
+
+- `docs/SECURITY_NOTES.md`
+- `docs/RAG_GUIDE.md`
+- `docs/AGENT_ARCHITECTURE.md`
+- `docs/API.md`
+
+### Run Commands
+
+```powershell
+pip install -r requirements.txt
+streamlit run app.py
+uvicorn api:app --host 127.0.0.1 --port 8000
+python -m unittest discover -s tests -v
+```
+
+### Environment Variables
+
+| Name | Purpose |
+| --- | --- |
+| `OPENAI_API_KEY` | Server-side OpenAI client key. Never expose in UI/API/logs. |
+| `AGENT_API_KEY` | External API caller authentication key. Keep separate from OpenAI key. |
+| `ENABLE_RAG` | Enable file-based RAG. |
+| `RAG_INCLUDE_DATA_DOCS` | Include dataset README/prompt/patch-note files in RAG. |
+| `RAG_TOP_K` | Maximum retrieved RAG snippets. |
+| `MAX_AGENT_QUERY_CHARS` | Shared UI/API query length limit. |
+
+QAgent는 게임 전투 로그 CSV를 분석해 밸런스 이상 후보를 찾고, OpenAI tool-calling Agent가 근거 조회, 가상 패치 후보, 영향 시나리오, HITL 검토 자료를 생성하는 PoC입니다.
+
+## 실행 준비
 
 ```powershell
 pip install -r requirements.txt
 Copy-Item .env.example .env
-# .env에 OPENAI_API_KEY 설정
 ```
 
-### 실행
+`.env`에 서버 내부용 `OPENAI_API_KEY`를 설정합니다. 이 키는 Streamlit UI나 외부 API 응답에 표시되지 않으며, UI 입력값으로도 받지 않습니다.
+
+외부 프로그램에서 API를 호출하려면 `AGENT_API_KEY`도 별도로 설정합니다. `AGENT_API_KEY`는 QAgent API 인증용이며 `OPENAI_API_KEY`와 반드시 분리해서 관리합니다.
+
+## Streamlit UI 실행
 
 ```powershell
 streamlit run app.py
 ```
 
-로컬 Streamlit 주소로 접속합니다.
+UI 사이드바에는 OpenAI 키 원문이 표시되지 않고 `configured` 또는 `missing` 상태만 표시됩니다. Agent 실행은 서버 환경에 `OPENAI_API_KEY`가 있을 때만 가능합니다.
 
-## 주요 기능
+## API 서버 실행
 
-- LoL 및 가상 RPG CSV 데이터 로딩·정규화
-- 패치/챔피언/아이템/포지션 조합별 밸런스 검토 후보 탐지
-- 95% Wilson 승률 신뢰구간 기반 통계 검증
-- OpenAI Tool calling을 통한 Agent 흐름 실행 및 Trace 표시
-- 가상 패치 후보, 가정 기반 영향 시나리오, Agent 자기반성 생성
-- Human-in-the-loop 검토: 승인·반려·재테스트 기록 저장
-
-## 폴더 구조
-
-```
-QAgent/
-├── app.py                      # Streamlit 메인 진입점
-├── qagent_core/                # 핵심 로직 (tools, agent, review, ...)
-├── data/                       # 데이터 저장소
-│   ├── lol_assignment_dataset/ # 기본 샘플 데이터 (CSV 5개)
-│   └── human_review/           # 실행 중 생성되는 HITL 기록
-├── tests/                      # 자동 테스트
-├── scripts/                    # 유틸리티 스크립트
-├── docs/                       # 상세 문서
-├── report/                     # 제출용 보고서 (PDF, PPT, DOCX)
-├── requirements.txt            # Python 의존성
-├── .env.example                # 환경변수 템플릿
-└── README.md                   # 이 파일
+```powershell
+uvicorn api:app --host 127.0.0.1 --port 8000
 ```
 
-자세한 구조는 [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md)를 참고하세요.
+기본 endpoint:
+
+- `GET /health`
+- `POST /api/agent/run`
+
+`POST /api/agent/run`은 `Authorization: Bearer <AGENT_API_KEY>` 또는 `X-API-Key: <AGENT_API_KEY>` 헤더가 필요합니다.
+
+요청 예시:
+
+```json
+{
+  "query": "분석할 질문",
+  "model": "gpt-4.1-mini",
+  "reasoning_effort": "medium",
+  "context": {},
+  "stream": false
+}
+```
+
+응답 예시:
+
+```json
+{
+  "answer": "...",
+  "tool_trace": [],
+  "metadata": {
+    "model": "gpt-4.1-mini",
+    "reasoning_effort": "medium",
+    "api_mode": "responses",
+    "elapsed_ms": 1234,
+    "data_dir": "D:\\IdeaProjects\\QAgent\\data\\lol_assignment_dataset"
+  }
+}
+```
+
+curl 예시:
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/api/agent/run" `
+  -H "Authorization: Bearer $env:AGENT_API_KEY" `
+  -H "Content-Type: application/json" `
+  -d "{\"query\":\"승률 이상 후보를 요약해줘\",\"model\":\"gpt-4.1-mini\",\"reasoning_effort\":\"medium\",\"context\":{},\"stream\":false}"
+```
+
+에러 응답 예시:
+
+```json
+{
+  "detail": {
+    "error": "unauthorized",
+    "message": "Invalid API key."
+  }
+}
+```
+
+```json
+{
+  "detail": {
+    "error": "openai_api_key_missing",
+    "message": "OPENAI_API_KEY is not configured."
+  }
+}
+```
+
+## 환경변수
+
+| 이름 | 필수 | 설명 |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | Agent 실행 필수 | 서버 내부 OpenAI 호출용 키. UI/API에 노출하지 않습니다. |
+| `AGENT_API_KEY` | 외부 API 필수 | `/api/agent/run` 호출 인증용 키. OpenAI 키와 분리합니다. |
+| `OPENAI_MODEL` | 선택 | 기본 모델명 |
+| `OPENAI_API_MODE` | 선택 | `auto`, `responses`, `chat_completions` |
+| `OPENAI_REASONING_EFFORT` | 선택 | `none`, `low`, `medium`, `high`, `xhigh` 등 |
+| `AGENT_DATA_DIR` | 선택 | API 서버가 사용할 CSV 데이터셋 폴더. 기본값은 `data/lol_assignment_dataset` |
+| `AGENT_CORS_ORIGINS` | 선택 | 허용할 CORS origin을 쉼표로 구분. 비어 있으면 CORS를 열지 않습니다. |
+
+## 구조
+
+Streamlit UI와 FastAPI endpoint는 같은 Agent 실행 로직을 공유합니다.
+
+1. CSV 5개를 로드합니다.
+2. `AnalysisContext`를 만듭니다.
+3. `build_tool_functions()`로 tool registry를 구성합니다.
+4. `run_generative_agent()`가 서버 환경의 `OPENAI_API_KEY`로 OpenAI client를 만들고 Agent loop를 실행합니다.
+
+## 보안 메모
+
+- `OPENAI_API_KEY`는 서버 내부에서만 읽습니다.
+- 외부 API 인증은 `AGENT_API_KEY`로 처리합니다.
+- tool trace와 내부 메시지는 `safe_for_log()`를 거쳐 키/토큰 패턴을 마스킹합니다.
+- system prompt와 내부 메시지 배열은 API 응답에 포함하지 않습니다.
+- 사용자 입력값은 API에서 파일 경로로 사용하지 않습니다. 데이터 폴더 변경은 서버 환경변수 `AGENT_DATA_DIR`로만 합니다.
+- Agent 답변은 Markdown으로 표시될 수 있습니다. 신뢰할 수 없는 HTML을 직접 렌더링하지 말고, 외부 프론트엔드에서는 HTML sanitization 정책을 적용하세요.
 
 ## 테스트
 
 ```powershell
-# 자동 테스트
 python -m unittest discover -s tests -v
-
-# 문법 검사
-python -m py_compile app.py generateDemoData.py build_lol_assignment_dataset.py
 python -m compileall -q qagent_core tests
-
-# 추가 검사
-python scripts/check_encoding.py
-python scripts/smoke_test_api.py
+python -m py_compile app.py api.py
 ```
 
-## 주요 문서
+API 인증 확인:
 
-자세한 내용은 docs 폴더의 다음 파일들을 참고하세요:
-
-| 문서 | 설명 |
-|------|------|
-| [docs/RUN.md](docs/RUN.md) | 상세 실행 가이드 및 환경 설정 |
-| [docs/DELIVERY_CHECKLIST.md](docs/DELIVERY_CHECKLIST.md) | 납품 체크리스트 및 보안 확인 |
-| [docs/SUBMISSION_NOTES.md](docs/SUBMISSION_NOTES.md) | 프로젝트 목적, 기능, 한계 |
-| [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) | 전체 디렉토리 구조 및 각 폴더 설명 |
-| [docs/review/](docs/review/) | 코드 리뷰, 리팩토링 가이드 |
-| [docs/evaluation/](docs/evaluation/) | Agent 평가 결과 |
-| [docs/performance/](docs/performance/) | 성능 분석 및 벤치마크 |
-
-## 보안 주의사항
-
-- `.env` 파일은 절대 커밋하지 마세요. `.env.example`에서 로컬 설정합니다.
-- `OPENAI_API_KEY`와 `RIOT_API_KEY`는 환경변수로만 관리합니다.
-- `data/human_review/`, `data/riot_dataset/` 등 실행 결과는 `.gitignore` 대상입니다.
-- 보고서(PDF, PPT, DOCX)는 코드와 별도 산출물입니다.
-
-자세한 보안 정책은 [docs/DELIVERY_CHECKLIST.md](docs/DELIVERY_CHECKLIST.md#보안-확인-사항)를 참고하세요.
-
-## 데이터 구조
-
-기본 LoL 데이터는 `data/lol_assignment_dataset/`에 있으며 다음 파일 5개가 필수입니다:
-
-```text
-battle_logs.csv
-characters.csv
-skills.csv
-equipment_sets.csv
-patch_notes.csv
+```powershell
+uvicorn api:app --host 127.0.0.1 --port 8000
+curl.exe -i -X POST "http://127.0.0.1:8000/api/agent/run" -H "X-API-Key: wrong" -H "Content-Type: application/json" -d "{\"query\":\"test\"}"
 ```
 
-데이터 파이프라인의 정규화 순서와 상세 정보는 [docs/review/](docs/review/) 문서를 참고하세요.
-
-## Agent 분석 흐름
-
-1. 데이터 개요 및 품질 확인
-2. 최소 표본·승률·95% Wilson 구간으로 검토 후보 탐지
-3. 패치 전후 및 세그먼트 분석
-4. 관련 캐릭터·아이템·패치 지식 조회
-5. 조정 후보와 위험·재테스트 계획 작성
-6. 가상 패치 및 가정 기반 영향 시나리오 산출
-7. Agent 자기반성 후 사람 검토로 이관
-
-Tool 출력은 근거를 제공하지만 통계적 밸런스 이상을 확정하지 않습니다.
-
-## 현재 한계
-
-- 가상 패치 영향은 휴리스틱 시나리오이며 게임 엔진 시뮬레이션이 아닙니다.
-- Wilson 신뢰구간은 다중 비교, 픽률·밴률, 숙련도, 상대 조합을 모두 통제하지 않습니다.
-- HITL 기록은 단일 서버 PoC용 SQLite이며 중앙 감사 저장소가 아닙니다.
-- Agent 결과는 자동 패치 승인이나 라이브 적용에 사용하면 안 됩니다.
-
-더 자세한 내용은 [docs/SUBMISSION_NOTES.md](docs/SUBMISSION_NOTES.md)를 참고하세요.
-
----
-
-**시작하기**: [docs/RUN.md](docs/RUN.md)를 읽은 후 `streamlit run app.py`로 실행하세요.
+잘못된 `AGENT_API_KEY`는 `401`을 반환해야 합니다.

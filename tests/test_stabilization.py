@@ -1,4 +1,5 @@
 """Stabilization improvements tests for validators, simulation, and data caching."""
+
 import unittest
 from pathlib import Path
 import tempfile
@@ -6,12 +7,22 @@ import tempfile
 import pandas as pd
 
 from qagent_core.data_io import (
-    EXPECTED_DATA_FILES, REQUIRED_COLUMNS, clear_data_cache, load_data_folder,
+    EXPECTED_DATA_FILES,
+    REQUIRED_COLUMNS,
+    clear_data_cache,
+    load_data_folder,
 )
-from qagent_core.simulation import validate_patch_scenario_result, project_patch_scenario_range
+from qagent_core.simulation import (
+    validate_patch_scenario_result,
+    project_patch_scenario_range,
+)
 from qagent_core.tools.validators import (
-    ToolValidationError, validate_int_range, validate_float_range, validate_choice,
-    validate_top_n, validation_error_dict,
+    ToolValidationError,
+    validate_int_range,
+    validate_float_range,
+    validate_choice,
+    validate_top_n,
+    validation_error_dict,
 )
 
 
@@ -109,7 +120,7 @@ class PatchScenarioValidationTests(unittest.TestCase):
             win_rate_delta_points=0.05,
             damage_delta_percent=0.1,
         )
-        
+
         result = {
             "conservative": scenarios["conservative"],
             "baseline": scenarios["baseline"],
@@ -117,7 +128,7 @@ class PatchScenarioValidationTests(unittest.TestCase):
             "warnings": ["휴리스틱 기반 추정"],
             "assumptions": ["실제 예측이 아님"],
         }
-        
+
         is_valid, warnings = validate_patch_scenario_result(result)
         # Validation may warn about structure, but should be mostly valid
         self.assertIsInstance(is_valid, bool)
@@ -132,7 +143,7 @@ class PatchScenarioValidationTests(unittest.TestCase):
             "warnings": ["휴리스틱"],
             "assumptions": [],
         }
-        
+
         is_valid, warnings = validate_patch_scenario_result(result)
         self.assertFalse(is_valid)
         self.assertTrue(any("범위를 벗어남" in w for w in warnings))
@@ -145,7 +156,7 @@ class PatchScenarioValidationTests(unittest.TestCase):
             },
             "assumptions": [],
         }
-        
+
         is_valid, warnings = validate_patch_scenario_result(result)
         self.assertFalse(is_valid)
         self.assertTrue(any("warnings" in w for w in warnings))
@@ -158,7 +169,7 @@ class PatchScenarioValidationTests(unittest.TestCase):
             },
             "warnings": ["휴리스틱"],
         }
-        
+
         is_valid, warnings = validate_patch_scenario_result(result)
         self.assertFalse(is_valid)
         self.assertTrue(any("assumptions" in w for w in warnings))
@@ -172,7 +183,7 @@ class PatchScenarioValidationTests(unittest.TestCase):
             "warnings": ["some warning"],
             "assumptions": ["some assumption"],
         }
-        
+
         is_valid, warnings = validate_patch_scenario_result(result)
         self.assertFalse(is_valid)
         self.assertTrue(any("휴리스틱" in w or "한계" in w for w in warnings))
@@ -186,24 +197,26 @@ class DataCachingSecurityTests(unittest.TestCase):
         """Write test dataset to folder."""
         for name, filename in EXPECTED_DATA_FILES.items():
             values = {column: ["test"] for column in REQUIRED_COLUMNS[name]}
-            pd.DataFrame(values).to_csv(folder / filename, index=False, encoding="utf-8-sig")
+            pd.DataFrame(values).to_csv(
+                folder / filename, index=False, encoding="utf-8-sig"
+            )
 
     def test_cache_uses_file_signature(self):
         """Cache should use file path, mtime, and size."""
         with tempfile.TemporaryDirectory() as tmpdir:
             folder = Path(tmpdir)
             self._write_test_dataset(folder)
-            
+
             # Load first time
             clear_data_cache()
             data1 = load_data_folder(folder)
-            
+
             # Load second time (should be cached)
             data2 = load_data_folder(folder)
-            
+
             # Verify they are different objects (deep copy)
             self.assertIsNot(data1["battle_logs"], data2["battle_logs"])
-            
+
             # But have same content
             pd.testing.assert_frame_equal(data1["battle_logs"], data2["battle_logs"])
 
@@ -212,14 +225,14 @@ class DataCachingSecurityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             folder = Path(tmpdir)
             self._write_test_dataset(folder)
-            
+
             clear_data_cache()
             data1 = load_data_folder(folder)
             data2 = load_data_folder(folder)
-            
+
             # Modify data1
             data1["battle_logs"].loc[0, "battle_id"] = "MODIFIED"
-            
+
             # data2 should not be affected
             self.assertNotEqual(data2["battle_logs"].loc[0, "battle_id"], "MODIFIED")
 
@@ -228,19 +241,19 @@ class DataCachingSecurityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             folder = Path(tmpdir)
             self._write_test_dataset(folder)
-            
+
             clear_data_cache()
             data1 = load_data_folder(folder)
-            
+
             # Modify a file
             battle_logs_path = folder / "battle_logs.csv"
             df = pd.read_csv(battle_logs_path)
             df.loc[0, "battle_id"] = "MODIFIED"
             df.to_csv(battle_logs_path, index=False, encoding="utf-8-sig")
-            
+
             # Reload (should not use cache due to changed mtime/size)
             data2 = load_data_folder(folder)
-            
+
             # data2 should have the modified value
             self.assertEqual(data2["battle_logs"].loc[0, "battle_id"], "MODIFIED")
 

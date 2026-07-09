@@ -23,14 +23,19 @@ class SQLiteReviewRepository:
     """Small SQLite repository for single-host PoC HITL audit records."""
 
     JSON_FIELDS = (
-        "tool_trace_json", "virtual_patch_json", "self_reflection_json", "artifact_json",
+        "tool_trace_json",
+        "virtual_patch_json",
+        "self_reflection_json",
+        "artifact_json",
     )
 
     def __init__(self, db_path: Path):
+        """Open or initialize the SQLite review database at ``db_path``."""
         self.db_path = Path(db_path)
         self._initialize()
 
     def _connect(self) -> sqlite3.Connection:
+        """Open a SQLite connection with row access and safe pragmas."""
         connection = sqlite3.connect(self.db_path, timeout=10.0)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA busy_timeout = 10000")
@@ -38,6 +43,11 @@ class SQLiteReviewRepository:
         return connection
 
     def _initialize(self) -> None:
+        """Create or migrate the HITL review table.
+
+        Raises:
+            ReviewPersistenceError: If SQLite initialization fails.
+        """
         try:
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
             with closing(self._connect()) as connection, connection:
@@ -64,7 +74,8 @@ class SQLiteReviewRepository:
                     """
                 )
                 columns = {
-                    str(row[1]) for row in connection.execute("PRAGMA table_info(hitl_reviews)")
+                    str(row[1])
+                    for row in connection.execute("PRAGMA table_info(hitl_reviews)")
                 }
                 if "artifact_json" not in columns:
                     connection.execute(
@@ -82,6 +93,11 @@ class SQLiteReviewRepository:
 
     @staticmethod
     def _normalize_json(value: object, field_name: str) -> str:
+        """Serialize review payload fields as JSON strings.
+
+        Raises:
+            ReviewPersistenceError: If the value cannot be represented as JSON.
+        """
         try:
             if isinstance(value, str):
                 parsed = json.loads(value)
@@ -89,25 +105,51 @@ class SQLiteReviewRepository:
                 parsed = value
             return json.dumps(parsed, ensure_ascii=False, default=str)
         except (TypeError, ValueError, json.JSONDecodeError) as error:
-            raise ReviewPersistenceError(f"{field_name}에 유효하지 않은 JSON 값이 전달되었습니다.") from error
+            raise ReviewPersistenceError(
+                f"{field_name}에 유효하지 않은 JSON 값이 전달되었습니다."
+            ) from error
 
     def save_review(self, record: dict) -> None:
+        """Persist one HITL review record.
+
+        Raises:
+            ReviewPersistenceError: Required fields are missing or JSON fields
+            cannot be serialized.
+            DuplicateReviewError: ``review_id`` already exists.
+        """
         review_id = str(record.get("review_id", "")).strip()
         created_at = str(record.get("created_at", "")).strip()
         if not review_id:
-            raise ReviewPersistenceError("review_id가 없어 HITL 기록을 저장할 수 없습니다.")
+            raise ReviewPersistenceError(
+                "review_id가 없어 HITL 기록을 저장할 수 없습니다."
+            )
         if not created_at:
-            raise ReviewPersistenceError("created_at이 없어 HITL 기록을 저장할 수 없습니다.")
+            raise ReviewPersistenceError(
+                "created_at이 없어 HITL 기록을 저장할 수 없습니다."
+            )
 
         normalized = dict(record)
         for field in self.JSON_FIELDS:
             default = [] if field == "tool_trace_json" else {}
-            normalized[field] = self._normalize_json(normalized.get(field, default), field)
+            normalized[field] = self._normalize_json(
+                normalized.get(field, default), field
+            )
 
         columns = (
-            "review_id", "created_at", "model", "target", "decision", "reviewer",
-            "reviewer_note", "final_answer", "tool_trace_json", "virtual_patch_json",
-            "self_reflection_json", "dataset_name", "app_version", "artifact_path",
+            "review_id",
+            "created_at",
+            "model",
+            "target",
+            "decision",
+            "reviewer",
+            "reviewer_note",
+            "final_answer",
+            "tool_trace_json",
+            "virtual_patch_json",
+            "self_reflection_json",
+            "dataset_name",
+            "app_version",
+            "artifact_path",
             "artifact_json",
         )
         values = [str(normalized.get(column, "")) for column in columns]
@@ -119,13 +161,16 @@ class SQLiteReviewRepository:
                     values,
                 )
         except sqlite3.IntegrityError as error:
-            raise DuplicateReviewError(f"이미 저장된 review_id입니다: {review_id}") from error
+            raise DuplicateReviewError(
+                f"이미 저장된 review_id입니다: {review_id}"
+            ) from error
         except sqlite3.Error as error:
             raise ReviewPersistenceError(
                 f"HITL SQLite 기록 저장에 실패했습니다: {type(error).__name__}"
             ) from error
 
     def list_reviews(self, limit: int = 1000) -> pd.DataFrame:
+        """Return recent HITL review records as a display-ready DataFrame."""
         safe_limit = min(max(int(limit), 1), 10000)
         try:
             with closing(self._connect()) as connection:

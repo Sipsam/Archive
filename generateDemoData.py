@@ -33,10 +33,6 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 
-# =========================================================
-# 1. 공통 설정
-# =========================================================
-
 BATTLE_COLUMNS = [
     "battle_id",
     "patch_version",
@@ -57,6 +53,8 @@ SEGMENTS = ["beginner", "mid", "advanced"]
 
 @dataclass
 class TeamProfile:
+    """Synthetic team performance profile used to generate battle rows."""
+
     team: str
     equipment: str
     dealer: str
@@ -77,7 +75,6 @@ class TeamProfile:
     damage_std: int = 26000
     duration_std: int = 14
 
-    # 특정 유저 구간에서 더 강해지는 경우
     segment_bonus_name: Optional[str] = None
     segment_wr_delta: float = 0.0
     segment_damage_delta: int = 0
@@ -86,6 +83,8 @@ class TeamProfile:
 
 @dataclass
 class Scenario:
+    """Definition of one generated demo dataset scenario."""
+
     folder_name: str
     title: str
     description: str
@@ -97,6 +96,7 @@ class Scenario:
 
 
 def write_csv(path: Path, rows: List[List[object]]) -> None:
+    """Write rows to a UTF-8-SIG CSV file, creating parent directories."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8-sig") as f:
         writer = csv.writer(f)
@@ -104,6 +104,7 @@ def write_csv(path: Path, rows: List[List[object]]) -> None:
 
 
 def weighted_choice(items: List[TeamProfile], patch_version: str) -> TeamProfile:
+    """Choose a team profile using pre/post patch sampling weights."""
     weights = [
         item.post_weight if patch_version == "1.2.0" else item.pre_weight
         for item in items
@@ -121,37 +122,158 @@ def weighted_choice(items: List[TeamProfile], patch_version: str) -> TeamProfile
     return items[-1]
 
 
-# =========================================================
-# 2. 공통 마스터 데이터
-# =========================================================
-
 def make_characters() -> List[List[object]]:
+    """Return the demo character master table rows."""
     return [
-        ["character_id", "name", "role", "element", "base_attack", "base_hp", "main_skill", "design_intent"],
-        ["C001", "Luna", "Dealer", "Dark", 920, 4200, "Moon Slash", "광역 피해를 통해 중후반 전투를 마무리하는 딜러"],
-        ["C002", "Arthur", "Tank", "Light", 610, 7600, "Shield Break", "방어력 감소 디버프를 제공하는 탱커"],
-        ["C003", "Kain", "Support", "Dark", 540, 5100, "Critical Order", "치명타 확률 버프로 딜러를 보조하는 서포터"],
-        ["C004", "Noah", "Dealer", "Fire", 870, 4300, "Dark Pierce", "단일 대상 피해에 강한 딜러"],
-        ["C005", "Rin", "Healer", "Water", 430, 5900, "Healing Rain", "지속 회복을 통해 장기전을 지원하는 힐러"],
-        ["C006", "Evan", "Tank", "Earth", 590, 8000, "Stone Guard", "피해 감소 기반 방어형 탱커"],
-        ["C007", "Mira", "Dealer", "Fire", 890, 4100, "Flame Burst", "광역 화염 피해를 가진 딜러"],
-        ["C008", "Selene", "Support", "Light", 510, 5400, "Blessing Mark", "공격 속도와 행동 순서를 보조하는 서포터"],
-        ["C009", "Darius", "Tank", "Dark", 640, 7900, "Iron Wall", "실드와 도발로 아군을 보호하는 탱커"],
-        ["C010", "Iris", "Dealer", "Water", 840, 4400, "Frost Arrow", "감속과 단일 피해를 함께 제공하는 딜러"],
+        [
+            "character_id",
+            "name",
+            "role",
+            "element",
+            "base_attack",
+            "base_hp",
+            "main_skill",
+            "design_intent",
+        ],
+        [
+            "C001",
+            "Luna",
+            "Dealer",
+            "Dark",
+            920,
+            4200,
+            "Moon Slash",
+            "광역 피해를 통해 중후반 전투를 마무리하는 딜러",
+        ],
+        [
+            "C002",
+            "Arthur",
+            "Tank",
+            "Light",
+            610,
+            7600,
+            "Shield Break",
+            "방어력 감소 디버프를 제공하는 탱커",
+        ],
+        [
+            "C003",
+            "Kain",
+            "Support",
+            "Dark",
+            540,
+            5100,
+            "Critical Order",
+            "치명타 확률 버프로 딜러를 보조하는 서포터",
+        ],
+        [
+            "C004",
+            "Noah",
+            "Dealer",
+            "Fire",
+            870,
+            4300,
+            "Dark Pierce",
+            "단일 대상 피해에 강한 딜러",
+        ],
+        [
+            "C005",
+            "Rin",
+            "Healer",
+            "Water",
+            430,
+            5900,
+            "Healing Rain",
+            "지속 회복을 통해 장기전을 지원하는 힐러",
+        ],
+        [
+            "C006",
+            "Evan",
+            "Tank",
+            "Earth",
+            590,
+            8000,
+            "Stone Guard",
+            "피해 감소 기반 방어형 탱커",
+        ],
+        [
+            "C007",
+            "Mira",
+            "Dealer",
+            "Fire",
+            890,
+            4100,
+            "Flame Burst",
+            "광역 화염 피해를 가진 딜러",
+        ],
+        [
+            "C008",
+            "Selene",
+            "Support",
+            "Light",
+            510,
+            5400,
+            "Blessing Mark",
+            "공격 속도와 행동 순서를 보조하는 서포터",
+        ],
+        [
+            "C009",
+            "Darius",
+            "Tank",
+            "Dark",
+            640,
+            7900,
+            "Iron Wall",
+            "실드와 도발로 아군을 보호하는 탱커",
+        ],
+        [
+            "C010",
+            "Iris",
+            "Dealer",
+            "Water",
+            840,
+            4400,
+            "Frost Arrow",
+            "감속과 단일 피해를 함께 제공하는 딜러",
+        ],
     ]
 
 
 def make_skills(skill_notes: Optional[Dict[str, str]] = None) -> List[List[object]]:
+    """Return the demo skill master table rows with optional scenario notes."""
     rows = [
-        ["skill_name", "character", "skill_type", "damage_multiplier", "cooldown_sec", "effect", "balance_note"],
+        [
+            "skill_name",
+            "character",
+            "skill_type",
+            "damage_multiplier",
+            "cooldown_sec",
+            "effect",
+            "balance_note",
+        ],
         ["Moon Slash", "Luna", "damage", 3.8, 8, "AOE damage", "광역 피해"],
         ["Shield Break", "Arthur", "debuff", 1.2, 10, "defense_down", "방어력 감소"],
         ["Critical Order", "Kain", "buff", 0.0, 12, "critical_rate_up", "치명타 증가"],
-        ["Dark Pierce", "Noah", "damage", 3.2, 7, "single_target_damage", "단일 대상 피해"],
+        [
+            "Dark Pierce",
+            "Noah",
+            "damage",
+            3.2,
+            7,
+            "single_target_damage",
+            "단일 대상 피해",
+        ],
         ["Healing Rain", "Rin", "heal", 0.0, 12, "team_heal", "팀 회복"],
         ["Stone Guard", "Evan", "defense", 0.0, 15, "damage_reduction", "피해 감소"],
         ["Flame Burst", "Mira", "damage", 3.5, 9, "AOE fire damage", "광역 화염 피해"],
-        ["Blessing Mark", "Selene", "buff", 0.0, 13, "attack_speed_up", "공격 속도 증가"],
+        [
+            "Blessing Mark",
+            "Selene",
+            "buff",
+            0.0,
+            13,
+            "attack_speed_up",
+            "공격 속도 증가",
+        ],
         ["Iron Wall", "Darius", "defense", 0.0, 15, "shield", "실드"],
         ["Frost Arrow", "Iris", "damage", 3.3, 8, "slow_and_damage", "감속 및 피해"],
     ]
@@ -165,13 +287,37 @@ def make_skills(skill_notes: Optional[Dict[str, str]] = None) -> List[List[objec
     return rows
 
 
-def make_equipment_sets(equipment_notes: Optional[Dict[str, str]] = None) -> List[List[object]]:
+def make_equipment_sets(
+    equipment_notes: Optional[Dict[str, str]] = None,
+) -> List[List[object]]:
+    """Return the demo equipment master table rows with optional notes."""
     rows = [
-        ["set_name", "set_type", "bonus_type", "bonus_value", "condition", "balance_note"],
+        [
+            "set_name",
+            "set_type",
+            "bonus_type",
+            "bonus_value",
+            "condition",
+            "balance_note",
+        ],
         ["Vanguard", "attack", "attack_bonus", "12%", "2-set active", "공격 보너스"],
         ["Guardian", "defense", "damage_reduction", "14%", "2-set active", "피해 감소"],
-        ["Arcane", "utility", "cooldown_reduction", "10%", "2-set active", "스킬 회전율 증가"],
-        ["Assassin", "attack", "critical_damage", "20%", "2-set active", "치명타 피해량 증가"],
+        [
+            "Arcane",
+            "utility",
+            "cooldown_reduction",
+            "10%",
+            "2-set active",
+            "스킬 회전율 증가",
+        ],
+        [
+            "Assassin",
+            "attack",
+            "critical_damage",
+            "20%",
+            "2-set active",
+            "치명타 피해량 증가",
+        ],
         ["Sanctuary", "support", "healing_bonus", "15%", "2-set active", "회복량 증가"],
     ]
 
@@ -184,16 +330,13 @@ def make_equipment_sets(equipment_notes: Optional[Dict[str, str]] = None) -> Lis
     return rows
 
 
-# =========================================================
-# 3. 전투 로그 생성
-# =========================================================
-
 def make_battle_row(
     battle_num: int,
     patch_version: str,
     team_profile: TeamProfile,
     enemy_team: str,
 ) -> List[object]:
+    """Generate one synthetic battle log row for a team and patch."""
     is_post = patch_version == "1.2.0"
 
     wr = team_profile.post_wr if is_post else team_profile.pre_wr
@@ -206,7 +349,6 @@ def make_battle_row(
         k=1,
     )[0]
 
-    # 특정 구간에서 과성능이 더 뚜렷하게 나타나는 설정
     if (
         is_post
         and team_profile.segment_bonus_name
@@ -233,7 +375,6 @@ def make_battle_row(
         )
     )
 
-    # 패배 시 일반적으로 피해량은 낮고 전투 시간은 길어진다고 가정
     if result == "lose":
         damage = int(damage * random.uniform(0.64, 0.88))
         duration = int(duration * random.uniform(1.05, 1.25))
@@ -259,6 +400,7 @@ def generate_battle_logs(
     n_pre: int = 360,
     n_post: int = 600,
 ) -> List[List[object]]:
+    """Generate battle log CSV rows for one scenario."""
     rows = [BATTLE_COLUMNS]
     enemy_teams = [team.team for team in teams]
 
@@ -279,20 +421,121 @@ def generate_battle_logs(
     return rows
 
 
-# =========================================================
-# 4. 시나리오 구성
-# =========================================================
-
 def base_team_pool(problem_team: TeamProfile) -> List[TeamProfile]:
+    """Return baseline control teams plus the scenario's problem team."""
     normal_teams = [
-        TeamProfile("Luna/Arthur/Kain", "Vanguard", "Luna", "Moon Slash", 0.54, 0.56, 185000, 190000, 96, 95, 0.12, 0.10),
-        TeamProfile("Noah/Rin/Evan", "Guardian", "Noah", "Dark Pierce", 0.51, 0.50, 176000, 174000, 106, 108, 0.13, 0.10),
-        TeamProfile("Mira/Noah/Rin", "Arcane", "Mira", "Flame Burst", 0.52, 0.53, 180000, 184000, 101, 98, 0.13, 0.10),
-        TeamProfile("Selene/Iris/Darius", "Assassin", "Iris", "Frost Arrow", 0.53, 0.55, 184000, 190000, 100, 97, 0.13, 0.10),
-        TeamProfile("Mira/Arthur/Selene", "Vanguard", "Mira", "Flame Burst", 0.55, 0.57, 190000, 197000, 94, 91, 0.13, 0.10),
-        TeamProfile("Luna/Rin/Darius", "Sanctuary", "Luna", "Moon Slash", 0.52, 0.54, 179000, 185000, 104, 101, 0.13, 0.10),
-        TeamProfile("Noah/Kain/Evan", "Guardian", "Noah", "Dark Pierce", 0.50, 0.50, 172000, 172000, 109, 110, 0.12, 0.10),
-        TeamProfile("Iris/Arthur/Rin", "Arcane", "Iris", "Frost Arrow", 0.50, 0.51, 170000, 173000, 112, 110, 0.11, 0.10),
+        TeamProfile(
+            "Luna/Arthur/Kain",
+            "Vanguard",
+            "Luna",
+            "Moon Slash",
+            0.54,
+            0.56,
+            185000,
+            190000,
+            96,
+            95,
+            0.12,
+            0.10,
+        ),
+        TeamProfile(
+            "Noah/Rin/Evan",
+            "Guardian",
+            "Noah",
+            "Dark Pierce",
+            0.51,
+            0.50,
+            176000,
+            174000,
+            106,
+            108,
+            0.13,
+            0.10,
+        ),
+        TeamProfile(
+            "Mira/Noah/Rin",
+            "Arcane",
+            "Mira",
+            "Flame Burst",
+            0.52,
+            0.53,
+            180000,
+            184000,
+            101,
+            98,
+            0.13,
+            0.10,
+        ),
+        TeamProfile(
+            "Selene/Iris/Darius",
+            "Assassin",
+            "Iris",
+            "Frost Arrow",
+            0.53,
+            0.55,
+            184000,
+            190000,
+            100,
+            97,
+            0.13,
+            0.10,
+        ),
+        TeamProfile(
+            "Mira/Arthur/Selene",
+            "Vanguard",
+            "Mira",
+            "Flame Burst",
+            0.55,
+            0.57,
+            190000,
+            197000,
+            94,
+            91,
+            0.13,
+            0.10,
+        ),
+        TeamProfile(
+            "Luna/Rin/Darius",
+            "Sanctuary",
+            "Luna",
+            "Moon Slash",
+            0.52,
+            0.54,
+            179000,
+            185000,
+            104,
+            101,
+            0.13,
+            0.10,
+        ),
+        TeamProfile(
+            "Noah/Kain/Evan",
+            "Guardian",
+            "Noah",
+            "Dark Pierce",
+            0.50,
+            0.50,
+            172000,
+            172000,
+            109,
+            110,
+            0.12,
+            0.10,
+        ),
+        TeamProfile(
+            "Iris/Arthur/Rin",
+            "Arcane",
+            "Iris",
+            "Frost Arrow",
+            0.50,
+            0.51,
+            170000,
+            173000,
+            112,
+            110,
+            0.11,
+            0.10,
+        ),
     ]
 
     replaced = False
@@ -309,6 +552,7 @@ def base_team_pool(problem_team: TeamProfile) -> List[TeamProfile]:
 
 
 def make_scenarios() -> List[Scenario]:
+    """Build all bundled synthetic demo scenarios."""
     scenarios: List[Scenario] = []
 
     # Scenario 1: 공격형 폭딜 메타
@@ -346,11 +590,39 @@ def make_scenarios() -> List[Scenario]:
                 "Assassin": "1.2.0 패치에서 치명타 피해량이 상향됨",
             },
             patch_notes=[
-                ["patch_version", "date", "change_target", "before_value", "after_value", "description"],
+                [
+                    "patch_version",
+                    "date",
+                    "change_target",
+                    "before_value",
+                    "after_value",
+                    "description",
+                ],
                 ["1.1.0", "2026-06-20", "Baseline", "-", "-", "패치 전 기준 버전"],
-                ["1.2.0", "2026-07-01", "Mira Flame Burst multiplier", "3.2", "3.9", "Mira의 Flame Burst 피해 계수가 증가함"],
-                ["1.2.0", "2026-07-01", "Selene Blessing Mark attack speed", "12%", "22%", "Selene의 Blessing Mark 공격 속도 증가량이 상승함"],
-                ["1.2.0", "2026-07-01", "Assassin set critical damage", "20%", "28%", "Assassin 세트 치명타 피해량이 증가함"],
+                [
+                    "1.2.0",
+                    "2026-07-01",
+                    "Mira Flame Burst multiplier",
+                    "3.2",
+                    "3.9",
+                    "Mira의 Flame Burst 피해 계수가 증가함",
+                ],
+                [
+                    "1.2.0",
+                    "2026-07-01",
+                    "Selene Blessing Mark attack speed",
+                    "12%",
+                    "22%",
+                    "Selene의 Blessing Mark 공격 속도 증가량이 상승함",
+                ],
+                [
+                    "1.2.0",
+                    "2026-07-01",
+                    "Assassin set critical damage",
+                    "20%",
+                    "28%",
+                    "Assassin 세트 치명타 피해량이 증가함",
+                ],
             ],
         )
     )
@@ -393,12 +665,47 @@ def make_scenarios() -> List[Scenario]:
                 "Guardian": "1.2.0 패치에서 피해 감소량이 상향됨",
             },
             patch_notes=[
-                ["patch_version", "date", "change_target", "before_value", "after_value", "description"],
+                [
+                    "patch_version",
+                    "date",
+                    "change_target",
+                    "before_value",
+                    "after_value",
+                    "description",
+                ],
                 ["1.1.0", "2026-06-20", "Baseline", "-", "-", "패치 전 기준 버전"],
-                ["1.2.0", "2026-07-01", "Evan Stone Guard damage reduction", "12%", "22%", "Evan의 Stone Guard 피해 감소량이 증가함"],
-                ["1.2.0", "2026-07-01", "Rin Healing Rain healing bonus", "10%", "18%", "Rin의 Healing Rain 회복량이 증가함"],
-                ["1.2.0", "2026-07-01", "Darius Iron Wall shield value", "15%", "25%", "Darius의 Iron Wall 실드량이 증가함"],
-                ["1.2.0", "2026-07-01", "Guardian set damage reduction", "12%", "18%", "Guardian 세트 피해 감소량이 증가함"],
+                [
+                    "1.2.0",
+                    "2026-07-01",
+                    "Evan Stone Guard damage reduction",
+                    "12%",
+                    "22%",
+                    "Evan의 Stone Guard 피해 감소량이 증가함",
+                ],
+                [
+                    "1.2.0",
+                    "2026-07-01",
+                    "Rin Healing Rain healing bonus",
+                    "10%",
+                    "18%",
+                    "Rin의 Healing Rain 회복량이 증가함",
+                ],
+                [
+                    "1.2.0",
+                    "2026-07-01",
+                    "Darius Iron Wall shield value",
+                    "15%",
+                    "25%",
+                    "Darius의 Iron Wall 실드량이 증가함",
+                ],
+                [
+                    "1.2.0",
+                    "2026-07-01",
+                    "Guardian set damage reduction",
+                    "12%",
+                    "18%",
+                    "Guardian 세트 피해 감소량이 증가함",
+                ],
             ],
         )
     )
@@ -438,11 +745,39 @@ def make_scenarios() -> List[Scenario]:
                 "Vanguard": "1.2.0 패치에서 공격력 보너스가 상향됨",
             },
             patch_notes=[
-                ["patch_version", "date", "change_target", "before_value", "after_value", "description"],
+                [
+                    "patch_version",
+                    "date",
+                    "change_target",
+                    "before_value",
+                    "after_value",
+                    "description",
+                ],
                 ["1.1.0", "2026-06-20", "Baseline", "-", "-", "패치 전 기준 버전"],
-                ["1.2.0", "2026-07-01", "Noah Dark Pierce multiplier", "3.1", "3.8", "Noah의 Dark Pierce 피해 계수가 증가함"],
-                ["1.2.0", "2026-07-01", "Kain Critical Order critical rate", "15%", "23%", "Kain의 Critical Order 치명타 증가량이 증가함"],
-                ["1.2.0", "2026-07-01", "Vanguard set attack bonus", "12%", "20%", "Vanguard 세트 공격력 보너스가 증가함"],
+                [
+                    "1.2.0",
+                    "2026-07-01",
+                    "Noah Dark Pierce multiplier",
+                    "3.1",
+                    "3.8",
+                    "Noah의 Dark Pierce 피해 계수가 증가함",
+                ],
+                [
+                    "1.2.0",
+                    "2026-07-01",
+                    "Kain Critical Order critical rate",
+                    "15%",
+                    "23%",
+                    "Kain의 Critical Order 치명타 증가량이 증가함",
+                ],
+                [
+                    "1.2.0",
+                    "2026-07-01",
+                    "Vanguard set attack bonus",
+                    "12%",
+                    "20%",
+                    "Vanguard 세트 공격력 보너스가 증가함",
+                ],
             ],
         )
     )
@@ -482,11 +817,39 @@ def make_scenarios() -> List[Scenario]:
                 "Vanguard": "1.2.0 패치에서 공격력 보너스가 상향됨",
             },
             patch_notes=[
-                ["patch_version", "date", "change_target", "before_value", "after_value", "description"],
+                [
+                    "patch_version",
+                    "date",
+                    "change_target",
+                    "before_value",
+                    "after_value",
+                    "description",
+                ],
                 ["1.1.0", "2026-06-20", "Baseline", "-", "-", "패치 전 기준 버전"],
-                ["1.2.0", "2026-07-01", "Luna Moon Slash multiplier", "3.6", "4.2", "Luna의 Moon Slash 피해 계수가 증가함"],
-                ["1.2.0", "2026-07-01", "Kain Critical Order critical rate", "15%", "25%", "Kain의 Critical Order 치명타 증가량이 증가함"],
-                ["1.2.0", "2026-07-01", "Vanguard set attack bonus", "10%", "18%", "Vanguard 장비 세트 공격력 보너스가 증가함"],
+                [
+                    "1.2.0",
+                    "2026-07-01",
+                    "Luna Moon Slash multiplier",
+                    "3.6",
+                    "4.2",
+                    "Luna의 Moon Slash 피해 계수가 증가함",
+                ],
+                [
+                    "1.2.0",
+                    "2026-07-01",
+                    "Kain Critical Order critical rate",
+                    "15%",
+                    "25%",
+                    "Kain의 Critical Order 치명타 증가량이 증가함",
+                ],
+                [
+                    "1.2.0",
+                    "2026-07-01",
+                    "Vanguard set attack bonus",
+                    "10%",
+                    "18%",
+                    "Vanguard 장비 세트 공격력 보너스가 증가함",
+                ],
             ],
         )
     )
@@ -494,11 +857,8 @@ def make_scenarios() -> List[Scenario]:
     return scenarios
 
 
-# =========================================================
-# 5. 시나리오 파일 생성
-# =========================================================
-
 def make_agent_prompt(problem_hint: str) -> str:
+    """Create the default Agent prompt stored beside each scenario."""
     return f"""3:3 모바일 RPG PvP 아레나 전투 로그를 분석해 밸런스 이상 조합을 찾아줘.
 권장 기준은 최소 표본 수 30전, 승률 0.75 이상, 전체 평균 대비 승률 차이 0.20 이상이야.
 
@@ -518,14 +878,23 @@ def make_agent_prompt(problem_hint: str) -> str:
 """
 
 
-def write_scenario_files(root_dir: Path, scenario: Scenario, n_pre: int, n_post: int) -> None:
+def write_scenario_files(
+    root_dir: Path, scenario: Scenario, n_pre: int, n_post: int
+) -> None:
+    """Write all CSV, prompt, and README files for one scenario."""
     scenario_dir = root_dir / scenario.folder_name
     scenario_dir.mkdir(parents=True, exist_ok=True)
 
-    write_csv(scenario_dir / "battle_logs.csv", generate_battle_logs(scenario.teams, n_pre=n_pre, n_post=n_post))
+    write_csv(
+        scenario_dir / "battle_logs.csv",
+        generate_battle_logs(scenario.teams, n_pre=n_pre, n_post=n_post),
+    )
     write_csv(scenario_dir / "characters.csv", make_characters())
     write_csv(scenario_dir / "skills.csv", make_skills(scenario.skill_notes))
-    write_csv(scenario_dir / "equipment_sets.csv", make_equipment_sets(scenario.equipment_notes))
+    write_csv(
+        scenario_dir / "equipment_sets.csv",
+        make_equipment_sets(scenario.equipment_notes),
+    )
     write_csv(scenario_dir / "patch_notes.csv", scenario.patch_notes)
 
     (scenario_dir / "agent_prompt_v2.txt").write_text(
@@ -574,6 +943,7 @@ def write_scenario_files(root_dir: Path, scenario: Scenario, n_pre: int, n_post:
 
 
 def make_zip(root_dir: Path, zip_path: Path) -> None:
+    """Create a zip archive containing generated demo data."""
     if zip_path.exists():
         zip_path.unlink()
 
@@ -583,11 +953,18 @@ def make_zip(root_dir: Path, zip_path: Path) -> None:
 
 
 def main() -> None:
+    """CLI entry point for generating demo datasets."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output", default="battle_balance_v2_demo_data", help="출력 폴더")
+    parser.add_argument(
+        "--output", default="battle_balance_v2_demo_data", help="출력 폴더"
+    )
     parser.add_argument("--seed", type=int, default=20260702, help="난수 시드")
-    parser.add_argument("--n-pre", type=int, default=360, help="1.1.0 패치 전 전투 로그 수")
-    parser.add_argument("--n-post", type=int, default=600, help="1.2.0 패치 후 전투 로그 수")
+    parser.add_argument(
+        "--n-pre", type=int, default=360, help="1.1.0 패치 전 전투 로그 수"
+    )
+    parser.add_argument(
+        "--n-post", type=int, default=600, help="1.2.0 패치 후 전투 로그 수"
+    )
     parser.add_argument("--no-zip", action="store_true", help="ZIP 파일을 만들지 않음")
     args = parser.parse_args()
 

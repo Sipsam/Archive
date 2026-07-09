@@ -1,4 +1,5 @@
 """Canonical, Streamlit-independent loading for application datasets."""
+
 from __future__ import annotations
 
 import os
@@ -20,15 +21,48 @@ EXPECTED_DATA_FILES = {
 }
 
 REQUIRED_COLUMNS = {
-    "battle_logs": frozenset({
-        "battle_id", "patch_version", "player_team", "enemy_team", "result",
-        "duration_sec", "main_dealer", "total_damage", "skill_used_most",
-        "equipment_set", "user_segment", "battle_mode",
-    }),
-    "characters": frozenset({"name", "role", "element", "base_attack", "base_hp", "main_skill"}),
-    "skills": frozenset({"skill_name", "character", "skill_type", "damage_multiplier", "cooldown_sec", "effect"}),
-    "equipment_sets": frozenset({"set_name", "set_type", "bonus_type", "bonus_value", "condition"}),
-    "patch_notes": frozenset({"patch_version", "date", "change_target", "before_value", "after_value", "description"}),
+    "battle_logs": frozenset(
+        {
+            "battle_id",
+            "patch_version",
+            "player_team",
+            "enemy_team",
+            "result",
+            "duration_sec",
+            "main_dealer",
+            "total_damage",
+            "skill_used_most",
+            "equipment_set",
+            "user_segment",
+            "battle_mode",
+        }
+    ),
+    "characters": frozenset(
+        {"name", "role", "element", "base_attack", "base_hp", "main_skill"}
+    ),
+    "skills": frozenset(
+        {
+            "skill_name",
+            "character",
+            "skill_type",
+            "damage_multiplier",
+            "cooldown_sec",
+            "effect",
+        }
+    ),
+    "equipment_sets": frozenset(
+        {"set_name", "set_type", "bonus_type", "bonus_value", "condition"}
+    ),
+    "patch_notes": frozenset(
+        {
+            "patch_version",
+            "date",
+            "change_target",
+            "before_value",
+            "after_value",
+            "description",
+        }
+    ),
 }
 
 
@@ -39,15 +73,28 @@ class DataLoadError(ValueError):
 def clean_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Remove transport artifacts only; source column names are otherwise preserved."""
     result = df.copy()
-    result.columns = [str(column).replace("\ufeff", "").strip() for column in result.columns]
+    result.columns = [
+        str(column).replace("\ufeff", "").strip() for column in result.columns
+    ]
     return result
 
 
 def validate_data_folder(folder: Path | str) -> list[str]:
+    """Validate a canonical dataset folder and return missing CSV filenames.
+
+    Raises:
+        DataLoadError: The folder path does not exist or is not a directory.
+    """
     path = Path(folder)
     if not path.exists() or not path.is_dir():
-        raise DataLoadError(f"[DATA_FOLDER_INVALID] 데이터 폴더가 없거나 폴더가 아닙니다: {path}")
-    return [filename for filename in EXPECTED_DATA_FILES.values() if not (path / filename).is_file()]
+        raise DataLoadError(
+            f"[DATA_FOLDER_INVALID] 데이터 폴더가 없거나 폴더가 아닙니다: {path}"
+        )
+    return [
+        filename
+        for filename in EXPECTED_DATA_FILES.values()
+        if not (path / filename).is_file()
+    ]
 
 
 def discover_data_folders(
@@ -105,36 +152,55 @@ def discover_data_folders(
 
 
 def validate_required_columns(name: str, frame: pd.DataFrame) -> None:
+    """Raise when a loaded dataset frame is missing required columns."""
     required = REQUIRED_COLUMNS.get(name, frozenset())
     missing = sorted(required.difference(frame.columns))
     if missing:
         filename = EXPECTED_DATA_FILES.get(name, name)
-        raise DataLoadError(f"[DATA_COLUMNS_MISSING] {filename} 필수 컬럼 누락: {', '.join(missing)}")
+        raise DataLoadError(
+            f"[DATA_COLUMNS_MISSING] {filename} 필수 컬럼 누락: {', '.join(missing)}"
+        )
 
 
 def file_signature(path: Path | str) -> tuple[str, int, int]:
+    """Return the cache identity tuple for one CSV file.
+
+    Raises:
+        DataLoadError: The path cannot be stat'ed.
+    """
     resolved = Path(path).resolve()
     try:
         stat = resolved.stat()
     except OSError as error:
-        raise DataLoadError(f"[DATA_FILE_UNREADABLE] CSV 파일을 확인할 수 없습니다: {resolved}") from error
+        raise DataLoadError(
+            f"[DATA_FILE_UNREADABLE] CSV 파일을 확인할 수 없습니다: {resolved}"
+        ) from error
     return str(resolved), stat.st_mtime_ns, stat.st_size
 
 
 def folder_signature(folder: Path | str) -> tuple[tuple[str, int, int], ...]:
+    """Return file signatures for all canonical CSV files in a folder."""
     path = Path(folder).resolve()
     missing = validate_data_folder(path)
     if missing:
-        raise DataLoadError(f"[DATA_FILES_MISSING] 필수 CSV 누락: {', '.join(missing)} (폴더: {path})")
-    return tuple(file_signature(path / filename) for filename in EXPECTED_DATA_FILES.values())
+        raise DataLoadError(
+            f"[DATA_FILES_MISSING] 필수 CSV 누락: {', '.join(missing)} (폴더: {path})"
+        )
+    return tuple(
+        file_signature(path / filename) for filename in EXPECTED_DATA_FILES.values()
+    )
 
 
 def load_csv(source: Path | str | IO[Any], *, name: str | None = None) -> pd.DataFrame:
     """Read and normalize one CSV without relying on Streamlit."""
     try:
-        frame = clean_columns(pd.read_csv(source, dtype={"patch_version": str}, low_memory=False))
+        frame = clean_columns(
+            pd.read_csv(source, dtype={"patch_version": str}, low_memory=False)
+        )
     except Exception as error:
-        raise DataLoadError(f"[DATA_CSV_READ_FAILED] CSV 읽기 실패: {source}") from error
+        raise DataLoadError(
+            f"[DATA_CSV_READ_FAILED] CSV 읽기 실패: {source}"
+        ) from error
     if name is not None:
         validate_required_columns(name, frame)
     return frame
@@ -144,24 +210,33 @@ def load_csv(source: Path | str | IO[Any], *, name: str | None = None) -> pd.Dat
 def _load_data_folder_cached(
     signature: tuple[tuple[str, int, int], ...],
 ) -> tuple[pd.DataFrame, ...]:
+    """Load expected CSV files for a stable folder signature cache key."""
     frames = []
     for name, item in zip(EXPECTED_DATA_FILES, signature):
         frames.append(load_csv(item[0], name=name))
     return tuple(frames)
 
 
-def load_data_folder(folder: Path | str, *, use_cache: bool = True) -> dict[str, pd.DataFrame]:
+def load_data_folder(
+    folder: Path | str, *, use_cache: bool = True
+) -> dict[str, pd.DataFrame]:
     """Load the canonical five-file dataset; cache identity includes mtime and size."""
     signature = folder_signature(folder)
     if use_cache:
         frames = _load_data_folder_cached(signature)
     else:
-        frames = tuple(load_csv(item[0], name=name) for name, item in zip(EXPECTED_DATA_FILES, signature))
+        frames = tuple(
+            load_csv(item[0], name=name)
+            for name, item in zip(EXPECTED_DATA_FILES, signature)
+        )
     # Callers receive isolated frames, so mutation cannot corrupt the process cache.
-    return {name: frame.copy(deep=True) for name, frame in zip(EXPECTED_DATA_FILES, frames)}
+    return {
+        name: frame.copy(deep=True) for name, frame in zip(EXPECTED_DATA_FILES, frames)
+    }
 
 
 def clear_data_cache() -> None:
+    """Clear cached CSV folder loads for tests or manual refreshes."""
     _load_data_folder_cached.cache_clear()
 
 
@@ -171,11 +246,14 @@ def create_dataset_summary(frames: Mapping[str, pd.DataFrame]) -> dict[str, Any]
     return {
         "rows": {name: int(len(frame)) for name, frame in frames.items()},
         "columns": {name: list(frame.columns) for name, frame in frames.items()},
-        "patch_versions": sorted(battles["patch_version"].dropna().astype(str).unique().tolist()),
+        "patch_versions": sorted(
+            battles["patch_version"].dropna().astype(str).unique().tolist()
+        ),
         "battle_id_unique": bool(battles["battle_id"].is_unique),
         "duplicate_battles": int(battles.duplicated().sum()),
         "required_column_nulls": {
-            column: int(battles[column].isna().sum()) for column in sorted(REQUIRED_COLUMNS["battle_logs"])
+            column: int(battles[column].isna().sum())
+            for column in sorted(REQUIRED_COLUMNS["battle_logs"])
         },
     }
 
@@ -196,7 +274,9 @@ def summarize_battle_metrics(frame: pd.DataFrame) -> dict[str, Any]:
         "battles": int(len(frame)),
         "wins": int(wins.sum()),
         "win_rate": round(float(wins.mean()), 4),
-        "avg_damage": round(float(pd.to_numeric(frame["total_damage"], errors="coerce").mean()), 2),
+        "avg_damage": round(
+            float(pd.to_numeric(frame["total_damage"], errors="coerce").mean()), 2
+        ),
         "avg_duration_sec": round(
             float(pd.to_numeric(frame["duration_sec"], errors="coerce").mean()), 2
         ),

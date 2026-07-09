@@ -11,10 +11,6 @@ import requests
 from bs4 import BeautifulSoup, NavigableString, Tag
 
 
-# =========================
-# 1. 버전 목록 처리
-# =========================
-
 def read_versions(version_file: str) -> list[str]:
     """
     patch_version.txt에서 패치 버전 목록을 읽고,
@@ -59,10 +55,6 @@ def normalize_page_name(version: str) -> str:
 
     return f"V{version}"
 
-
-# =========================
-# 2. MediaWiki API 요청
-# =========================
 
 def fetch_patch_html(
     session: requests.Session,
@@ -151,11 +143,8 @@ def fetch_patch_html(
     return "failed", last_error
 
 
-# =========================
-# 3. 텍스트 정리
-# =========================
-
 def clean_text(node: Tag | str) -> str:
+    """Extract normalized plain text from a BeautifulSoup node or string."""
     if isinstance(node, str):
         raw = node
     else:
@@ -195,6 +184,7 @@ def direct_text_without_nested_ul(li: Tag) -> str:
 
 
 def cleanup_target_name(target: Optional[str]) -> Optional[str]:
+    """Normalize a patch target name and strip boilerplate suffixes."""
     if not target:
         return target
 
@@ -211,11 +201,8 @@ def cleanup_target_name(target: Optional[str]) -> Optional[str]:
     return target.strip()
 
 
-# =========================
-# 4. HTML 구조 탐색
-# =========================
-
 def find_main_content(soup: BeautifulSoup) -> Tag:
+    """Return the main MediaWiki parser output node when available."""
     selectors = [
         "#mw-content-text .mw-parser-output",
         ".mw-parser-output",
@@ -243,17 +230,14 @@ def get_heading_wrapper(heading: Tag) -> Tag:
     """
     parent = heading.parent
 
-    if (
-        parent
-        and isinstance(parent, Tag)
-        and "mw-heading" in parent.get("class", [])
-    ):
+    if parent and isinstance(parent, Tag) and "mw-heading" in parent.get("class", []):
         return parent
 
     return heading
 
 
 def iter_section_nodes(start_heading: Tag, stop_heading_levels: set[str]):
+    """Yield sibling nodes in a section until a stopping heading level."""
     start_node = get_heading_wrapper(start_heading)
 
     for node in start_node.next_siblings:
@@ -289,11 +273,8 @@ def canonical_section_name(text: str) -> Optional[str]:
     return None
 
 
-# =========================
-# 5. 변경사항 분류
-# =========================
-
 def is_probable_change_text(text: str) -> bool:
+    """Heuristically decide whether text looks like a balance change."""
     lower = text.lower()
 
     keywords = [
@@ -329,6 +310,7 @@ def is_probable_change_text(text: str) -> bool:
 
 
 def classify_change_type(text: str) -> str:
+    """Classify a patch-note sentence as buff, nerf, new, disabled, or bugfix."""
     lower = text.lower()
 
     if "bug fix" in lower or "fixed a bug" in lower:
@@ -419,10 +401,6 @@ def extract_old_new_values(text: str) -> tuple[Optional[str], Optional[str]]:
     return None, None
 
 
-# =========================
-# 6. li 중첩 구조 펼치기
-# =========================
-
 def flatten_li(li: Tag, prefix: Optional[str] = None) -> list[dict]:
     """
     중첩된 ul/li 구조를 분석용 row로 펼친다.
@@ -444,19 +422,23 @@ def flatten_li(li: Tag, prefix: Optional[str] = None) -> list[dict]:
 
     if not child_uls:
         if current_text:
-            rows.append({
-                "subtarget": prefix,
-                "change_text": current_text,
-            })
+            rows.append(
+                {
+                    "subtarget": prefix,
+                    "change_text": current_text,
+                }
+            )
 
         return rows
 
     # 하위 목록이 있어도 현재 문장 자체가 변경사항이면 저장
     if current_text and is_probable_change_text(current_text):
-        rows.append({
-            "subtarget": prefix,
-            "change_text": current_text,
-        })
+        rows.append(
+            {
+                "subtarget": prefix,
+                "change_text": current_text,
+            }
+        )
 
     if current_text:
         next_prefix = current_text if not prefix else f"{prefix} > {current_text}"
@@ -470,11 +452,8 @@ def flatten_li(li: Tag, prefix: Optional[str] = None) -> list[dict]:
     return rows
 
 
-# =========================
-# 7. 패치 HTML 파싱
-# =========================
-
 def parse_patch_html(html_text: str, version: str) -> list[dict]:
+    """Parse one LoL wiki patch page into normalized change rows."""
     soup = BeautifulSoup(html_text, "lxml")
     content = find_main_content(soup)
 
@@ -521,17 +500,19 @@ def parse_patch_html(html_text: str, version: str) -> list[dict]:
 
                         old_value, new_value = extract_old_new_values(change_text)
 
-                        rows.append({
-                            "patch_version": version,
-                            "page_name": normalize_page_name(version),
-                            "section": section,
-                            "target": current_target,
-                            "subtarget": item["subtarget"],
-                            "change_text": change_text,
-                            "change_type": classify_change_type(change_text),
-                            "old_value": old_value,
-                            "new_value": new_value,
-                        })
+                        rows.append(
+                            {
+                                "patch_version": version,
+                                "page_name": normalize_page_name(version),
+                                "section": section,
+                                "target": current_target,
+                                "subtarget": item["subtarget"],
+                                "change_text": change_text,
+                                "change_type": classify_change_type(change_text),
+                                "old_value": old_value,
+                                "new_value": new_value,
+                            }
+                        )
 
     # 완전 중복 제거
     unique_rows = []
@@ -549,25 +530,24 @@ def parse_patch_html(html_text: str, version: str) -> list[dict]:
     return unique_rows
 
 
-# =========================
-# 8. 저장
-# =========================
-
 def save_rows_csv(rows: list[dict], output_path: Path) -> None:
+    """Save parsed patch rows to a UTF-8-SIG CSV file."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     if not rows:
-        pd.DataFrame(columns=[
-            "patch_version",
-            "page_name",
-            "section",
-            "target",
-            "subtarget",
-            "change_text",
-            "change_type",
-            "old_value",
-            "new_value",
-        ]).to_csv(output_path, index=False, encoding="utf-8-sig")
+        pd.DataFrame(
+            columns=[
+                "patch_version",
+                "page_name",
+                "section",
+                "target",
+                "subtarget",
+                "change_text",
+                "change_type",
+                "old_value",
+                "new_value",
+            ]
+        ).to_csv(output_path, index=False, encoding="utf-8-sig")
         return
 
     df = pd.DataFrame(rows)
@@ -575,6 +555,7 @@ def save_rows_csv(rows: list[dict], output_path: Path) -> None:
 
 
 def save_logs_csv(logs: list[dict], output_path: Path) -> None:
+    """Save patch fetch status logs to CSV."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     df = pd.DataFrame(logs)
@@ -582,6 +563,7 @@ def save_logs_csv(logs: list[dict], output_path: Path) -> None:
 
 
 def save_jsonl(rows: list[dict], output_path: Path) -> None:
+    """Save parsed patch rows as newline-delimited JSON."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     df = pd.DataFrame(rows)
@@ -593,10 +575,6 @@ def save_jsonl(rows: list[dict], output_path: Path) -> None:
     )
 
 
-# =========================
-# 9. 배치 실행
-# =========================
-
 def run_batch(
     version_file: str,
     out_dir: str,
@@ -605,6 +583,7 @@ def run_batch(
     checkpoint_every: int,
     limit: Optional[int] = None,
 ) -> None:
+    """Fetch, parse, and persist patch notes for a version list."""
     versions = read_versions(version_file)
 
     if limit is not None:
@@ -634,24 +613,28 @@ def run_batch(
         )
 
         if status == "missing":
-            logs.append({
-                "patch_version": version,
-                "page_name": normalize_page_name(version),
-                "status": "missing",
-                "parsed_rows": 0,
-                "message": result or "page not found",
-            })
+            logs.append(
+                {
+                    "patch_version": version,
+                    "page_name": normalize_page_name(version),
+                    "status": "missing",
+                    "parsed_rows": 0,
+                    "message": result or "page not found",
+                }
+            )
             print(f"[MISS] {version}: 페이지 없음")
             continue
 
         if status == "failed":
-            logs.append({
-                "patch_version": version,
-                "page_name": normalize_page_name(version),
-                "status": "failed",
-                "parsed_rows": 0,
-                "message": result,
-            })
+            logs.append(
+                {
+                    "patch_version": version,
+                    "page_name": normalize_page_name(version),
+                    "status": "failed",
+                    "parsed_rows": 0,
+                    "message": result,
+                }
+            )
             print(f"[FAIL] {version}: {result}")
             continue
 
@@ -669,13 +652,15 @@ def run_batch(
             parse_status = "success"
             message = ""
 
-        logs.append({
-            "patch_version": version,
-            "page_name": normalize_page_name(version),
-            "status": parse_status,
-            "parsed_rows": row_count,
-            "message": message,
-        })
+        logs.append(
+            {
+                "patch_version": version,
+                "page_name": normalize_page_name(version),
+                "status": parse_status,
+                "parsed_rows": row_count,
+                "message": message,
+            }
+        )
 
         print(f"[OK] {version}: {row_count}개 변경사항 추출")
 
@@ -710,6 +695,7 @@ def run_batch(
 
 
 def main():
+    """CLI entry point for LoL wiki patch-note collection."""
     parser = argparse.ArgumentParser(
         description="LoL Wiki 패치노트에서 Champions/Items 변경사항만 일괄 수집합니다."
     )

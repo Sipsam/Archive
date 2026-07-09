@@ -30,11 +30,14 @@ Copy-Item .env.example .env
 로컬 `.env`에서 필요한 값을 설정합니다.
 
 - `OPENAI_API_KEY`: Agent 실행에 필요
+- `AGENT_API_KEY`: 외부 FastAPI endpoint 호출 인증에 필요
 - `RIOT_API_KEY`: Riot API 신규 수집에만 필요
 - `OPENAI_MODEL`: 기본 모델명
 - `OPENAI_API_MODE`: `responses` 또는 지원되는 API 방식
 - `OPENAI_REASONING_EFFORT`: 모델 추론 강도. 기본값은 `none`
 - `MAX_AGENT_ITERATIONS`, `MAX_TOOL_CALLS`, `AGENT_TIMEOUT_SECONDS`: 실행 안전 제한
+- `ENABLE_RAG`, `RAG_INCLUDE_DATA_DOCS`, `RAG_TOP_K`: 파일 기반 RAG 설정
+- `MAX_AGENT_QUERY_CHARS`: UI/API query 길이 제한
 - `ENABLE_TOOL_TRACE`, `ENABLE_DEBUG_LOG`: 안전 처리된 Trace 및 오류 표시 설정
 
 실제 키가 들어 있는 `.env`는 납품 압축파일, 저장소, 보고서에 포함하지 않습니다.
@@ -63,7 +66,15 @@ Copy-Item .env.example .env
 streamlit run app.py
 ```
 
-브라우저에서 Streamlit이 안내하는 로컬 주소로 접속합니다. OpenAI 키가 없으면 데이터 미리보기는 가능하지만 Agent 실행은 할 수 없습니다.
+브라우저에서 Streamlit이 안내하는 로컬 주소로 접속합니다. OpenAI 키가 없으면 데이터 미리보기는 가능하지만 Agent 실행은 할 수 없습니다. UI에는 서버 `OPENAI_API_KEY` 원문이 표시되지 않고 설정 상태만 표시됩니다.
+
+API 서버를 제공해야 하는 경우:
+
+```powershell
+uvicorn api:app --host 127.0.0.1 --port 8000
+```
+
+`POST /api/agent/run`은 `Authorization: Bearer <AGENT_API_KEY>` 또는 `X-API-Key` 인증이 필요합니다.
 
 ## 테스트 명령어
 
@@ -80,6 +91,11 @@ python scripts\smoke_test_api.py
 ## 보안 확인 사항
 
 - `.env`, `OPENAI_API_KEYS.txt`, `.streamlit/secrets.toml`이 없는지 확인
+- Streamlit UI에 `OPENAI_API_KEY` 원문 입력창이나 기본값 노출이 없는지 확인
+- 외부 API endpoint가 `AGENT_API_KEY` 인증 없이 실행되지 않는지 확인
+- 빈 query와 너무 긴 query가 `400`으로 차단되는지 확인
+- 정상 API 응답 metadata에 `rag_status`, `rag_sources`, `guardrail_warnings`, `execution_nodes`가 포함되는지 확인
+- RAG source metadata에 secret, system prompt, raw internal message가 포함되지 않는지 확인
 - API 키와 토큰 형태의 문자열을 전체 납품 폴더에서 검색
 - `venv/`, `.venv/`, `__pycache__/`, `.pytest_cache/` 제외
 - `*.log`, `*.tmp`, `*.bak`, `*.lock` 제외
@@ -103,6 +119,8 @@ python scripts\smoke_test_api.py
 - [ ] 자동 테스트 전체 통과
 - [ ] `py_compile` 통과
 - [ ] Streamlit 기본 화면 기동 확인
+- [ ] Streamlit UI에 OpenAI API key 입력창이 없음
+- [ ] RAG 활성화 시 Agent 실행 결과 영역에 RAG source 또는 RAG 상태가 표시됨
 - [ ] 기본 데이터 CSV 5개 존재 확인
 - [ ] `dataset_summary.json`과 실제 CSV 행 수 일치 확인
 - [ ] `.env` 제외 확인
@@ -112,3 +130,4 @@ python scripts\smoke_test_api.py
 - [ ] 보고서/PDF/PPT가 현재 v2.8.0 코드와 일치하는지 별도 검토
 - [ ] 압축 해제 후 최종 파일 목록 재검토
 - [ ] 수신자에게 `.env.example` 기반 설정 방법 안내
+- [ ] `docs/API.md`, `docs/RAG_GUIDE.md`, `docs/SECURITY_NOTES.md`, `docs/AGENT_ARCHITECTURE.md` 최신 내용 확인

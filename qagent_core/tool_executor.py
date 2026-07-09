@@ -1,4 +1,5 @@
 """Shared execution policy for every Agent tool call."""
+
 from __future__ import annotations
 
 import json
@@ -25,6 +26,7 @@ class ToolExecutor:
         timeout_seconds: float,
         result_summarizer: Callable[[str, dict[str, Any]], str] | None = None,
     ) -> None:
+        """Initialize a tool executor bound to one Agent run and deadline."""
         self.tool_functions = tool_functions
         self.trace = trace
         self.run_id = run_id
@@ -33,16 +35,21 @@ class ToolExecutor:
         self.started_at = started_at
         self.max_tool_calls = max(int(max_tool_calls), 0)
         self.timeout_seconds = max(float(timeout_seconds), 0.0)
-        self.deadline = ExecutionDeadline.from_start(self.started_at, self.timeout_seconds)
+        self.deadline = ExecutionDeadline.from_start(
+            self.started_at, self.timeout_seconds
+        )
         self.result_summarizer = result_summarizer
 
     def is_timed_out(self) -> bool:
+        """Return whether the shared Agent deadline has expired."""
         return self.deadline.expired()
 
     def remaining_seconds(self) -> float:
+        """Return remaining Agent deadline seconds for child work."""
         return self.deadline.remaining_seconds()
 
     def remaining_deadline_ms(self) -> float:
+        """Return remaining Agent deadline milliseconds for trace metadata."""
         return self.deadline.remaining_ms()
 
     def execute_raw(
@@ -53,6 +60,11 @@ class ToolExecutor:
         turn: int,
         forced_by_app: bool = False,
     ) -> dict[str, Any]:
+        """Parse raw JSON tool arguments and execute the named tool.
+
+        Returns:
+            A normalized, sanitized tool result dictionary.
+        """
         try:
             arguments = json.loads(raw_arguments or "{}")
             if not isinstance(arguments, dict):
@@ -81,22 +93,35 @@ class ToolExecutor:
         turn: int,
         forced_by_app: bool = False,
     ) -> dict[str, Any]:
+        """Execute one registered tool with limits, timeout, and trace capture."""
         args = dict(arguments or {})
         if self.is_timed_out():
             return self._record_timeout(
-                tool_name, args, turn=turn, elapsed_ms=0.0,
-                task_started=False, cancelled=False,
+                tool_name,
+                args,
+                turn=turn,
+                elapsed_ms=0.0,
+                task_started=False,
+                cancelled=False,
                 forced_by_app=forced_by_app,
             )
         if self.runtime_state["tool_calls"] >= self.max_tool_calls:
             return self._record_failure(
-                tool_name, args, turn=turn, error_type="tool_call_limit",
-                message=safe_error_message("limit"), forced_by_app=forced_by_app,
+                tool_name,
+                args,
+                turn=turn,
+                error_type="tool_call_limit",
+                message=safe_error_message("limit"),
+                forced_by_app=forced_by_app,
             )
         if tool_name not in self.tool_functions:
             return self._record_failure(
-                tool_name, args, turn=turn, error_type="unknown_tool",
-                message=f"Unknown tool: {tool_name}", forced_by_app=forced_by_app,
+                tool_name,
+                args,
+                turn=turn,
+                error_type="unknown_tool",
+                message=f"Unknown tool: {tool_name}",
+                forced_by_app=forced_by_app,
             )
 
         step = self._new_trace_step(tool_name, args, turn, forced_by_app)
@@ -108,7 +133,11 @@ class ToolExecutor:
         future = executor.submit(self.tool_functions[tool_name], **args)
         try:
             raw_result = future.result(timeout=self.remaining_seconds())
-            result = dict(raw_result) if isinstance(raw_result, dict) else {"result": raw_result}
+            result = (
+                dict(raw_result)
+                if isinstance(raw_result, dict)
+                else {"result": raw_result}
+            )
             result.setdefault("status", "ok")
             result.setdefault("warnings", [])
             result.setdefault("assumptions", [])
@@ -127,7 +156,10 @@ class ToolExecutor:
                 cancelled = future.cancel()
                 executor.shutdown(wait=False, cancel_futures=True)
                 return self._finish_timeout_step(
-                    step, tool_name, elapsed_ms=elapsed_ms, cancelled=cancelled,
+                    step,
+                    tool_name,
+                    elapsed_ms=elapsed_ms,
+                    cancelled=cancelled,
                 )
         except Exception as error:
             result = {
@@ -146,8 +178,13 @@ class ToolExecutor:
         return result
 
     def _timeout_result(
-        self, *, elapsed_ms: float, task_started: bool, cancelled: bool,
+        self,
+        *,
+        elapsed_ms: float,
+        task_started: bool,
+        cancelled: bool,
     ) -> dict[str, Any]:
+        """Build a user-safe timeout result without exposing raw exception details."""
         may_complete_later = task_started and not cancelled
         message = safe_error_message("timeout")
         if may_complete_later:
@@ -177,9 +214,12 @@ class ToolExecutor:
         cancelled: bool,
         forced_by_app: bool,
     ) -> dict[str, Any]:
+        """Append and finish a timeout trace step for a tool call."""
         step = self._new_trace_step(tool_name, arguments, turn, forced_by_app)
         result = self._timeout_result(
-            elapsed_ms=elapsed_ms, task_started=task_started, cancelled=cancelled,
+            elapsed_ms=elapsed_ms,
+            task_started=task_started,
+            cancelled=cancelled,
         )
         self.trace.append(step)
         self._finish_trace_step(step, tool_name, result, elapsed_ms)
@@ -193,8 +233,11 @@ class ToolExecutor:
         elapsed_ms: float,
         cancelled: bool,
     ) -> dict[str, Any]:
+        """Mark an in-flight trace step as timed out."""
         result = self._timeout_result(
-            elapsed_ms=elapsed_ms, task_started=True, cancelled=cancelled,
+            elapsed_ms=elapsed_ms,
+            task_started=True,
+            cancelled=cancelled,
         )
         self._finish_trace_step(step, tool_name, result, elapsed_ms)
         return result
@@ -209,6 +252,7 @@ class ToolExecutor:
         message: str,
         forced_by_app: bool,
     ) -> dict[str, Any]:
+        """Append a failed trace step using a sanitized message."""
         step = self._new_trace_step(tool_name, arguments, turn, forced_by_app)
         result = {
             "status": "error",
@@ -227,6 +271,11 @@ class ToolExecutor:
         turn: int,
         forced_by_app: bool,
     ) -> dict[str, Any]:
+        """Create a trace step with log-safe arguments.
+
+        Security:
+            Arguments are passed through ``safe_for_log`` before being stored.
+        """
         return {
             "run_id": self.run_id,
             "turn": turn,
@@ -254,26 +303,41 @@ class ToolExecutor:
         result: dict[str, Any],
         elapsed_ms: float,
     ) -> None:
+        """Attach a sanitized result summary and timing to a trace step."""
         result_summary = output_summary(result)
-        step.update({
-            "result": safe_for_log(result),
-            "output_summary": result_summary,
-            "result_summary": result_summary,
-            "duration_ms": elapsed_ms,
-            "elapsed_ms": elapsed_ms,
-            "status": result.get("status", "unknown"),
-            "cancelled": bool(result.get("cancelled", False)),
-            "cancellation_possible": bool(result.get("cancellation_possible", False)),
-            "cancellation_attempted": bool(result.get("cancellation_attempted", False)),
-            "cancellation_succeeded": bool(result.get("cancellation_succeeded", False)),
-            "remaining_deadline_ms": result.get("remaining_deadline_ms", self.remaining_deadline_ms()),
-            "user_safe_message": str(result.get("user_safe_message", result.get("message", ""))),
-            "success": result.get("status") == "ok",
-            "error_message": str(result.get("message", "")) if result.get("status") in {"error", "timeout"} else "",
-            "summary": (
-                self.result_summarizer(tool_name, result)
-                if self.result_summarizer is not None
-                else result_summary
-            ),
-            "finished": True,
-        })
+        step.update(
+            {
+                "result": safe_for_log(result),
+                "output_summary": result_summary,
+                "result_summary": result_summary,
+                "duration_ms": elapsed_ms,
+                "elapsed_ms": elapsed_ms,
+                "status": result.get("status", "unknown"),
+                "cancelled": bool(result.get("cancelled", False)),
+                "cancellation_possible": bool(
+                    result.get("cancellation_possible", False)
+                ),
+                "cancellation_attempted": bool(
+                    result.get("cancellation_attempted", False)
+                ),
+                "cancellation_succeeded": bool(
+                    result.get("cancellation_succeeded", False)
+                ),
+                "remaining_deadline_ms": result.get(
+                    "remaining_deadline_ms", self.remaining_deadline_ms()
+                ),
+                "user_safe_message": str(
+                    result.get("user_safe_message", result.get("message", ""))
+                ),
+                "success": result.get("status") == "ok",
+                "error_message": str(result.get("message", ""))
+                if result.get("status") in {"error", "timeout"}
+                else "",
+                "summary": (
+                    self.result_summarizer(tool_name, result)
+                    if self.result_summarizer is not None
+                    else result_summary
+                ),
+                "finished": True,
+            }
+        )

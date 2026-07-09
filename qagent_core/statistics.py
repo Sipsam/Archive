@@ -9,8 +9,11 @@ import pandas as pd
 from .simulation import project_patch_scenario
 
 from .config import (
-    BALANCE_FDR_ALPHA, BALANCE_MIN_SAMPLES, BALANCE_MIN_WILSON_DIFF,
-    BALANCE_MIN_WIN_RATE, BALANCE_MIN_WIN_RATE_DIFF,
+    BALANCE_FDR_ALPHA,
+    BALANCE_MIN_SAMPLES,
+    BALANCE_MIN_WILSON_DIFF,
+    BALANCE_MIN_WIN_RATE,
+    BALANCE_MIN_WIN_RATE_DIFF,
 )
 
 
@@ -34,6 +37,7 @@ def normalize_win_results(results: Iterable[object]) -> pd.Series:
 
 
 def win_rate(results: Iterable[object]) -> float:
+    """Return the normalized win ratio for a result iterable."""
     normalized_wins = normalize_win_results(results)
     if normalized_wins.empty:
         return 0.0
@@ -43,12 +47,16 @@ def win_rate(results: Iterable[object]) -> float:
 def build_entity_labels(frame: pd.DataFrame, columns: list[str]) -> pd.Series:
     """Build stable labels even when pandas StringDtype contains float NaN values."""
     values = frame.loc[:, columns].apply(
-        lambda column: column.map(lambda value: "(missing)" if pd.isna(value) else str(value))
+        lambda column: column.map(
+            lambda value: "(missing)" if pd.isna(value) else str(value)
+        )
     )
     return values.apply(lambda row: " | ".join(row.tolist()), axis=1)
 
 
-def wilson_interval(wins: int, total: int, z: float = 1.959963984540054) -> tuple[float, float]:
+def wilson_interval(
+    wins: int, total: int, z: float = 1.959963984540054
+) -> tuple[float, float]:
     """Two-sided Wilson score interval; returns (0, 1) for no observations."""
     if total <= 0:
         return 0.0, 1.0
@@ -62,8 +70,11 @@ def wilson_interval(wins: int, total: int, z: float = 1.959963984540054) -> tupl
 
 
 def add_wilson_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Add Wilson interval columns to an aggregate frame with wins/battles."""
     result = df.copy()
-    intervals = [wilson_interval(w, n) for w, n in zip(result["wins"], result["battles"])]
+    intervals = [
+        wilson_interval(w, n) for w, n in zip(result["wins"], result["battles"])
+    ]
     result["win_rate_ci_low"] = [low for low, _ in intervals]
     result["win_rate_ci_high"] = [high for _, high in intervals]
     result["ci_width"] = result["win_rate_ci_high"] - result["win_rate_ci_low"]
@@ -81,15 +92,21 @@ def binomial_upper_tail(wins: int, total: int, null_rate: float) -> float:
         return 1.0
     start = min(max(int(wins), 0), int(total))
     logs = [
-        math.lgamma(total + 1) - math.lgamma(k + 1) - math.lgamma(total - k + 1)
-        + k * math.log(null_rate) + (total - k) * math.log1p(-null_rate)
+        math.lgamma(total + 1)
+        - math.lgamma(k + 1)
+        - math.lgamma(total - k + 1)
+        + k * math.log(null_rate)
+        + (total - k) * math.log1p(-null_rate)
         for k in range(start, total + 1)
     ]
     maximum = max(logs)
-    return min(1.0, math.exp(maximum) * sum(math.exp(value - maximum) for value in logs))
+    return min(
+        1.0, math.exp(maximum) * sum(math.exp(value - maximum) for value in logs)
+    )
 
 
 def benjamini_hochberg(p_values: Iterable[float]) -> list[float]:
+    """Adjust p-values with the Benjamini-Hochberg FDR procedure."""
     values = [min(max(float(value), 0.0), 1.0) for value in p_values]
     count = len(values)
     if not count:
@@ -114,37 +131,85 @@ def detect_balance_candidates(
     segment_by: str = "",
     fdr_alpha: float = BALANCE_FDR_ALPHA,
 ) -> tuple[float, pd.DataFrame]:
+    """Detect statistically suspicious balance candidates from battle logs.
+
+    Returns:
+        ``(overall_win_rate, candidates)`` where candidates include Wilson
+        intervals, p-values, q-values, and candidate scoring metadata.
+
+    Raises:
+        ValueError: Required battle columns are missing or ``segment_by`` is
+        unsupported.
+    """
     required = {
-        "battle_id", "patch_version", "player_team", "equipment_set",
-        "skill_used_most", "result", "total_damage", "duration_sec",
+        "battle_id",
+        "patch_version",
+        "player_team",
+        "equipment_set",
+        "skill_used_most",
+        "result",
+        "total_damage",
+        "duration_sec",
     }
     missing = sorted(required - set(battles.columns))
     if missing:
         raise ValueError(f"밸런스 검토 후보 탐지 필수 컬럼 누락: {missing}")
     if battles.empty:
-        return 0.0, pd.DataFrame(columns=[
-            "patch_version", "player_team", "equipment_set", "skill_used_most",
-            "battles", "wins", "win_rate", "avg_damage", "avg_duration_sec",
-            "win_rate_ci_low", "win_rate_ci_high", "ci_width", "win_rate_gap",
-            "damage_index", "sample_confidence", "candidate_score", "anomaly_score",
-            "entity", "group_by", "n", "global_win_rate", "win_rate_diff",
-            "wilson_low", "wilson_high", "p_value", "fdr_q_value",
-            "candidate_reason", "interpretation_warning",
-        ])
+        return 0.0, pd.DataFrame(
+            columns=[
+                "patch_version",
+                "player_team",
+                "equipment_set",
+                "skill_used_most",
+                "battles",
+                "wins",
+                "win_rate",
+                "avg_damage",
+                "avg_duration_sec",
+                "win_rate_ci_low",
+                "win_rate_ci_high",
+                "ci_width",
+                "win_rate_gap",
+                "damage_index",
+                "sample_confidence",
+                "candidate_score",
+                "anomaly_score",
+                "entity",
+                "group_by",
+                "n",
+                "global_win_rate",
+                "win_rate_diff",
+                "wilson_low",
+                "wilson_high",
+                "p_value",
+                "fdr_q_value",
+                "candidate_reason",
+                "interpretation_warning",
+            ]
+        )
 
     overall = win_rate(battles["result"])
-    allowed_segments = {"": "", "none": "", "user_segment": "user_segment", "battle_mode": "battle_mode"}
+    allowed_segments = {
+        "": "",
+        "none": "",
+        "user_segment": "user_segment",
+        "battle_mode": "battle_mode",
+    }
     if segment_by not in allowed_segments:
-        raise ValueError("segment_by는 none, user_segment, battle_mode 중 하나여야 합니다.")
+        raise ValueError(
+            "segment_by는 none, user_segment, battle_mode 중 하나여야 합니다."
+        )
     segment_column = allowed_segments[segment_by]
     if segment_column and segment_column not in battles.columns:
         raise ValueError(f"세그먼트 비교 컬럼이 없습니다: {segment_column}")
     group_columns = ["patch_version", "player_team", "equipment_set", "skill_used_most"]
     if segment_column:
         group_columns.append(segment_column)
-    working_columns = list(dict.fromkeys(
-        group_columns + ["battle_id", "result", "total_damage", "duration_sec"]
-    ))
+    working_columns = list(
+        dict.fromkeys(
+            group_columns + ["battle_id", "result", "total_damage", "duration_sec"]
+        )
+    )
     working = battles.loc[:, working_columns].copy()
     # This single flag feeds wins, win rate, Wilson intervals, and p-values.
     working["_win"] = normalize_win_results(working["result"]).astype("int8")
@@ -218,8 +283,12 @@ def analyze_balance_stages(
 ) -> dict[str, object]:
     """Build a champion-first, exploratory QA balance review pipeline."""
     required = {
-        "battle_id", "patch_version", "player_team", "equipment_set",
-        "skill_used_most", "result",
+        "battle_id",
+        "patch_version",
+        "player_team",
+        "equipment_set",
+        "skill_used_most",
+        "result",
     }
     missing = sorted(required - set(battles.columns))
     if missing:
@@ -234,7 +303,10 @@ def analyze_balance_stages(
     empty_result = {
         "status": "ok",
         "overall_win_rate": 0.0,
-        "data_availability": {"pick_rate": "not_available", "ban_rate": "not_available"},
+        "data_availability": {
+            "pick_rate": "not_available",
+            "ban_rate": "not_available",
+        },
         "warnings": global_warnings,
         "stages": [],
         "candidates": [],
@@ -247,13 +319,17 @@ def analyze_balance_stages(
     overall = float(working["_win"].mean())
 
     def aggregate(group_columns: list[str], stage: str) -> pd.DataFrame:
+        """Aggregate candidate metrics for one staged review dimension."""
         grouped = (
             working.groupby(group_columns, dropna=False)
             .agg(n=("battle_id", "count"), wins=("_win", "sum"))
             .reset_index()
         )
         grouped["win_rate"] = grouped["wins"] / grouped["n"]
-        intervals = [wilson_interval(int(w), int(n)) for w, n in zip(grouped["wins"], grouped["n"])]
+        intervals = [
+            wilson_interval(int(w), int(n))
+            for w, n in zip(grouped["wins"], grouped["n"])
+        ]
         grouped["wilson_low"] = [item[0] for item in intervals]
         grouped["wilson_high"] = [item[1] for item in intervals]
         grouped["global_win_rate"] = overall
@@ -271,7 +347,9 @@ def analyze_balance_stages(
     champion_rows["reproducibility_note"] = "후속 패치별 재현성 확인 필요"
     champion_rows["possible_driver"] = "후속 세그먼트·아이템 분석 필요"
     champion_rows["recommendation_level"] = "모니터링"
-    champion_rows["warnings"] = [list(global_warnings) for _ in range(len(champion_rows))]
+    champion_rows["warnings"] = [
+        list(global_warnings) for _ in range(len(champion_rows))
+    ]
 
     primary_mask = (
         (champion_rows["n"] >= min_samples)
@@ -281,11 +359,17 @@ def analyze_balance_stages(
         & (champion_rows["fdr_q_value"] <= fdr_alpha)
     )
     champion_rows.loc[primary_mask, "recommendation_level"] = "후속 분석"
-    candidate_champions = champion_rows.loc[primary_mask, "player_team"].astype(str).tolist()
-    candidate_data = working[working["player_team"].astype(str).isin(candidate_champions)].copy()
+    candidate_champions = (
+        champion_rows.loc[primary_mask, "player_team"].astype(str).tolist()
+    )
+    candidate_data = working[
+        working["player_team"].astype(str).isin(candidate_champions)
+    ].copy()
 
     patch_rows = aggregate(["player_team", "patch_version"], "2_patch_reproducibility")
-    patch_rows = patch_rows[patch_rows["player_team"].astype(str).isin(candidate_champions)].copy()
+    patch_rows = patch_rows[
+        patch_rows["player_team"].astype(str).isin(candidate_champions)
+    ].copy()
     patch_min_samples = max(10, min_samples // 2)
     patch_rows["_supports"] = (
         (patch_rows["n"] >= patch_min_samples)
@@ -311,7 +395,11 @@ def analyze_balance_stages(
             continue
         frame = aggregate(["player_team", dimension], "3_segment_check")
         frame = frame[frame["player_team"].astype(str).isin(candidate_champions)].copy()
-        frame["entity"] = frame["player_team"].astype(str) + f" | {dimension}=" + frame[dimension].astype(str)
+        frame["entity"] = (
+            frame["player_team"].astype(str)
+            + f" | {dimension}="
+            + frame[dimension].astype(str)
+        )
         frame["reproducibility_note"] = "티어/포지션별 효과 방향과 표본 차이 확인"
         frame["possible_driver"] = f"{dimension} 구성 차이"
         frame["recommendation_level"] = frame["n"].map(
@@ -319,21 +407,30 @@ def analyze_balance_stages(
         )
         frame["warnings"] = [list(global_warnings) for _ in range(len(frame))]
         segment_frames.append(frame)
-    segment_rows = pd.concat(segment_frames, ignore_index=True) if segment_frames else pd.DataFrame()
+    segment_rows = (
+        pd.concat(segment_frames, ignore_index=True)
+        if segment_frames
+        else pd.DataFrame()
+    )
 
     item_rows = aggregate(["player_team", "equipment_set"], "4_item_driver")
-    item_rows = item_rows[item_rows["player_team"].astype(str).isin(candidate_champions)].copy()
+    item_rows = item_rows[
+        item_rows["player_team"].astype(str).isin(candidate_champions)
+    ].copy()
     item_rows["reproducibility_note"] = "아이템은 원인 확정이 아닌 연관 후보"
     item_rows["possible_driver"] = item_rows.apply(
         lambda row: (
             f"아이템 조합 후보: {row['equipment_set']}"
-            if row["n"] >= patch_min_samples and row["win_rate_diff"] >= effect_size_threshold
+            if row["n"] >= patch_min_samples
+            and row["win_rate_diff"] >= effect_size_threshold
             else "아이템 원인 후보 근거 약함"
         ),
         axis=1,
     )
     item_rows["recommendation_level"] = item_rows["possible_driver"].map(
-        lambda value: "원인 후보 검토" if value.startswith("아이템 조합 후보") else "모니터링"
+        lambda value: (
+            "원인 후보 검토" if value.startswith("아이템 조합 후보") else "모니터링"
+        )
     )
     item_rows["warnings"] = [list(global_warnings) for _ in range(len(item_rows))]
 
@@ -345,31 +442,56 @@ def analyze_balance_stages(
         items = item_rows[item_rows["player_team"].astype(str) == champion]
         driver = "아이템 원인 후보 없음"
         if not items.empty:
-            driver = str(items.sort_values(["win_rate_diff", "n"], ascending=False).iloc[0]["possible_driver"])
+            driver = str(
+                items.sort_values(["win_rate_diff", "n"], ascending=False).iloc[0][
+                    "possible_driver"
+                ]
+            )
         final_rows.at[index, "stage"] = "5_patch_review_candidate"
-        final_rows.at[index, "reproducibility_note"] = f"{supporting}/{total_patches}개 패치에서 효과 방향 재현"
+        final_rows.at[index, "reproducibility_note"] = (
+            f"{supporting}/{total_patches}개 패치에서 효과 방향 재현"
+        )
         final_rows.at[index, "possible_driver"] = driver
         final_rows.at[index, "recommendation_level"] = (
             "우선 검토 후보" if supporting >= 2 else "조건부 검토 후보"
         )
 
     def records(frame: pd.DataFrame, limit: int = top_n) -> list[dict[str, object]]:
+        """Convert a staged aggregate frame to bounded JSON records."""
         if frame.empty:
             return []
         fields = [
-            "stage", "entity", "n", "wins", "win_rate", "global_win_rate",
-            "win_rate_diff", "wilson_low", "wilson_high", "reproducibility_note",
-            "possible_driver", "recommendation_level", "warnings",
+            "stage",
+            "entity",
+            "n",
+            "wins",
+            "win_rate",
+            "global_win_rate",
+            "win_rate_diff",
+            "wilson_low",
+            "wilson_high",
+            "reproducibility_note",
+            "possible_driver",
+            "recommendation_level",
+            "warnings",
         ]
         output = []
-        ordered = frame.sort_values(["win_rate_diff", "n"], ascending=[False, False]).head(limit)
+        ordered = frame.sort_values(
+            ["win_rate_diff", "n"], ascending=[False, False]
+        ).head(limit)
         for _, row in ordered.iterrows():
             item = {}
             for field in fields:
                 value = row.get(field)
                 if field in {"n", "wins"}:
                     value = int(value)
-                elif field in {"win_rate", "global_win_rate", "win_rate_diff", "wilson_low", "wilson_high"}:
+                elif field in {
+                    "win_rate",
+                    "global_win_rate",
+                    "win_rate_diff",
+                    "wilson_low",
+                    "wilson_high",
+                }:
                     value = round(float(value), 4)
                 item[field] = value
             output.append(item)
@@ -405,7 +527,10 @@ def analyze_balance_stages(
     return {
         "status": "ok",
         "overall_win_rate": round(overall, 4),
-        "data_availability": {"pick_rate": "not_available", "ban_rate": "not_available"},
+        "data_availability": {
+            "pick_rate": "not_available",
+            "ban_rate": "not_available",
+        },
         "warnings": global_warnings,
         "stages": stages,
         "candidates": records(final_rows),

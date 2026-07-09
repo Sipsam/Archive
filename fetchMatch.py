@@ -13,10 +13,19 @@ import pandas as pd
 import requests
 from dotenv import load_dotenv
 from qagent_core.data_pipeline.normalize_match import (
-    compute_kda, extract_patch_version, extract_raw_patch_version, get_primary_perk,
-    get_sub_style, map_game_version_to_patch_version, normalize_item_id,
-    parse_riot_id, patch_version_mapping_rule, queue_to_battle_mode,
-    safe_filename, timestamp_to_iso_kst, truthy_win,
+    compute_kda,
+    extract_patch_version,
+    extract_raw_patch_version,
+    get_primary_perk,
+    get_sub_style,
+    map_game_version_to_patch_version,
+    normalize_item_id,
+    parse_riot_id,
+    patch_version_mapping_rule,
+    queue_to_battle_mode,
+    safe_filename,
+    timestamp_to_iso_kst,
+    truthy_win,
 )
 
 
@@ -51,331 +60,333 @@ SAFE_LIMIT_2_MINUTES = 95
 
 # 외부 item_id_map.csv가 없어도 앱용 battle_logs.csv에 item0_name~item6_name을 붙이기 위한 내장 매핑입니다.
 # 외부 CSV를 명시하거나 자동 탐색에서 찾으면 CSV 값이 우선 적용됩니다.
-EMBEDDED_ITEM_ID_NAME_MAP: dict[int, str] = {1001: 'Boots',
- 1004: 'Faerie Charm',
- 1006: 'Rejuvenation Bead',
- 1011: "Giant's Belt",
- 1018: 'Cloak of Agility',
- 1026: 'Blasting Wand',
- 1027: 'Sapphire Crystal',
- 1028: 'Ruby Crystal',
- 1029: 'Cloth Armor',
- 1031: 'Chain Vest',
- 1033: 'Null-Magic Mantle',
- 1036: 'Long Sword',
- 1037: 'Pickaxe',
- 1038: 'B. F. Sword',
- 1042: 'Dagger',
- 1043: 'Recurve Bow',
- 1052: 'Amplifying Tome',
- 1053: 'Vampiric Scepter',
- 1054: "Doran's Shield",
- 1055: "Doran's Blade",
- 1056: "Doran's Ring",
- 1057: 'Negatron Cloak',
- 1058: 'Needlessly Large Rod',
- 1082: 'Dark Seal',
- 1083: 'Cull',
- 1086: "Doran's Bow",
- 1101: 'Scorchclaw Pup',
- 1102: 'Gustwalker Hatchling',
- 1103: 'Mosstomper Seedling',
- 1111: "Jarvan I's",
- 1120: "Doran's Helm",
- 1500: 'Ohmwrecker (Turret Item)',
- 1502: 'Reinforced Armor (Turret Item)',
- 1503: "Warden's Eye",
- 1506: 'Base Turret Reinforced Armor (Turret Item)',
- 1507: 'Overcharged',
- 1508: 'Anti-Tower Socks',
- 1509: 'Gusto',
- 1510: 'Phreakish Gusto',
- 1511: 'Super Mech Armor',
- 1512: 'Super Mech Power Field',
- 1515: 'Turret Plating',
- 1524: 'Crystalline Overgrowth',
- 2003: 'Health Potion',
- 2010: 'Total Biscuit of Everlasting Will',
- 2019: 'Steel Sigil',
- 2020: 'The Brutalizer',
- 2021: 'Tunneler',
- 2022: 'Glowing Mote',
- 2031: 'Refillable Potion',
- 2049: "Guardian's Amulet",
- 2050: "Guardian's Shroud",
- 2051: "Guardian's Horn",
- 2052: 'Poro-Snax',
- 2055: 'Control Ward',
- 2065: "Shurelya's Battlesong",
- 2138: 'Elixir of Iron',
- 2139: 'Elixir of Sorcery',
- 2140: 'Elixir of Wrath',
- 2141: 'Cappa Juice',
- 2142: 'Juice of Power',
- 2143: 'Juice of Vitality',
- 2144: 'Juice of Haste',
- 2145: 'Lucky Dice',
- 2146: 'Enhanced Lucky Dice',
- 2150: 'Elixir of Skill',
- 2151: 'Elixir of Avarice',
- 2152: 'Elixir of Force',
- 2420: "Seeker's Armguard",
- 2421: 'Shattered Armguard',
- 2422: 'Slightly Magical Boots',
- 2501: "Overlord's Bloodmail",
- 2502: 'Unending Despair',
- 2503: 'Blackfire Torch',
- 2504: 'Kaenic Rookern',
- 2508: 'Fated Ashes',
- 2510: 'Dusk and Dawn',
- 2512: 'Fiendhunter Bolts',
- 2517: 'Endless Hunger',
- 2520: 'Bastionbreaker',
- 2522: 'Actualizer',
- 2523: 'Hexoptics C44',
- 2524: 'Bandlepipes',
- 2525: 'Protoplasm Harness',
- 2526: 'Whispering Circlet',
- 2530: 'Diadem of Songs',
- 3003: "Archangel's Staff",
- 3004: 'Manamune',
- 3006: "Berserker's Greaves",
- 3008: 'Gluttonous Greaves',
- 3009: 'Boots of Swiftness',
- 3020: "Sorcerer's Shoes",
- 3024: 'Glacial Buckler',
- 3026: 'Guardian Angel',
- 3031: 'Infinity Edge',
- 3032: 'Yun Tal Wildarrows',
- 3033: 'Mortal Reminder',
- 3035: 'Last Whisper',
- 3036: "Lord Dominik's Regards",
- 3040: "Seraph's Embrace",
- 3041: "Mejai's Soulstealer",
- 3042: 'Muramana',
- 3044: 'Phage',
- 3046: 'Phantom Dancer',
- 3047: 'Plated Steelcaps',
- 3050: "Zeke's Convergence",
- 3051: 'Hearthbound Axe',
- 3053: "Sterak's Gage",
- 3057: 'Sheen',
- 3065: 'Spirit Visage',
- 3066: 'Winged Moonplate',
- 3067: 'Kindlegem',
- 3068: 'Sunfire Aegis',
- 3070: 'Tear of the Goddess',
- 3071: 'Black Cleaver',
- 3072: 'Bloodthirster',
- 3073: 'Experimental Hexplate',
- 3074: 'Ravenous Hydra',
- 3075: 'Thornmail',
- 3076: 'Bramble Vest',
- 3077: 'Tiamat',
- 3078: 'Trinity Force',
- 3082: "Warden's Mail",
- 3083: "Warmog's Armor",
- 3084: 'Heartsteel',
- 3085: "Runaan's Hurricane",
- 3086: 'Zeal',
- 3087: 'Statikk Shiv',
- 3089: "Rabadon's Deathcap",
- 3091: "Wit's End",
- 3094: 'Rapid Firecannon',
- 3097: 'Stormrazor',
- 3100: 'Lich Bane',
- 3102: "Banshee's Veil",
- 3107: 'Redemption',
- 3108: 'Fiendish Codex',
- 3109: "Knight's Vow",
- 3110: 'Frozen Heart',
- 3111: "Mercury's Treads",
- 3112: "Guardian's Orb",
- 3113: 'Aether Wisp',
- 3114: 'Forbidden Idol',
- 3115: "Nashor's Tooth",
- 3116: "Rylai's Crystal Scepter",
- 3118: 'Malignance',
- 3119: "Winter's Approach",
- 3121: 'Fimbulwinter',
- 3123: "Executioner's Calling",
- 3124: "Guinsoo's Rageblade",
- 3133: "Caulfield's Warhammer",
- 3134: 'Serrated Dirk',
- 3135: 'Void Staff',
- 3137: 'Cryptbloom',
- 3139: 'Mercurial Scimitar',
- 3140: 'Quicksilver Sash',
- 3142: "Youmuu's Ghostblade",
- 3143: "Randuin's Omen",
- 3144: "Scout's Slingshot",
- 3145: 'Hextech Alternator',
- 3146: 'Hextech Gunblade',
- 3147: 'Haunting Guise',
- 3152: 'Hextech Rocketbelt',
- 3153: 'Blade of the Ruined King',
- 3155: 'Hexdrinker',
- 3156: 'Maw of Malmortius',
- 3157: "Zhonya's Hourglass",
- 3158: 'Ionian Boots of Lucidity',
- 3161: 'Spear of Shojin',
- 3165: 'Morellonomicon',
- 3168: 'Immortal Path',
- 3170: 'Swiftmarch',
- 3171: 'Crimson Lucidity',
- 3172: 'Zephyr',
- 3173: 'Chainlaced Crushers',
- 3174: 'Armored Advance',
- 3175: "Spellslinger's Shoes",
- 3177: "Guardian's Blade",
- 3179: 'Umbral Glaive',
- 3181: 'Hullbreaker',
- 3184: "Guardian's Hammer",
- 3190: 'Locket of the Iron Solari',
- 3211: "Spectre's Cowl",
- 3222: "Mikael's Blessing",
- 3302: 'Terminus',
- 3330: 'Scarecrow Effigy',
- 3340: 'Stealth Ward',
- 3348: 'Arcane Sweeper (Trinket)',
- 3363: 'Farsight Alteration',
- 3364: 'Oracle Lens',
- 3400: 'Your Cut',
- 3430: 'Rite of Ruin',
- 3504: 'Ardent Censer',
- 3508: 'Essence Reaver',
- 3513: 'Eye of the Herald',
- 3599: 'Black Spear',
- 3742: "Dead Man's Plate",
- 3748: 'Titanic Hydra',
- 3801: 'Crystalline Bracer',
- 3802: 'Lost Chapter',
- 3803: 'Catalyst of Aeons',
- 3814: 'Edge of Night',
- 3865: 'World Atlas',
- 3866: 'Runic Compass',
- 3867: 'Bounty of Worlds',
- 3869: 'Celestial Opposition',
- 3870: 'Dream Maker',
- 3871: "Zaz'Zak's Realmspike",
- 3876: 'Solstice Sleigh',
- 3877: 'Bloodsong',
- 3901: 'Fire at Will',
- 3902: "Death's Daughter",
- 3903: 'Raise Morale',
- 3916: 'Oblivion Orb',
- 4003: 'Lifeline',
- 4005: 'Imperial Mandate',
- 4011: 'Sword of Blossoming Dawn',
- 4015: 'Perplexity',
- 4016: 'Wordless Promise',
- 4017: 'Hellfire Hatchet',
- 4401: 'Force of Nature',
- 4628: 'Horizon Focus',
- 4629: 'Cosmic Drive',
- 4630: 'Blighting Jewel',
- 4632: 'Verdant Barrier',
- 4633: 'Riftmaker',
- 4642: 'Bandleglass Mirror',
- 4645: 'Shadowflame',
- 4646: 'Stormsurge',
- 6333: "Death's Dance",
- 6609: 'Chempunk Chainsword',
- 6610: 'Sundered Sky',
- 6616: 'Staff of Flowing Water',
- 6617: 'Moonstone Renewer',
- 6620: 'Echoes of Helia',
- 6621: 'Dawncore',
- 6631: 'Stridebreaker',
- 6653: "Liandry's Torment",
- 6655: "Luden's Echo",
- 6657: 'Rod of Ages',
- 6660: "Bami's Cinder",
- 6662: 'Iceborn Gauntlet',
- 6664: 'Hollow Radiance',
- 6665: "Jak'Sho, The Protean",
- 6670: 'Noonquiver',
- 6672: 'Kraken Slayer',
- 6673: 'Immortal Shieldbow',
- 6675: 'Navori Flickerblade',
- 6676: 'The Collector',
- 6690: 'Rectrix',
- 6692: 'Eclipse',
- 6694: "Serylda's Grudge",
- 6695: "Serpent's Fang",
- 6696: 'Axiom Arc',
- 6697: 'Hubris',
- 6698: 'Profane Hydra',
- 6699: 'Voltaic Cyclosword',
- 8010: "Bloodletter's Curse",
- 8020: 'Abyssal Mask',
- 9999: 'Scouting Ahead',
- 220000: 'Stat Bonus (ARAM: Mayhem)',
- 220001: 'Legendary Fighter Item',
- 220002: 'Legendary Marksman Item',
- 220003: 'Legendary Assassin Item',
- 220004: 'Legendary Mage Item',
- 220005: 'Legendary Tank Item',
- 220006: 'Legendary Support Item',
- 220007: 'Prismatic Item',
- 223005: 'Ghostcrawlers',
- 223039: "Atma's Reckoning",
- 223069: 'Void Immolation',
- 223185: "Guardian's Dirk",
- 224004: 'Spectral Cutlass',
- 224403: 'The Golden Spatula',
- 226630: 'Goredrinker',
- 228001: "Anathema's Chains",
- 228002: "Wooglet's Witchcap",
- 228009: 'Multitool',
- 443054: 'Darksteel Talons',
- 443055: 'Fulmination',
- 443056: "Demon King's Crown",
- 443058: 'Shield of Molten Stone',
- 443059: 'Cloak of Starry Night',
- 443060: 'Sword of the Divine',
- 443061: 'Force of Entropy',
- 443062: 'Sanguine Gift',
- 443063: "Eleisa's Miracle",
- 443064: 'Talisman of Ascension',
- 443069: 'Hamstringer',
- 443079: 'Turbo Chemtank',
- 443080: 'Twin Mask',
- 443081: 'Hexbolt Companion',
- 443090: "Reaper's Toll",
- 443193: 'Gargoyle Stoneplate',
- 444636: 'Night Harvester',
- 444637: 'Demonic Embrace',
- 444644: 'Crown of the Shattered Queen',
- 446632: 'Divine Sunderer',
- 446656: 'Everfrost',
- 446667: 'Radiant Virtue',
- 446671: 'Galeforce',
- 446691: 'Duskblade of Draktharr',
- 446693: "Prowler's Claw",
- 447100: 'Mirage Blade',
- 447101: "Gambler's Blade",
- 447102: 'Reality Fracture',
- 447103: "Hemomancer's Helm",
- 447104: 'Innervating Locket',
- 447105: 'Empyrean Promise',
- 447106: 'Dragonheart',
- 447107: 'Decapitator',
- 447108: 'Runecarver',
- 447109: 'Cruelty',
- 447110: 'Moonflair Spellblade',
- 447112: 'Flesheater',
- 447113: 'Detonation Orb',
- 447114: 'Reverberation',
- 447115: 'Regicide',
- 447116: 'Kinkou Jitte',
- 447118: "Pyromancer's Cloak",
- 447119: 'Lightning Rod',
- 447120: 'Diamond-Tipped Spear',
- 447121: "Twilight's Edge",
- 447122: 'Black Hole Gauntlet',
- 447123: 'Puppeteer',
- 999999: "Veigar's Talisman of Ascension"}
+EMBEDDED_ITEM_ID_NAME_MAP: dict[int, str] = {
+    1001: "Boots",
+    1004: "Faerie Charm",
+    1006: "Rejuvenation Bead",
+    1011: "Giant's Belt",
+    1018: "Cloak of Agility",
+    1026: "Blasting Wand",
+    1027: "Sapphire Crystal",
+    1028: "Ruby Crystal",
+    1029: "Cloth Armor",
+    1031: "Chain Vest",
+    1033: "Null-Magic Mantle",
+    1036: "Long Sword",
+    1037: "Pickaxe",
+    1038: "B. F. Sword",
+    1042: "Dagger",
+    1043: "Recurve Bow",
+    1052: "Amplifying Tome",
+    1053: "Vampiric Scepter",
+    1054: "Doran's Shield",
+    1055: "Doran's Blade",
+    1056: "Doran's Ring",
+    1057: "Negatron Cloak",
+    1058: "Needlessly Large Rod",
+    1082: "Dark Seal",
+    1083: "Cull",
+    1086: "Doran's Bow",
+    1101: "Scorchclaw Pup",
+    1102: "Gustwalker Hatchling",
+    1103: "Mosstomper Seedling",
+    1111: "Jarvan I's",
+    1120: "Doran's Helm",
+    1500: "Ohmwrecker (Turret Item)",
+    1502: "Reinforced Armor (Turret Item)",
+    1503: "Warden's Eye",
+    1506: "Base Turret Reinforced Armor (Turret Item)",
+    1507: "Overcharged",
+    1508: "Anti-Tower Socks",
+    1509: "Gusto",
+    1510: "Phreakish Gusto",
+    1511: "Super Mech Armor",
+    1512: "Super Mech Power Field",
+    1515: "Turret Plating",
+    1524: "Crystalline Overgrowth",
+    2003: "Health Potion",
+    2010: "Total Biscuit of Everlasting Will",
+    2019: "Steel Sigil",
+    2020: "The Brutalizer",
+    2021: "Tunneler",
+    2022: "Glowing Mote",
+    2031: "Refillable Potion",
+    2049: "Guardian's Amulet",
+    2050: "Guardian's Shroud",
+    2051: "Guardian's Horn",
+    2052: "Poro-Snax",
+    2055: "Control Ward",
+    2065: "Shurelya's Battlesong",
+    2138: "Elixir of Iron",
+    2139: "Elixir of Sorcery",
+    2140: "Elixir of Wrath",
+    2141: "Cappa Juice",
+    2142: "Juice of Power",
+    2143: "Juice of Vitality",
+    2144: "Juice of Haste",
+    2145: "Lucky Dice",
+    2146: "Enhanced Lucky Dice",
+    2150: "Elixir of Skill",
+    2151: "Elixir of Avarice",
+    2152: "Elixir of Force",
+    2420: "Seeker's Armguard",
+    2421: "Shattered Armguard",
+    2422: "Slightly Magical Boots",
+    2501: "Overlord's Bloodmail",
+    2502: "Unending Despair",
+    2503: "Blackfire Torch",
+    2504: "Kaenic Rookern",
+    2508: "Fated Ashes",
+    2510: "Dusk and Dawn",
+    2512: "Fiendhunter Bolts",
+    2517: "Endless Hunger",
+    2520: "Bastionbreaker",
+    2522: "Actualizer",
+    2523: "Hexoptics C44",
+    2524: "Bandlepipes",
+    2525: "Protoplasm Harness",
+    2526: "Whispering Circlet",
+    2530: "Diadem of Songs",
+    3003: "Archangel's Staff",
+    3004: "Manamune",
+    3006: "Berserker's Greaves",
+    3008: "Gluttonous Greaves",
+    3009: "Boots of Swiftness",
+    3020: "Sorcerer's Shoes",
+    3024: "Glacial Buckler",
+    3026: "Guardian Angel",
+    3031: "Infinity Edge",
+    3032: "Yun Tal Wildarrows",
+    3033: "Mortal Reminder",
+    3035: "Last Whisper",
+    3036: "Lord Dominik's Regards",
+    3040: "Seraph's Embrace",
+    3041: "Mejai's Soulstealer",
+    3042: "Muramana",
+    3044: "Phage",
+    3046: "Phantom Dancer",
+    3047: "Plated Steelcaps",
+    3050: "Zeke's Convergence",
+    3051: "Hearthbound Axe",
+    3053: "Sterak's Gage",
+    3057: "Sheen",
+    3065: "Spirit Visage",
+    3066: "Winged Moonplate",
+    3067: "Kindlegem",
+    3068: "Sunfire Aegis",
+    3070: "Tear of the Goddess",
+    3071: "Black Cleaver",
+    3072: "Bloodthirster",
+    3073: "Experimental Hexplate",
+    3074: "Ravenous Hydra",
+    3075: "Thornmail",
+    3076: "Bramble Vest",
+    3077: "Tiamat",
+    3078: "Trinity Force",
+    3082: "Warden's Mail",
+    3083: "Warmog's Armor",
+    3084: "Heartsteel",
+    3085: "Runaan's Hurricane",
+    3086: "Zeal",
+    3087: "Statikk Shiv",
+    3089: "Rabadon's Deathcap",
+    3091: "Wit's End",
+    3094: "Rapid Firecannon",
+    3097: "Stormrazor",
+    3100: "Lich Bane",
+    3102: "Banshee's Veil",
+    3107: "Redemption",
+    3108: "Fiendish Codex",
+    3109: "Knight's Vow",
+    3110: "Frozen Heart",
+    3111: "Mercury's Treads",
+    3112: "Guardian's Orb",
+    3113: "Aether Wisp",
+    3114: "Forbidden Idol",
+    3115: "Nashor's Tooth",
+    3116: "Rylai's Crystal Scepter",
+    3118: "Malignance",
+    3119: "Winter's Approach",
+    3121: "Fimbulwinter",
+    3123: "Executioner's Calling",
+    3124: "Guinsoo's Rageblade",
+    3133: "Caulfield's Warhammer",
+    3134: "Serrated Dirk",
+    3135: "Void Staff",
+    3137: "Cryptbloom",
+    3139: "Mercurial Scimitar",
+    3140: "Quicksilver Sash",
+    3142: "Youmuu's Ghostblade",
+    3143: "Randuin's Omen",
+    3144: "Scout's Slingshot",
+    3145: "Hextech Alternator",
+    3146: "Hextech Gunblade",
+    3147: "Haunting Guise",
+    3152: "Hextech Rocketbelt",
+    3153: "Blade of the Ruined King",
+    3155: "Hexdrinker",
+    3156: "Maw of Malmortius",
+    3157: "Zhonya's Hourglass",
+    3158: "Ionian Boots of Lucidity",
+    3161: "Spear of Shojin",
+    3165: "Morellonomicon",
+    3168: "Immortal Path",
+    3170: "Swiftmarch",
+    3171: "Crimson Lucidity",
+    3172: "Zephyr",
+    3173: "Chainlaced Crushers",
+    3174: "Armored Advance",
+    3175: "Spellslinger's Shoes",
+    3177: "Guardian's Blade",
+    3179: "Umbral Glaive",
+    3181: "Hullbreaker",
+    3184: "Guardian's Hammer",
+    3190: "Locket of the Iron Solari",
+    3211: "Spectre's Cowl",
+    3222: "Mikael's Blessing",
+    3302: "Terminus",
+    3330: "Scarecrow Effigy",
+    3340: "Stealth Ward",
+    3348: "Arcane Sweeper (Trinket)",
+    3363: "Farsight Alteration",
+    3364: "Oracle Lens",
+    3400: "Your Cut",
+    3430: "Rite of Ruin",
+    3504: "Ardent Censer",
+    3508: "Essence Reaver",
+    3513: "Eye of the Herald",
+    3599: "Black Spear",
+    3742: "Dead Man's Plate",
+    3748: "Titanic Hydra",
+    3801: "Crystalline Bracer",
+    3802: "Lost Chapter",
+    3803: "Catalyst of Aeons",
+    3814: "Edge of Night",
+    3865: "World Atlas",
+    3866: "Runic Compass",
+    3867: "Bounty of Worlds",
+    3869: "Celestial Opposition",
+    3870: "Dream Maker",
+    3871: "Zaz'Zak's Realmspike",
+    3876: "Solstice Sleigh",
+    3877: "Bloodsong",
+    3901: "Fire at Will",
+    3902: "Death's Daughter",
+    3903: "Raise Morale",
+    3916: "Oblivion Orb",
+    4003: "Lifeline",
+    4005: "Imperial Mandate",
+    4011: "Sword of Blossoming Dawn",
+    4015: "Perplexity",
+    4016: "Wordless Promise",
+    4017: "Hellfire Hatchet",
+    4401: "Force of Nature",
+    4628: "Horizon Focus",
+    4629: "Cosmic Drive",
+    4630: "Blighting Jewel",
+    4632: "Verdant Barrier",
+    4633: "Riftmaker",
+    4642: "Bandleglass Mirror",
+    4645: "Shadowflame",
+    4646: "Stormsurge",
+    6333: "Death's Dance",
+    6609: "Chempunk Chainsword",
+    6610: "Sundered Sky",
+    6616: "Staff of Flowing Water",
+    6617: "Moonstone Renewer",
+    6620: "Echoes of Helia",
+    6621: "Dawncore",
+    6631: "Stridebreaker",
+    6653: "Liandry's Torment",
+    6655: "Luden's Echo",
+    6657: "Rod of Ages",
+    6660: "Bami's Cinder",
+    6662: "Iceborn Gauntlet",
+    6664: "Hollow Radiance",
+    6665: "Jak'Sho, The Protean",
+    6670: "Noonquiver",
+    6672: "Kraken Slayer",
+    6673: "Immortal Shieldbow",
+    6675: "Navori Flickerblade",
+    6676: "The Collector",
+    6690: "Rectrix",
+    6692: "Eclipse",
+    6694: "Serylda's Grudge",
+    6695: "Serpent's Fang",
+    6696: "Axiom Arc",
+    6697: "Hubris",
+    6698: "Profane Hydra",
+    6699: "Voltaic Cyclosword",
+    8010: "Bloodletter's Curse",
+    8020: "Abyssal Mask",
+    9999: "Scouting Ahead",
+    220000: "Stat Bonus (ARAM: Mayhem)",
+    220001: "Legendary Fighter Item",
+    220002: "Legendary Marksman Item",
+    220003: "Legendary Assassin Item",
+    220004: "Legendary Mage Item",
+    220005: "Legendary Tank Item",
+    220006: "Legendary Support Item",
+    220007: "Prismatic Item",
+    223005: "Ghostcrawlers",
+    223039: "Atma's Reckoning",
+    223069: "Void Immolation",
+    223185: "Guardian's Dirk",
+    224004: "Spectral Cutlass",
+    224403: "The Golden Spatula",
+    226630: "Goredrinker",
+    228001: "Anathema's Chains",
+    228002: "Wooglet's Witchcap",
+    228009: "Multitool",
+    443054: "Darksteel Talons",
+    443055: "Fulmination",
+    443056: "Demon King's Crown",
+    443058: "Shield of Molten Stone",
+    443059: "Cloak of Starry Night",
+    443060: "Sword of the Divine",
+    443061: "Force of Entropy",
+    443062: "Sanguine Gift",
+    443063: "Eleisa's Miracle",
+    443064: "Talisman of Ascension",
+    443069: "Hamstringer",
+    443079: "Turbo Chemtank",
+    443080: "Twin Mask",
+    443081: "Hexbolt Companion",
+    443090: "Reaper's Toll",
+    443193: "Gargoyle Stoneplate",
+    444636: "Night Harvester",
+    444637: "Demonic Embrace",
+    444644: "Crown of the Shattered Queen",
+    446632: "Divine Sunderer",
+    446656: "Everfrost",
+    446667: "Radiant Virtue",
+    446671: "Galeforce",
+    446691: "Duskblade of Draktharr",
+    446693: "Prowler's Claw",
+    447100: "Mirage Blade",
+    447101: "Gambler's Blade",
+    447102: "Reality Fracture",
+    447103: "Hemomancer's Helm",
+    447104: "Innervating Locket",
+    447105: "Empyrean Promise",
+    447106: "Dragonheart",
+    447107: "Decapitator",
+    447108: "Runecarver",
+    447109: "Cruelty",
+    447110: "Moonflair Spellblade",
+    447112: "Flesheater",
+    447113: "Detonation Orb",
+    447114: "Reverberation",
+    447115: "Regicide",
+    447116: "Kinkou Jitte",
+    447118: "Pyromancer's Cloak",
+    447119: "Lightning Rod",
+    447120: "Diamond-Tipped Spear",
+    447121: "Twilight's Edge",
+    447122: "Black Hole Gauntlet",
+    447123: "Puppeteer",
+    999999: "Veigar's Talisman of Ascension",
+}
 
 
 # =========================================================
@@ -387,32 +398,26 @@ PLAYERS = [
     {"tier": "CHALLENGER", "riot_id": "DNS 또이브#KR13"},
     {"tier": "CHALLENGER", "riot_id": "Calix#해 린"},
     {"tier": "CHALLENGER", "riot_id": "TOPKING#asd"},
-
     # GRANDMASTER
     {"tier": "GRANDMASTER", "riot_id": "jkjkjkjkk#1173"},
     {"tier": "GRANDMASTER", "riot_id": "LittlePira#1128"},
     {"tier": "GRANDMASTER", "riot_id": "Celina#샐러드"},
-
     # MASTER
     {"tier": "MASTER", "riot_id": "Holder#KR3"},
     {"tier": "MASTER", "riot_id": "水原铃瑞#宋岱霖の"},
     {"tier": "MASTER", "riot_id": "Faker#0409"},
-
     # DIAMOND
     {"tier": "DIAMOND", "riot_id": "남 이#0815"},
     {"tier": "DIAMOND", "riot_id": "백석아찌#0222"},
     {"tier": "DIAMOND", "riot_id": "100동진#KR100"},
-
     # EMERALD
     {"tier": "EMERALD", "riot_id": "해도토리#KR1"},
     {"tier": "EMERALD", "riot_id": "심도동#도심동"},
     {"tier": "EMERALD", "riot_id": "사 구#삼 구"},
-
     # PLATINUM
     {"tier": "PLATINUM", "riot_id": "역대급천재탑유망주#09년생"},
     {"tier": "PLATINUM", "riot_id": "bulgariss#KR1"},
     {"tier": "PLATINUM", "riot_id": "넌 보란듯이 예쁜 꽃 되니까#0000"},
-
     # GOLD
     {"tier": "GOLD", "riot_id": "아니이자식아#KR2"},
     {"tier": "GOLD", "riot_id": "조선제일검#0421"},
@@ -425,10 +430,8 @@ PLAYERS = [
 # =========================================================
 
 
-
-
-
 def save_json(data: Any, path: Path) -> None:
+    """Write JSON data to disk using UTF-8 and pretty indentation."""
     path.parent.mkdir(parents=True, exist_ok=True)
 
     with path.open("w", encoding="utf-8") as f:
@@ -436,24 +439,9 @@ def save_json(data: Any, path: Path) -> None:
 
 
 def load_json(path: Path) -> Any:
+    """Read and decode a UTF-8 JSON file."""
     with path.open("r", encoding="utf-8") as f:
         return json.load(f)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # 기존 이름 호환
@@ -462,6 +450,7 @@ def load_json(path: Path) -> Any:
 # =========================================================
 # 4. Rate Limiter
 # =========================================================
+
 
 class RiotRateLimiter:
     """
@@ -476,6 +465,7 @@ class RiotRateLimiter:
         limit_2m: int = SAFE_LIMIT_2_MINUTES,
         window_2m: int = WINDOW_2_MINUTES,
     ):
+        """Initialize rate-limit windows for Riot API requests."""
         self.limit_1s = limit_1s
         self.window_1s = window_1s
         self.limit_2m = limit_2m
@@ -485,6 +475,7 @@ class RiotRateLimiter:
         self.calls_2m = deque()
 
     def wait(self) -> None:
+        """Block until the next Riot API request can be sent safely."""
         while True:
             now = time.time()
 
@@ -516,13 +507,17 @@ class RiotRateLimiter:
 # 5. Riot API Client
 # =========================================================
 
+
 class RiotApiClient:
+    """Small Riot API client with shared rate limiting and retries."""
+
     def __init__(
         self,
         api_key: Optional[str],
         regional_routing: str = REGIONAL_ROUTING,
         platform_routing: str = PLATFORM_ROUTING,
     ):
+        """Create a Riot API client from an API key and routing regions."""
         if not api_key:
             raise RuntimeError(
                 "RIOT_API_KEY가 없습니다. 프로젝트 루트에 .env 파일을 만들고 "
@@ -536,6 +531,7 @@ class RiotApiClient:
         self.limiter = RiotRateLimiter()
 
     def headers(self) -> dict[str, str]:
+        """Return request headers containing the Riot API token."""
         return {
             "X-Riot-Token": self.api_key,
             "Accept": "application/json",
@@ -547,6 +543,7 @@ class RiotApiClient:
         params: Optional[dict[str, Any]] = None,
         max_retries: int = 3,
     ) -> Any:
+        """Perform a GET request with rate limiting and retry handling."""
         last_error = None
 
         for attempt in range(1, max_retries + 1):
@@ -576,7 +573,9 @@ class RiotApiClient:
 
             if response.status_code in {500, 502, 503, 504}:
                 wait_time = 5 * attempt
-                print(f"[WARN] 서버 오류 {response.status_code}. {wait_time}초 대기 후 재시도")
+                print(
+                    f"[WARN] 서버 오류 {response.status_code}. {wait_time}초 대기 후 재시도"
+                )
                 time.sleep(wait_time)
                 continue
 
@@ -600,6 +599,7 @@ class RiotApiClient:
     # -----------------------------------------------------
 
     def get_account_by_riot_id(self, riot_id: str) -> dict[str, Any]:
+        """Fetch ACCOUNT-V1 account metadata for a Riot ID."""
         game_name, tag_line = parse_riot_id(riot_id)
 
         encoded_game_name = quote(game_name, safe="")
@@ -613,6 +613,7 @@ class RiotApiClient:
         return self.get(url)
 
     def get_account_by_puuid(self, puuid: str) -> dict[str, Any]:
+        """Fetch ACCOUNT-V1 account metadata for a PUUID."""
         url = (
             f"https://{self.regional_routing}.api.riotgames.com"
             f"/riot/account/v1/accounts/by-puuid/{puuid}"
@@ -624,6 +625,7 @@ class RiotApiClient:
     # -----------------------------------------------------
 
     def get_summoner_by_id(self, encrypted_summoner_id: str) -> dict[str, Any]:
+        """Fetch SUMMONER-V4 metadata for an encrypted summoner ID."""
         url = (
             f"https://{self.platform_routing}.api.riotgames.com"
             f"/lol/summoner/v4/summoners/{encrypted_summoner_id}"
@@ -849,6 +851,7 @@ class RiotApiClient:
         }
 
     def get_match_detail(self, match_id: str) -> dict[str, Any]:
+        """Fetch MATCH-V5 detail payload for a match ID."""
         url = (
             f"https://{self.regional_routing}.api.riotgames.com"
             f"/lol/match/v5/matches/{match_id}"
@@ -857,13 +860,9 @@ class RiotApiClient:
         return self.get(url)
 
 
-
 # =========================================================
 # 6. Match Detail → raw battle_logs row 변환
 # =========================================================
-
-
-
 
 
 def build_battle_log_rows(
@@ -904,7 +903,6 @@ def build_battle_log_rows(
             "source_tiers": "|".join(source_tiers),
             "source_riot_ids": "|".join(source_riot_ids),
             "source_puuids": "|".join(source_puuids),
-
             # 매치 정보
             "match_id": match_id,
             "game_id": info.get("gameId"),
@@ -922,7 +920,6 @@ def build_battle_log_rows(
             "game_start_kst": timestamp_to_iso_kst(game_start_timestamp),
             "game_end_kst": timestamp_to_iso_kst(game_end_timestamp),
             "end_of_game_result": info.get("endOfGameResult"),
-
             # 참가자 식별
             "participant_id": p.get("participantId"),
             "puuid": p.get("puuid"),
@@ -930,7 +927,6 @@ def build_battle_log_rows(
             "riot_id_tagline": p.get("riotIdTagline"),
             "summoner_id": p.get("summonerId"),
             "summoner_level": p.get("summonerLevel"),
-
             # 팀/포지션
             "team_id": p.get("teamId"),
             "team_position": p.get("teamPosition"),
@@ -938,13 +934,11 @@ def build_battle_log_rows(
             "lane": p.get("lane"),
             "role": p.get("role"),
             "win": p.get("win"),
-
             # 챔피언
             "champion_id": p.get("championId"),
             "champion_name": p.get("championName"),
             "champ_level": p.get("champLevel"),
             "champ_experience": p.get("champExperience"),
-
             # 전투 결과
             "kills": kills,
             "deaths": deaths,
@@ -956,18 +950,18 @@ def build_battle_log_rows(
             "penta_kills": p.get("pentaKills"),
             "first_blood_kill": p.get("firstBloodKill"),
             "first_blood_assist": p.get("firstBloodAssist"),
-
             # 골드/CS
             "gold_earned": p.get("goldEarned"),
             "gold_spent": p.get("goldSpent"),
             "total_minions_killed": p.get("totalMinionsKilled"),
             "neutral_minions_killed": p.get("neutralMinionsKilled"),
             "total_cs": total_cs,
-
             # 데미지
             "total_damage_dealt": p.get("totalDamageDealt"),
             "total_damage_dealt_to_champions": p.get("totalDamageDealtToChampions"),
-            "physical_damage_dealt_to_champions": p.get("physicalDamageDealtToChampions"),
+            "physical_damage_dealt_to_champions": p.get(
+                "physicalDamageDealtToChampions"
+            ),
             "magic_damage_dealt_to_champions": p.get("magicDamageDealtToChampions"),
             "true_damage_dealt_to_champions": p.get("trueDamageDealtToChampions"),
             "total_damage_taken": p.get("totalDamageTaken"),
@@ -975,7 +969,6 @@ def build_battle_log_rows(
             "magic_damage_taken": p.get("magicDamageTaken"),
             "true_damage_taken": p.get("trueDamageTaken"),
             "damage_self_mitigated": p.get("damageSelfMitigated"),
-
             # 오브젝트
             "turret_kills": p.get("turretKills"),
             "turret_takedowns": p.get("turretTakedowns"),
@@ -984,18 +977,15 @@ def build_battle_log_rows(
             "dragon_kills": p.get("dragonKills"),
             "baron_kills": p.get("baronKills"),
             "objectives_stolen": p.get("objectivesStolen"),
-
             # 시야
             "vision_score": p.get("visionScore"),
             "wards_placed": p.get("wardsPlaced"),
             "wards_killed": p.get("wardsKilled"),
             "detector_wards_placed": p.get("detectorWardsPlaced"),
             "vision_wards_bought_in_game": p.get("visionWardsBoughtInGame"),
-
             # 스펠
             "summoner1_id": p.get("summoner1Id"),
             "summoner2_id": p.get("summoner2Id"),
-
             # 아이템
             "item0": p.get("item0"),
             "item1": p.get("item1"),
@@ -1005,17 +995,19 @@ def build_battle_log_rows(
             "item5": p.get("item5"),
             "item6": p.get("item6"),
             "items_purchased": p.get("itemsPurchased"),
-
             # 룬
             "primary_perk": get_primary_perk(p),
             "sub_style": get_sub_style(p),
-
             # Challenges 일부
             "kill_participation": p.get("challenges", {}).get("killParticipation"),
             "damage_per_minute": p.get("challenges", {}).get("damagePerMinute"),
             "gold_per_minute": p.get("challenges", {}).get("goldPerMinute"),
-            "vision_score_per_minute": p.get("challenges", {}).get("visionScorePerMinute"),
-            "team_damage_percentage": p.get("challenges", {}).get("teamDamagePercentage"),
+            "vision_score_per_minute": p.get("challenges", {}).get(
+                "visionScorePerMinute"
+            ),
+            "team_damage_percentage": p.get("challenges", {}).get(
+                "teamDamagePercentage"
+            ),
         }
 
         rows.append(row)
@@ -1027,7 +1019,16 @@ def build_battle_log_rows(
 # 7. App-ready 변환 함수
 # =========================================================
 
+
 def find_existing_path(candidates: list[Path]) -> Optional[Path]:
+    """Return the first existing path from a list of candidates.
+
+    Args:
+        candidates: Candidate filesystem paths ordered by preference.
+
+    Returns:
+        The first path that exists, or ``None`` when no candidate is present.
+    """
     for path in candidates:
         if path and path.exists():
             return path
@@ -1052,17 +1053,21 @@ def load_item_name_map(item_map_path: Optional[str] = None) -> dict[int, str]:
     if item_map_path:
         candidates.append(Path(item_map_path))
 
-    candidates.extend([
-        Path("data/lol_assignment_dataset/extras/item_id_map.csv"),
-        Path("data/lol_assignment_dataset/item_id_map.csv"),
-        Path("data/item_id_map.csv"),
-        Path("item_id_map.csv"),
-    ])
+    candidates.extend(
+        [
+            Path("data/lol_assignment_dataset/extras/item_id_map.csv"),
+            Path("data/lol_assignment_dataset/item_id_map.csv"),
+            Path("data/item_id_map.csv"),
+            Path("item_id_map.csv"),
+        ]
+    )
 
     path = find_existing_path(candidates)
 
     if path is None:
-        print(f"[INFO] item_id_map.csv를 찾지 못했습니다. 내장 아이템 매핑 {len(embedded_mapping)}개를 사용합니다.")
+        print(
+            f"[INFO] item_id_map.csv를 찾지 못했습니다. 내장 아이템 매핑 {len(embedded_mapping)}개를 사용합니다."
+        )
         return embedded_mapping
 
     try:
@@ -1113,8 +1118,16 @@ def load_item_name_map(item_map_path: Optional[str] = None) -> dict[int, str]:
     return merged_mapping
 
 
-
 def item_display_name(item_id: Any, item_name_map: dict[int, str]) -> str:
+    """Resolve an item ID to a display name.
+
+    Args:
+        item_id: Raw Riot item identifier.
+        item_name_map: Mapping of normalized item IDs to human-readable names.
+
+    Returns:
+        A display name, the numeric ID as text, or an empty string for missing IDs.
+    """
     normalized = normalize_item_id(item_id)
 
     if normalized is None:
@@ -1123,7 +1136,18 @@ def item_display_name(item_id: Any, item_name_map: dict[int, str]) -> str:
     return item_name_map.get(normalized, str(normalized))
 
 
-def add_item_name_columns(df: pd.DataFrame, item_name_map: dict[int, str]) -> pd.DataFrame:
+def add_item_name_columns(
+    df: pd.DataFrame, item_name_map: dict[int, str]
+) -> pd.DataFrame:
+    """Add item name, item build, and representative equipment columns.
+
+    Args:
+        df: Participant-level match dataframe with ``item0`` through ``item6`` columns.
+        item_name_map: Item ID to display-name mapping.
+
+    Returns:
+        A copied dataframe enriched with name/build columns.
+    """
     df = df.copy()
 
     for i in range(7):
@@ -1138,6 +1162,7 @@ def add_item_name_columns(df: pd.DataFrame, item_name_map: dict[int, str]) -> pd
     item_name_cols = [f"item{i}_name" for i in range(7)]
 
     def build_item_build(row: pd.Series) -> str:
+        """Join non-empty item names into a compact build string."""
         names = []
         for col in item_name_cols:
             value = str(row.get(col, "")).strip()
@@ -1146,6 +1171,7 @@ def add_item_name_columns(df: pd.DataFrame, item_name_map: dict[int, str]) -> pd
         return " / ".join(names)
 
     def representative_item(row: pd.Series) -> str:
+        """Select the first real inventory item as the representative equipment value."""
         # 장신구 item6보다 실제 빌드 아이템 item0~item5를 우선 대표 아이템으로 선택
         for i in range(6):
             value = str(row.get(f"item{i}_name", "")).strip()
@@ -1161,15 +1187,31 @@ def add_item_name_columns(df: pd.DataFrame, item_name_map: dict[int, str]) -> pd
 
 
 def add_enemy_team_column(df: pd.DataFrame) -> pd.DataFrame:
+    """Add an ``enemy_team`` champion composition column.
+
+    Args:
+        df: Participant-level dataframe containing match, team, and champion columns.
+
+    Returns:
+        A copied dataframe with ``enemy_team`` populated when both teams are available.
+    """
     df = df.copy()
 
-    if "match_id" not in df.columns or "team_id" not in df.columns or "champion_name" not in df.columns:
+    if (
+        "match_id" not in df.columns
+        or "team_id" not in df.columns
+        or "champion_name" not in df.columns
+    ):
         df["enemy_team"] = ""
         return df
 
     team_champions = (
         df.groupby(["match_id", "team_id"])["champion_name"]
-        .apply(lambda s: " / ".join(sorted([str(x) for x in s.dropna().unique() if str(x).strip()])))
+        .apply(
+            lambda s: " / ".join(
+                sorted([str(x) for x in s.dropna().unique() if str(x).strip()])
+            )
+        )
         .reset_index()
     )
 
@@ -1182,9 +1224,13 @@ def add_enemy_team_column(df: pd.DataFrame) -> pd.DataFrame:
         rows = group.to_dict("records")
 
         for row in rows:
-            opponent_rows = [r for r in rows if str(r["team_id"]) != str(row["team_id"])]
+            opponent_rows = [
+                r for r in rows if str(r["team_id"]) != str(row["team_id"])
+            ]
             if opponent_rows:
-                opponent_map[(match_id, row["team_id"])] = opponent_rows[0]["champion_name"]
+                opponent_map[(match_id, row["team_id"])] = opponent_rows[0][
+                    "champion_name"
+                ]
 
     df["enemy_team"] = df.apply(
         lambda r: opponent_map.get((r.get("match_id"), r.get("team_id")), ""),
@@ -1195,6 +1241,15 @@ def add_enemy_team_column(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def ensure_numeric(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+    """Coerce selected dataframe columns to numeric values.
+
+    Args:
+        df: Source dataframe.
+        columns: Column names to coerce when present.
+
+    Returns:
+        A copied dataframe with requested columns converted using pandas coercion.
+    """
     df = df.copy()
 
     for col in columns:
@@ -1232,19 +1287,32 @@ def convert_raw_battle_logs_to_app_ready(
     df.columns = [str(c).replace("\ufeff", "").strip() for c in df.columns]
 
     # 필수 원본 컬럼 방어
-    for col in ["match_id", "participant_id", "game_version", "champion_name", "team_id", "win"]:
+    for col in [
+        "match_id",
+        "participant_id",
+        "game_version",
+        "champion_name",
+        "team_id",
+        "win",
+    ]:
         if col not in df.columns:
             df[col] = ""
 
     # 패치 버전 매핑 재계산
     df["original_patch_version"] = df["game_version"].apply(extract_raw_patch_version)
     df["patch_version"] = df["game_version"].apply(map_game_version_to_patch_version)
-    df["patch_version_mapping_rule"] = df["game_version"].apply(patch_version_mapping_rule)
+    df["patch_version_mapping_rule"] = df["game_version"].apply(
+        patch_version_mapping_rule
+    )
 
     # 앱 필수 컬럼
-    df["battle_id"] = df["match_id"].astype(str) + "_" + df["participant_id"].astype(str)
+    df["battle_id"] = (
+        df["match_id"].astype(str) + "_" + df["participant_id"].astype(str)
+    )
     df["result"] = df["win"].apply(lambda x: "win" if truthy_win(x) else "loss")
-    df["duration_sec"] = pd.to_numeric(df.get("game_duration", 0), errors="coerce").fillna(0).astype(int)
+    df["duration_sec"] = (
+        pd.to_numeric(df.get("game_duration", 0), errors="coerce").fillna(0).astype(int)
+    )
     df["player_team"] = df["champion_name"].astype(str)
     df["main_dealer"] = df["champion_name"].astype(str)
     df["total_damage"] = pd.to_numeric(
@@ -1270,6 +1338,14 @@ def convert_raw_battle_logs_to_app_ready(
 
 
 def build_item_usage_long(app_df: pd.DataFrame) -> pd.DataFrame:
+    """Expand app-ready match rows into one row per item slot.
+
+    Args:
+        app_df: App-ready participant dataframe.
+
+    Returns:
+        A long-format dataframe for item usage and item performance aggregation.
+    """
     rows = []
 
     for _, row in app_df.iterrows():
@@ -1283,36 +1359,39 @@ def build_item_usage_long(app_df: pd.DataFrame) -> pd.DataFrame:
             if item_id is None and not item_name:
                 continue
 
-            rows.append({
-                "match_id": row.get("match_id"),
-                "battle_id": row.get("battle_id"),
-                "participant_id": row.get("participant_id"),
-                "patch_version": row.get("patch_version"),
-                "original_patch_version": row.get("original_patch_version"),
-                "game_version": row.get("game_version"),
-                "source_tiers": row.get("source_tiers"),
-                "source_riot_ids": row.get("source_riot_ids"),
-                "champion_name": row.get("champion_name"),
-                "team_position": row.get("team_position"),
-                "result": row.get("result"),
-                "win": row.get("win"),
-                "item_slot": slot,
-                "item_id": item_id,
-                "item_name": item_name or str(item_id),
-                "total_damage": row.get("total_damage"),
-                "kills": row.get("kills"),
-                "deaths": row.get("deaths"),
-                "assists": row.get("assists"),
-                "kda": row.get("kda"),
-                "gold_earned": row.get("gold_earned"),
-                "total_cs": row.get("total_cs"),
-                "vision_score": row.get("vision_score"),
-            })
+            rows.append(
+                {
+                    "match_id": row.get("match_id"),
+                    "battle_id": row.get("battle_id"),
+                    "participant_id": row.get("participant_id"),
+                    "patch_version": row.get("patch_version"),
+                    "original_patch_version": row.get("original_patch_version"),
+                    "game_version": row.get("game_version"),
+                    "source_tiers": row.get("source_tiers"),
+                    "source_riot_ids": row.get("source_riot_ids"),
+                    "champion_name": row.get("champion_name"),
+                    "team_position": row.get("team_position"),
+                    "result": row.get("result"),
+                    "win": row.get("win"),
+                    "item_slot": slot,
+                    "item_id": item_id,
+                    "item_name": item_name or str(item_id),
+                    "total_damage": row.get("total_damage"),
+                    "kills": row.get("kills"),
+                    "deaths": row.get("deaths"),
+                    "assists": row.get("assists"),
+                    "kda": row.get("kda"),
+                    "gold_earned": row.get("gold_earned"),
+                    "total_cs": row.get("total_cs"),
+                    "vision_score": row.get("vision_score"),
+                }
+            )
 
     return pd.DataFrame(rows)
 
 
 def win_rate_from_result(series: pd.Series) -> float:
+    """Calculate win rate from a result column containing ``win``/``loss`` labels."""
     return float((series.astype(str).str.lower() == "win").mean())
 
 
@@ -1339,7 +1418,9 @@ def save_app_ready_outputs(
     # app_dataset_dir에도 저장
     if app_dataset_dir is not None:
         app_dataset_dir.mkdir(parents=True, exist_ok=True)
-        app_df.to_csv(app_dataset_dir / "battle_logs.csv", index=False, encoding="utf-8-sig")
+        app_df.to_csv(
+            app_dataset_dir / "battle_logs.csv", index=False, encoding="utf-8-sig"
+        )
         extras_dir = app_dataset_dir / "extras"
     else:
         extras_dir = processed_dir / "extras"
@@ -1348,7 +1429,9 @@ def save_app_ready_outputs(
 
     # item_usage_long
     item_usage_long = build_item_usage_long(app_df)
-    item_usage_long.to_csv(extras_dir / "item_usage_long.csv", index=False, encoding="utf-8-sig")
+    item_usage_long.to_csv(
+        extras_dir / "item_usage_long.csv", index=False, encoding="utf-8-sig"
+    )
 
     # champion_performance_by_patch
     champion_group_cols = ["patch_version", "champion_name", "team_position"]
@@ -1379,11 +1462,16 @@ def save_app_ready_outputs(
     # item_performance_by_patch
     if not item_usage_long.empty:
         item_perf = (
-            item_usage_long.groupby(["patch_version", "item_id", "item_name"], dropna=False)
+            item_usage_long.groupby(
+                ["patch_version", "item_id", "item_name"], dropna=False
+            )
             .agg(
                 rows=("battle_id", "count"),
                 matches=("match_id", "nunique"),
-                wins=("result", lambda x: int((x.astype(str).str.lower() == "win").sum())),
+                wins=(
+                    "result",
+                    lambda x: int((x.astype(str).str.lower() == "win").sum()),
+                ),
                 win_rate=("result", win_rate_from_result),
                 avg_damage=("total_damage", "mean"),
                 avg_kills=("kills", "mean"),
@@ -1426,11 +1514,18 @@ def save_app_ready_outputs(
     summary = {
         "app_ready_rows": int(len(app_df)),
         "app_ready_columns": int(len(app_df.columns)),
-        "unique_matches": int(app_df["match_id"].nunique()) if "match_id" in app_df.columns else 0,
-        "unique_battle_ids": int(app_df["battle_id"].nunique()) if "battle_id" in app_df.columns else 0,
+        "unique_matches": int(app_df["match_id"].nunique())
+        if "match_id" in app_df.columns
+        else 0,
+        "unique_battle_ids": int(app_df["battle_id"].nunique())
+        if "battle_id" in app_df.columns
+        else 0,
         "item_usage_long_rows": int(len(item_usage_long)),
-        "patch_versions": sorted([str(x) for x in app_df["patch_version"].dropna().unique().tolist()])
-        if "patch_version" in app_df.columns else [],
+        "patch_versions": sorted(
+            [str(x) for x in app_df["patch_version"].dropna().unique().tolist()]
+        )
+        if "patch_version" in app_df.columns
+        else [],
         "battle_logs_path": str(battle_logs_path),
         "app_dataset_dir": str(app_dataset_dir) if app_dataset_dir else "",
         "extras_dir": str(extras_dir),
@@ -1473,7 +1568,6 @@ def convert_existing_battle_logs_file(
     )
 
     return summary
-
 
 
 def make_match_ids_cache_path(
@@ -1527,8 +1621,10 @@ def load_usable_match_ids_cache(
     return match_ids[:requested_count]
 
 
-
-def split_csv_values(text_value: Optional[str], default: Optional[list[str]] = None) -> list[str]:
+def split_csv_values(
+    text_value: Optional[str], default: Optional[list[str]] = None
+) -> list[str]:
+    """Parse a comma-separated CLI value into uppercase tokens."""
     if text_value is None or str(text_value).strip() == "":
         return list(default or [])
 
@@ -1536,19 +1632,31 @@ def split_csv_values(text_value: Optional[str], default: Optional[list[str]] = N
 
 
 def normalize_tier(tier: str) -> str:
+    """Normalize a League ranked tier for Riot API requests."""
     return str(tier).strip().upper().replace(" ", "")
 
 
 def normalize_division(division: str) -> str:
+    """Normalize a League division label for Riot API requests."""
     return str(division).strip().upper()
 
 
 def load_match_ids_from_csv(path: Path) -> set[str]:
+    """Load existing match IDs from a CSV file.
+
+    Args:
+        path: CSV path that may contain a ``match_id`` column.
+
+    Returns:
+        A set of non-empty match IDs. Missing or unreadable files return an empty set.
+    """
     if not path.exists():
         return set()
 
     try:
-        df = pd.read_csv(path, usecols=lambda c: str(c).replace("\ufeff", "").strip() == "match_id")
+        df = pd.read_csv(
+            path, usecols=lambda c: str(c).replace("\ufeff", "").strip() == "match_id"
+        )
     except Exception:
         try:
             df = pd.read_csv(path)
@@ -1560,14 +1668,12 @@ def load_match_ids_from_csv(path: Path) -> set[str]:
     if "match_id" not in df.columns:
         return set()
 
-    return {
-        str(x).strip()
-        for x in df["match_id"].dropna().tolist()
-        if str(x).strip()
-    }
+    return {str(x).strip() for x in df["match_id"].dropna().tolist() if str(x).strip()}
 
 
-def load_existing_match_ids(out_path: Path, app_dataset_dir: Optional[str] = None) -> set[str]:
+def load_existing_match_ids(
+    out_path: Path, app_dataset_dir: Optional[str] = None
+) -> set[str]:
     """
     이미 수집한 match_id를 모은다.
 
@@ -1620,7 +1726,18 @@ def load_existing_raw_battle_logs(processed_dir: Path) -> pd.DataFrame:
     return pd.DataFrame()
 
 
-def merge_raw_battle_logs(existing_df: pd.DataFrame, new_df: pd.DataFrame) -> pd.DataFrame:
+def merge_raw_battle_logs(
+    existing_df: pd.DataFrame, new_df: pd.DataFrame
+) -> pd.DataFrame:
+    """Merge previous and newly collected raw battle logs.
+
+    Args:
+        existing_df: Previously saved raw battle logs.
+        new_df: Battle logs collected in the current run.
+
+    Returns:
+        A deduplicated dataframe keyed by match and participant when those columns exist.
+    """
     frames = []
 
     if existing_df is not None and not existing_df.empty:
@@ -1644,6 +1761,7 @@ def merge_raw_battle_logs(existing_df: pd.DataFrame, new_df: pd.DataFrame) -> pd
 
 
 def build_riot_id_from_account(account: dict[str, Any], fallback: str = "") -> str:
+    """Build a Riot ID string from Account-V1 account data."""
     game_name = str(account.get("gameName", "") or "").strip()
     tag_line = str(account.get("tagLine", "") or "").strip()
 
@@ -1748,8 +1866,13 @@ def collect_players_from_league_v4(
     if resume and cache_path.exists():
         try:
             cached = pd.read_csv(cache_path)
-            cached.columns = [str(c).replace("\ufeff", "").strip() for c in cached.columns]
-            if len(cached) >= len(tiers) * players_per_tier and "puuid" in cached.columns:
+            cached.columns = [
+                str(c).replace("\ufeff", "").strip() for c in cached.columns
+            ]
+            if (
+                len(cached) >= len(tiers) * players_per_tier
+                and "puuid" in cached.columns
+            ):
                 print(f"[CACHE] 자동 플레이어 목록 사용: {cache_path}")
                 return cached.to_dict(orient="records")
         except Exception:
@@ -1791,15 +1914,19 @@ def collect_players_from_league_v4(
                         seen_puuids.add(player["puuid"])
                         all_players.append(player)
                         collected_for_tier += 1
-                        print(f"[PLAYER] {tier} {collected_for_tier}/{players_per_tier} {player['riot_id']}")
+                        print(
+                            f"[PLAYER] {tier} {collected_for_tier}/{players_per_tier} {player['riot_id']}"
+                        )
 
                     except Exception as e:
-                        logs.append({
-                            "tier": tier,
-                            "step": "resolve_apex_player",
-                            "status": "failed",
-                            "message": str(e),
-                        })
+                        logs.append(
+                            {
+                                "tier": tier,
+                                "step": "resolve_apex_player",
+                                "status": "failed",
+                                "message": str(e),
+                            }
+                        )
                         print(f"[WARN] {tier} 플레이어 변환 실패: {e}")
 
             else:
@@ -1810,7 +1937,10 @@ def collect_players_from_league_v4(
                     division = normalize_division(division)
                     page = 1
 
-                    while collected_for_tier < players_per_tier and page <= league_max_pages_per_division:
+                    while (
+                        collected_for_tier < players_per_tier
+                        and page <= league_max_pages_per_division
+                    ):
                         print(
                             f"[REQ] League entries tier={tier}, division={division}, page={page} "
                             f"/ max_page={league_max_pages_per_division}"
@@ -1825,7 +1955,9 @@ def collect_players_from_league_v4(
                         if not entries:
                             break
 
-                        entries = sorted(entries, key=league_entry_sort_key, reverse=True)
+                        entries = sorted(
+                            entries, key=league_entry_sort_key, reverse=True
+                        )
 
                         for entry in entries:
                             if collected_for_tier >= players_per_tier:
@@ -1839,14 +1971,16 @@ def collect_players_from_league_v4(
                                     source=f"league-v4:{tier}:{division}:page{page}:{league_queue}",
                                 )
                                 if not player:
-                                    logs.append({
-                                        "tier": tier,
-                                        "division": division,
-                                        "page": page,
-                                        "step": "resolve_entry_player",
-                                        "status": "skipped",
-                                        "message": "League entry에 puuid/summonerId가 없어 플레이어로 변환하지 못했습니다.",
-                                    })
+                                    logs.append(
+                                        {
+                                            "tier": tier,
+                                            "division": division,
+                                            "page": page,
+                                            "step": "resolve_entry_player",
+                                            "status": "skipped",
+                                            "message": "League entry에 puuid/summonerId가 없어 플레이어로 변환하지 못했습니다.",
+                                        }
+                                    )
                                     continue
 
                                 if player["puuid"] in seen_puuids:
@@ -1855,42 +1989,57 @@ def collect_players_from_league_v4(
                                 seen_puuids.add(player["puuid"])
                                 all_players.append(player)
                                 collected_for_tier += 1
-                                print(f"[PLAYER] {tier} {collected_for_tier}/{players_per_tier} {player['riot_id']}")
+                                print(
+                                    f"[PLAYER] {tier} {collected_for_tier}/{players_per_tier} {player['riot_id']}"
+                                )
 
                             except Exception as e:
-                                logs.append({
-                                    "tier": tier,
-                                    "division": division,
-                                    "page": page,
-                                    "step": "resolve_entry_player",
-                                    "status": "failed",
-                                    "message": str(e),
-                                })
-                                print(f"[WARN] {tier} {division} 플레이어 변환 실패: {e}")
+                                logs.append(
+                                    {
+                                        "tier": tier,
+                                        "division": division,
+                                        "page": page,
+                                        "step": "resolve_entry_player",
+                                        "status": "failed",
+                                        "message": str(e),
+                                    }
+                                )
+                                print(
+                                    f"[WARN] {tier} {division} 플레이어 변환 실패: {e}"
+                                )
 
                         page += 1
 
-                    if collected_for_tier < players_per_tier and page > league_max_pages_per_division:
+                    if (
+                        collected_for_tier < players_per_tier
+                        and page > league_max_pages_per_division
+                    ):
                         print(
                             f"[STOP] {tier} {division}: max_page={league_max_pages_per_division}까지 확인했지만 "
                             f"{collected_for_tier}/{players_per_tier}명만 확보했습니다. 다음 division으로 넘어갑니다."
                         )
 
         except Exception as e:
-            logs.append({
-                "tier": tier,
-                "step": "collect_tier_players",
-                "status": "failed",
-                "message": str(e),
-            })
+            logs.append(
+                {
+                    "tier": tier,
+                    "step": "collect_tier_players",
+                    "status": "failed",
+                    "message": str(e),
+                }
+            )
             print(f"[FAIL] {tier} 플레이어 목록 수집 실패: {e}")
 
     players_df = pd.DataFrame(all_players)
     players_df.to_csv(cache_path, index=False, encoding="utf-8-sig")
-    players_df.to_csv(processed_dir / "auto_players.csv", index=False, encoding="utf-8-sig")
+    players_df.to_csv(
+        processed_dir / "auto_players.csv", index=False, encoding="utf-8-sig"
+    )
 
     if logs:
-        pd.DataFrame(logs).to_csv(processed_dir / "auto_players_logs.csv", index=False, encoding="utf-8-sig")
+        pd.DataFrame(logs).to_csv(
+            processed_dir / "auto_players_logs.csv", index=False, encoding="utf-8-sig"
+        )
 
     print(f"[INFO] 자동 수집 플레이어 수: {len(all_players)}")
     print(f"[INFO] 자동 플레이어 목록 저장: {cache_path}")
@@ -1901,6 +2050,7 @@ def collect_players_from_league_v4(
 # =========================================================
 # 8. 수집 실행
 # =========================================================
+
 
 def collect_dataset(
     out_dir: str,
@@ -1922,6 +2072,35 @@ def collect_dataset(
     max_match_scan_pages: int = 30,
     league_max_pages_per_division: int = 3,
 ) -> None:
+    """Collect Riot match data and generate app-ready datasets.
+
+    Args:
+        out_dir: Directory where raw and processed Riot data will be written.
+        count_per_player: Target number of new matches per source player.
+        queue: Optional Riot queue ID filter for match lookups.
+        match_type: Optional Riot match type filter.
+        resume: Reuse existing cached account, match ID, and match detail files.
+        item_map_path: Optional CSV path for item ID to item name mapping.
+        app_dataset_dir: Optional destination for app-ready ``battle_logs.csv`` outputs.
+        skip_app_convert: Save raw battle logs without app-ready conversion.
+        auto_players: Discover source players from League-V4 instead of static config.
+        tiers: Ranked tiers to scan when auto-discovering players.
+        players_per_tier: Number of players to collect per tier.
+        divisions: Ranked divisions to scan for non-apex tiers.
+        league_queue: Riot ranked queue name for League-V4.
+        platform_routing: Riot platform routing value such as ``kr``.
+        exclude_existing_from_count: Count only new match IDs toward each player quota.
+        merge_existing: Merge current rows with previously saved battle logs.
+        max_match_scan_pages: Maximum MATCH-V5 pages to scan per player.
+        league_max_pages_per_division: Maximum League-V4 pages to scan per division.
+
+    Raises:
+        RuntimeError: When no configured players are available.
+        requests.HTTPError: When Riot API calls fail after retries.
+
+    Security:
+        Uses the Riot API key from process configuration and must not print or return it.
+    """
     out_path = Path(out_dir)
 
     raw_accounts_dir = out_path / "raw" / "accounts"
@@ -1947,7 +2126,15 @@ def collect_dataset(
     # -----------------------------------------------------
 
     if auto_players:
-        selected_tiers = tiers or ["CHALLENGER", "GRANDMASTER", "MASTER", "DIAMOND", "EMERALD", "PLATINUM", "GOLD"]
+        selected_tiers = tiers or [
+            "CHALLENGER",
+            "GRANDMASTER",
+            "MASTER",
+            "DIAMOND",
+            "EMERALD",
+            "PLATINUM",
+            "GOLD",
+        ]
         selected_divisions = divisions or ["I", "II", "III", "IV"]
 
         print("\n========== STEP 0. LEAGUE-V4로 티어별 플레이어 자동 수집 ==========")
@@ -2003,24 +2190,28 @@ def collect_dataset(
             except Exception as e:
                 print(f"[FAIL] Account {tier} {riot_id}: {e}")
 
-                logs.append({
-                    "step": "account",
-                    "tier": tier,
-                    "riot_id": riot_id,
-                    "match_id": "",
-                    "status": "failed",
-                    "message": str(e),
-                })
+                logs.append(
+                    {
+                        "step": "account",
+                        "tier": tier,
+                        "riot_id": riot_id,
+                        "match_id": "",
+                        "status": "failed",
+                        "message": str(e),
+                    }
+                )
 
-                accounts.append({
-                    "tier": tier,
-                    "riot_id": riot_id,
-                    "game_name": "",
-                    "tag_line": "",
-                    "puuid": "",
-                    "status": "failed",
-                    "message": str(e),
-                })
+                accounts.append(
+                    {
+                        "tier": tier,
+                        "riot_id": riot_id,
+                        "game_name": "",
+                        "tag_line": "",
+                        "puuid": "",
+                        "status": "failed",
+                        "message": str(e),
+                    }
+                )
 
     accounts_df = pd.DataFrame(accounts)
     accounts_df.to_csv(
@@ -2029,7 +2220,11 @@ def collect_dataset(
         encoding="utf-8-sig",
     )
 
-    valid_accounts = [a for a in accounts if a.get("status") == "success" and str(a.get("puuid", "")).strip()]
+    valid_accounts = [
+        a
+        for a in accounts
+        if a.get("status") == "success" and str(a.get("puuid", "")).strip()
+    ]
 
     print(f"[INFO] 유효 계정 수: {len(valid_accounts)} / {len(accounts)}")
 
@@ -2039,9 +2234,17 @@ def collect_dataset(
 
     print("\n========== STEP 2. PUUID -> Match IDs ==========")
 
-    existing_match_ids = load_existing_match_ids(out_path, app_dataset_dir=app_dataset_dir) if exclude_existing_from_count else set()
+    existing_match_ids = (
+        load_existing_match_ids(out_path, app_dataset_dir=app_dataset_dir)
+        if exclude_existing_from_count
+        else set()
+    )
     selected_this_run: set[str] = set()
-    existing_raw_df = load_existing_raw_battle_logs(processed_dir) if merge_existing else pd.DataFrame()
+    existing_raw_df = (
+        load_existing_raw_battle_logs(processed_dir)
+        if merge_existing
+        else pd.DataFrame()
+    )
 
     print(f"[INFO] 기존 수집 match_id 수: {len(existing_match_ids)}")
     if merge_existing and not existing_raw_df.empty:
@@ -2106,14 +2309,16 @@ def collect_dataset(
                     if duplicate_match_id in match_sources:
                         match_sources.setdefault(duplicate_match_id, []).append(source)
 
-                    player_match_id_rows.append({
-                        "tier": tier,
-                        "riot_id": riot_id,
-                        "puuid": puuid,
-                        "match_rank": "",
-                        "match_id": duplicate_match_id,
-                        "selection_status": "duplicate_in_current_run_not_counted",
-                    })
+                    player_match_id_rows.append(
+                        {
+                            "tier": tier,
+                            "riot_id": riot_id,
+                            "puuid": puuid,
+                            "match_rank": "",
+                            "match_id": duplicate_match_id,
+                            "selection_status": "duplicate_in_current_run_not_counted",
+                        }
+                    )
 
             else:
                 cached_match_ids = None
@@ -2152,26 +2357,32 @@ def collect_dataset(
                 selected_this_run.add(match_id)
                 match_sources.setdefault(match_id, []).append(source)
 
-                player_match_id_rows.append({
-                    "tier": tier,
-                    "riot_id": riot_id,
-                    "puuid": puuid,
-                    "match_rank": rank,
-                    "match_id": match_id,
-                    "selection_status": "selected_new" if exclude_existing_from_count else "selected",
-                })
+                player_match_id_rows.append(
+                    {
+                        "tier": tier,
+                        "riot_id": riot_id,
+                        "puuid": puuid,
+                        "match_rank": rank,
+                        "match_id": match_id,
+                        "selection_status": "selected_new"
+                        if exclude_existing_from_count
+                        else "selected",
+                    }
+                )
 
         except Exception as e:
             print(f"[FAIL] Match IDs {tier} {riot_id}: {e}")
 
-            logs.append({
-                "step": "match_ids",
-                "tier": tier,
-                "riot_id": riot_id,
-                "match_id": "",
-                "status": "failed",
-                "message": str(e),
-            })
+            logs.append(
+                {
+                    "step": "match_ids",
+                    "tier": tier,
+                    "riot_id": riot_id,
+                    "match_id": "",
+                    "status": "failed",
+                    "message": str(e),
+                }
+            )
 
     player_match_ids_df = pd.DataFrame(player_match_id_rows)
     player_match_ids_df.to_csv(
@@ -2183,7 +2394,9 @@ def collect_dataset(
     unique_match_ids = sorted(match_sources.keys())
 
     print(f"[INFO] 유저별 선택 match_id row 수: {len(player_match_id_rows)}")
-    print(f"[INFO] 이번 실행에서 새로 가져올 unique match_id 수: {len(unique_match_ids)}")
+    print(
+        f"[INFO] 이번 실행에서 새로 가져올 unique match_id 수: {len(unique_match_ids)}"
+    )
 
     # -----------------------------------------------------
     # 3) match_id -> match detail
@@ -2217,14 +2430,16 @@ def collect_dataset(
         except Exception as e:
             print(f"[FAIL] Detail {match_id}: {e}")
 
-            logs.append({
-                "step": "match_detail",
-                "tier": "",
-                "riot_id": "",
-                "match_id": match_id,
-                "status": "failed",
-                "message": str(e),
-            })
+            logs.append(
+                {
+                    "step": "match_detail",
+                    "tier": "",
+                    "riot_id": "",
+                    "match_id": match_id,
+                    "status": "failed",
+                    "message": str(e),
+                }
+            )
 
     # -----------------------------------------------------
     # 4) 저장 + 앱용 자동 변환
@@ -2241,7 +2456,9 @@ def collect_dataset(
         ).reset_index(drop=True)
 
     if merge_existing:
-        raw_battle_logs_df = merge_raw_battle_logs(existing_raw_df, new_raw_battle_logs_df)
+        raw_battle_logs_df = merge_raw_battle_logs(
+            existing_raw_df, new_raw_battle_logs_df
+        )
     else:
         raw_battle_logs_df = new_raw_battle_logs_df
 
@@ -2292,7 +2509,9 @@ def collect_dataset(
         "auto_players": auto_players,
         "input_players": len(accounts),
         "valid_accounts": len(valid_accounts),
-        "requested_new_match_count_per_player": count_per_player if exclude_existing_from_count else None,
+        "requested_new_match_count_per_player": count_per_player
+        if exclude_existing_from_count
+        else None,
         "requested_match_count_per_player": count_per_player,
         "exclude_existing_from_count": exclude_existing_from_count,
         "merge_existing": merge_existing,
@@ -2323,7 +2542,9 @@ def collect_dataset(
     print(f"collect_logs.csv: {processed_dir / 'collect_logs.csv'}")
     print(f"summary.json: {processed_dir / 'summary.json'}")
     if app_dataset_dir and not skip_app_convert:
-        print(f"app dataset battle_logs.csv: {Path(app_dataset_dir) / 'battle_logs.csv'}")
+        print(
+            f"app dataset battle_logs.csv: {Path(app_dataset_dir) / 'battle_logs.csv'}"
+        )
     print()
     print(json.dumps(summary, ensure_ascii=False, indent=2))
 
@@ -2332,7 +2553,20 @@ def collect_dataset(
 # 9. CLI
 # =========================================================
 
+
 def main():
+    """Parse CLI arguments and run Riot dataset collection.
+
+    Returns:
+        None. Output files are written under the selected dataset directories.
+
+    Raises:
+        SystemExit: Raised by ``argparse`` for invalid CLI input.
+
+    Security:
+        Reads API credentials from environment-backed configuration and never accepts
+        them as command-line arguments, avoiding accidental shell history exposure.
+    """
     parser = argparse.ArgumentParser(
         description=(
             "Riot API로 랭크 플레이어와 최근 매치 정보를 수집하고, "
@@ -2492,7 +2726,11 @@ def main():
 
     if args.convert_existing:
         input_csv = Path(args.convert_existing)
-        output_csv = Path(args.output_csv) if args.output_csv else input_csv.parent / "battle_logs_app_ready.csv"
+        output_csv = (
+            Path(args.output_csv)
+            if args.output_csv
+            else input_csv.parent / "battle_logs_app_ready.csv"
+        )
         app_dataset_dir = Path(args.app_dataset_dir) if args.app_dataset_dir else None
 
         summary = convert_existing_battle_logs_file(

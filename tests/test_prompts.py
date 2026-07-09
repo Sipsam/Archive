@@ -37,17 +37,31 @@ class PromptContractTests(unittest.TestCase):
 
     def test_system_prompt_requires_data_limitations(self):
         prompt = build_system_prompt()
-        for limitation in ("표본", "다중 비교", "교란변수", "인과 추론", "픽률", "밴률"):
+        for limitation in (
+            "표본",
+            "다중 비교",
+            "교란변수",
+            "인과 추론",
+            "픽률",
+            "밴률",
+        ):
             self.assertIn(limitation, prompt)
 
     def test_system_prompt_preserves_required_tool_flow(self):
         prompt = build_system_prompt()
         required_tools = [
-            "get_dataset_overview", "detect_anomalies", "analyze_patch_impact",
-            "analyze_segment_performance", "retrieve_related_knowledge",
-            "simulate_stat_impact", "calculate_adjustment_options", "assess_balance_risk",
-            "generate_retest_plan", "generate_virtual_patch_note",
-            "simulate_virtual_patch_impact", "reflect_on_virtual_patch",
+            "get_dataset_overview",
+            "detect_anomalies",
+            "analyze_patch_impact",
+            "analyze_segment_performance",
+            "retrieve_related_knowledge",
+            "simulate_stat_impact",
+            "calculate_adjustment_options",
+            "assess_balance_risk",
+            "generate_retest_plan",
+            "generate_virtual_patch_note",
+            "simulate_virtual_patch_impact",
+            "reflect_on_virtual_patch",
         ]
         self.assertTrue(all(tool in prompt for tool in required_tools))
 

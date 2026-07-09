@@ -5,22 +5,39 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 
 from qagent_core.config import (
-    BALANCE_FDR_ALPHA, BALANCE_MIN_SAMPLES, BALANCE_MIN_WILSON_DIFF,
-    BALANCE_MIN_WIN_RATE, BALANCE_MIN_WIN_RATE_DIFF,
+    BALANCE_FDR_ALPHA,
+    BALANCE_MIN_SAMPLES,
+    BALANCE_MIN_WILSON_DIFF,
+    BALANCE_MIN_WIN_RATE,
+    BALANCE_MIN_WIN_RATE_DIFF,
 )
 from qagent_core.simulation import SCENARIO_WARNINGS, project_patch_scenario_range
-from qagent_core.statistics import analyze_balance_stages, detect_balance_candidates, win_rate
+from qagent_core.statistics import (
+    analyze_balance_stages,
+    detect_balance_candidates,
+    win_rate,
+)
 from qagent_core.utils import (
-    apply_lol_patch_version_mapping, ensure_column, first_existing_column,
-    format_value, get_latest_patch_version, get_previous_patch_version,
-    normalize_text, parse_number, patch_sort_key, pct, search_lol_stat_knowledge,
-    split_team, to_jsonable_df,
+    apply_lol_patch_version_mapping,
+    ensure_column,
+    first_existing_column,
+    format_value,
+    get_latest_patch_version,
+    get_previous_patch_version,
+    normalize_text,
+    parse_number,
+    patch_sort_key,
+    pct,
+    search_lol_stat_knowledge,
+    split_team,
+    to_jsonable_df,
 )
 
 from .context import AnalysisContext
 
 
 def build_patch_tools(context: AnalysisContext) -> dict[str, Any]:
+    """Build patch-comparison and related-knowledge lookup tools."""
     battles = context.battles
     characters = context.characters
     skills = context.skills
@@ -28,10 +45,9 @@ def build_patch_tools(context: AnalysisContext) -> dict[str, Any]:
     patch_notes = context.patch_notes
 
     def compare_patch_performance(
-        player_team: str = "",
-        equipment_set: str = "",
-        skill_used_most: str = ""
+        player_team: str = "", equipment_set: str = "", skill_used_most: str = ""
     ) -> Dict[str, Any]:
+        """Compare target performance metrics across patch versions."""
         df = battles.copy()
         filters = {}
 
@@ -55,7 +71,7 @@ def build_patch_tools(context: AnalysisContext) -> dict[str, Any]:
                 wins=("result", lambda x: int((x == "win").sum())),
                 win_rate=("result", win_rate),
                 avg_damage=("total_damage", "mean"),
-                avg_duration_sec=("duration_sec", "mean")
+                avg_duration_sec=("duration_sec", "mean"),
             )
             .reset_index()
             .sort_values("patch_version")
@@ -71,12 +87,14 @@ def build_patch_tools(context: AnalysisContext) -> dict[str, Any]:
         player_team: str,
         equipment_set: str = "",
         skill_used_most: str = "",
-        current_patch_version: str = ""
+        current_patch_version: str = "",
     ) -> Dict[str, Any]:
         """패치 전후 성능 변화량을 직접 계산하는 핵심 개선 Tool."""
         if not current_patch_version:
             current_patch_version = get_latest_patch_version(battles)
-        previous_patch_version = get_previous_patch_version(battles, current_patch_version)
+        previous_patch_version = get_previous_patch_version(
+            battles, current_patch_version
+        )
 
         df = battles[battles["player_team"].astype(str) == player_team].copy()
         if equipment_set:
@@ -93,13 +111,17 @@ def build_patch_tools(context: AnalysisContext) -> dict[str, Any]:
                 battles=("battle_id", "count"),
                 win_rate=("result", win_rate),
                 avg_damage=("total_damage", "mean"),
-                avg_duration_sec=("duration_sec", "mean")
+                avg_duration_sec=("duration_sec", "mean"),
             )
             .reset_index()
         )
 
-        current = patch_summary[patch_summary["patch_version"].astype(str) == str(current_patch_version)]
-        previous = patch_summary[patch_summary["patch_version"].astype(str) == str(previous_patch_version)]
+        current = patch_summary[
+            patch_summary["patch_version"].astype(str) == str(current_patch_version)
+        ]
+        previous = patch_summary[
+            patch_summary["patch_version"].astype(str) == str(previous_patch_version)
+        ]
 
         impact = {}
         if not current.empty and not previous.empty:
@@ -109,10 +131,14 @@ def build_patch_tools(context: AnalysisContext) -> dict[str, Any]:
                 "previous_patch": previous_patch_version,
                 "current_patch": current_patch_version,
                 "win_rate_change": round(float(c["win_rate"] - p["win_rate"]), 4),
-                "damage_change_rate": round(float(c["avg_damage"] / max(p["avg_damage"], 1) - 1), 4),
-                "duration_change_rate": round(float(c["avg_duration_sec"] / max(p["avg_duration_sec"], 1) - 1), 4),
+                "damage_change_rate": round(
+                    float(c["avg_damage"] / max(p["avg_damage"], 1) - 1), 4
+                ),
+                "duration_change_rate": round(
+                    float(c["avg_duration_sec"] / max(p["avg_duration_sec"], 1) - 1), 4
+                ),
                 "previous_battles": int(p["battles"]),
-                "current_battles": int(c["battles"])
+                "current_battles": int(c["battles"]),
             }
 
         return {
@@ -121,48 +147,62 @@ def build_patch_tools(context: AnalysisContext) -> dict[str, Any]:
                 "player_team": player_team,
                 "equipment_set": equipment_set,
                 "skill_used_most": skill_used_most,
-                "current_patch_version": current_patch_version
+                "current_patch_version": current_patch_version,
             },
-            "patch_summary": to_jsonable_df(patch_summary.sort_values("patch_version"), 20),
-            "impact": impact
+            "patch_summary": to_jsonable_df(
+                patch_summary.sort_values("patch_version"), 20
+            ),
+            "impact": impact,
         }
 
     def retrieve_related_knowledge(
-        player_team: str,
-        equipment_set: str,
-        skill_used_most: str,
-        patch_version: str
+        player_team: str, equipment_set: str, skill_used_most: str, patch_version: str
     ) -> Dict[str, Any]:
+        """Retrieve matching character, skill, equipment, and patch-note rows."""
         team_members = split_team(player_team)
-        skill_tokens = [x for x in str(skill_used_most).replace("/", " ").split() if len(x) >= 3]
-        equipment_tokens = [x for x in str(equipment_set).replace("/", " ").split() if len(x) >= 3]
+        skill_tokens = [
+            x for x in str(skill_used_most).replace("/", " ").split() if len(x) >= 3
+        ]
+        equipment_tokens = [
+            x for x in str(equipment_set).replace("/", " ").split() if len(x) >= 3
+        ]
         keywords = sorted(set(team_members + skill_tokens + equipment_tokens))
 
         char_rows = characters[characters["name"].astype(str).isin(team_members)]
         skill_rows = skills[
             (skills["character"].astype(str).isin(team_members))
-            | (skills["skill_name"].astype(str).str.lower() == str(skill_used_most).lower())
+            | (
+                skills["skill_name"].astype(str).str.lower()
+                == str(skill_used_most).lower()
+            )
         ]
         equip_rows = equipment_sets[
-            equipment_sets["set_name"].astype(str).str.lower() == str(equipment_set).lower()
+            equipment_sets["set_name"].astype(str).str.lower()
+            == str(equipment_set).lower()
         ]
 
         patch_matches = []
         for _, patch in patch_notes.iterrows():
             if str(patch.get("patch_version", "")) != str(patch_version):
                 continue
-            text = normalize_text(str(patch.get("change_target", "")) + " " + str(patch.get("description", "")))
+            text = normalize_text(
+                str(patch.get("change_target", ""))
+                + " "
+                + str(patch.get("description", ""))
+            )
             matched = [kw for kw in keywords if normalize_text(kw) in text]
             if matched:
-                patch_matches.append({
-                    "patch_version": str(patch.get("patch_version", "")),
-                    "date": str(patch.get("date", "")),
-                    "change_target": str(patch.get("change_target", "")),
-                    "before_value": str(patch.get("before_value", "")),
-                    "after_value": str(patch.get("after_value", "")),
-                    "description": str(patch.get("description", "")),
-                    "matched_keywords": matched
-                })
+                patch_matches.append(
+                    {
+                        "patch_version": str(patch.get("patch_version", "")),
+                        "date": str(patch.get("date", "")),
+                        "change_target": str(patch.get("change_target", "")),
+                        "before_value": str(patch.get("before_value", "")),
+                        "after_value": str(patch.get("after_value", "")),
+                        "description": str(patch.get("description", "")),
+                        "matched_keywords": matched,
+                    }
+                )
 
         return {
             "status": "ok",
@@ -170,13 +210,13 @@ def build_patch_tools(context: AnalysisContext) -> dict[str, Any]:
                 "player_team": player_team,
                 "equipment_set": equipment_set,
                 "skill_used_most": skill_used_most,
-                "patch_version": patch_version
+                "patch_version": patch_version,
             },
             "keywords": keywords,
             "characters": to_jsonable_df(char_rows, 20),
             "skills": to_jsonable_df(skill_rows, 20),
             "equipment_sets": to_jsonable_df(equip_rows, 20),
-            "patch_matches": patch_matches
+            "patch_matches": patch_matches,
         }
 
     return {

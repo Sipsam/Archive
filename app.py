@@ -1,4 +1,3 @@
-
 import os
 import re
 import json
@@ -12,15 +11,35 @@ import pandas as pd
 import streamlit as st
 
 from qagent_core.config import (
-    AGENT_TIMEOUT_SECONDS, APP_NAME, APP_VERSION, DEFAULT_MODEL,
-    DEFAULT_REASONING_EFFORT, ENABLE_DEBUG_LOG, ENABLE_TOOL_TRACE,
-    MAX_AGENT_ITERATIONS, MAX_TOOL_CALLS, BALANCE_FDR_ALPHA,
-    BALANCE_MIN_SAMPLES, BALANCE_MIN_WILSON_DIFF, BALANCE_MIN_WIN_RATE,
-    BALANCE_MIN_WIN_RATE_DIFF, get_secret,
+    AGENT_TIMEOUT_SECONDS,
+    APP_NAME,
+    APP_VERSION,
+    DEFAULT_MODEL,
+    DEFAULT_REASONING_EFFORT,
+    ENABLE_DEBUG_LOG,
+    ENABLE_TOOL_TRACE,
+    MAX_AGENT_ITERATIONS,
+    MAX_TOOL_CALLS,
+    BALANCE_FDR_ALPHA,
+    BALANCE_MIN_SAMPLES,
+    BALANCE_MIN_WILSON_DIFF,
+    BALANCE_MIN_WIN_RATE,
+    BALANCE_MIN_WIN_RATE_DIFF,
+    get_secret,
 )
 from qagent_core.runtime import (
-    input_summary, new_run_id, output_summary, safe_error_message, safe_for_log,
+    input_summary,
+    new_run_id,
+    output_summary,
+    safe_error_message,
+    safe_for_log,
 )
+from qagent_core.guardrails import (
+    GuardrailViolation,
+    mask_sensitive_output,
+    validate_agent_request,
+)
+from qagent_core.rag import append_rag_to_prompt, retrieve_rag_context
 from qagent_core.data_io import (
     EXPECTED_DATA_FILES as CORE_EXPECTED_DATA_FILES,
     load_data_folder as core_load_data_folder,
@@ -37,57 +56,62 @@ from qagent_core.persistence import (
     save_review_with_mirrors,
 )
 from qagent_core.statistics import (
-    analyze_balance_stages, detect_balance_candidates,
+    analyze_balance_stages,
+    detect_balance_candidates,
     win_rate,
 )
 from qagent_core.simulation import (
-    SCENARIO_WARNINGS, project_patch_scenario, project_patch_scenario_range,
+    SCENARIO_WARNINGS,
+    project_patch_scenario,
+    project_patch_scenario_range,
 )
 from qagent_core.risk import assess_balance_risk, generate_retest_plan
 from qagent_core.utils import (
-    LOL_STAT_KNOWLEDGE, apply_lol_patch_version_mapping, ensure_column,
-    first_existing_column, format_value, get_latest_patch_version,
-    get_previous_patch_version, map_game_version_to_patch_version,
-    normalize_existing_patch_version, normalize_master_tables, normalize_text,
-    parse_number, patch_sort_key, pct, search_lol_stat_knowledge, split_team,
+    LOL_STAT_KNOWLEDGE,
+    apply_lol_patch_version_mapping,
+    ensure_column,
+    first_existing_column,
+    format_value,
+    get_latest_patch_version,
+    get_previous_patch_version,
+    map_game_version_to_patch_version,
+    normalize_existing_patch_version,
+    normalize_master_tables,
+    normalize_text,
+    parse_number,
+    patch_sort_key,
+    pct,
+    search_lol_stat_knowledge,
+    split_team,
     to_jsonable_df,
 )
 from qagent_core.tool_registry import TOOL_SCHEMAS
 from qagent_core.tool_executor import ToolExecutor
 from qagent_core.tools import AnalysisContext, build_tool_functions
 from qagent_core.agent import (
-    choose_effective_openai_api, normalize_api_mode, normalize_reasoning_effort,
+    OpenAIKeyMissingError,
+    choose_effective_openai_api,
+    normalize_api_mode,
+    normalize_reasoning_effort,
     run_generative_agent,
 )
 from qagent_core.agent.followup import get_latest_tool_result
 from qagent_core.agent.presentation import render_live_trace, summarize_tool_result
 from qagent_core.agent.prompts import build_user_prompt
 from qagent_core.review.service import (
-    build_review_record, load_review_logs, now_kst_iso,
+    build_review_record,
+    load_review_logs,
+    now_kst_iso,
 )
-
-
-# =========================================================
-# Battle Balance Analyst Generative AI Agent
-# Assignment-oriented improved version
-#
-# 개선점:
-# 1. Patch Impact Analyzer Tool
-# 2. Segment Performance Analyzer Tool
-# 3. Stat Simulator Tool
-# 4. Balance Risk Assessment Tool
-# 5. Retest Plan Generator Tool
-# 6. Stronger tool-calling system prompt
-# 7. Safer CSV column normalization
-# =========================================================
 
 st.set_page_config(
     page_title=f"Battle Balance Analyst Agent v{APP_VERSION}",
     page_icon="🎮",
-    layout="wide"
+    layout="wide",
 )
 
-DATA_DIR = Path(__file__).parent / "data"
+PROJECT_ROOT = Path(__file__).resolve().parent
+DATA_DIR = PROJECT_ROOT / "data"
 SAMPLE_DATA_DIR = DATA_DIR
 LOL_DATA_DIR = DATA_DIR / "lol_assignment_dataset"
 HITL_DIR = DATA_DIR / "human_review"
@@ -97,18 +121,31 @@ REVIEW_DB_PATH = HITL_DIR / "reviews.sqlite3"
 
 STATE_AGENT_RESULT = "last_agent_result"
 STATE_REVIEW_LOG = "last_review_log"
-EMPTY_RESULT_MESSAGE = "아직 실행 결과가 없습니다. Agent를 실행하면 이 영역에 결과가 표시됩니다."
+EMPTY_RESULT_MESSAGE = (
+    "아직 실행 결과가 없습니다. Agent를 실행하면 이 영역에 결과가 표시됩니다."
+)
 
 REQUIRED_BATTLE_COLUMNS = [
-    "battle_id", "patch_version", "player_team", "enemy_team", "result",
-    "duration_sec", "main_dealer", "total_damage", "skill_used_most",
-    "equipment_set", "user_segment", "battle_mode"
+    "battle_id",
+    "patch_version",
+    "player_team",
+    "enemy_team",
+    "result",
+    "duration_sec",
+    "main_dealer",
+    "total_damage",
+    "skill_used_most",
+    "equipment_set",
+    "user_segment",
+    "battle_mode",
 ]
 
 
 @st.cache_data(show_spinner=False)
-def _load_csv_path_cached(path_text: str, modified_ns: int, file_size: int) -> pd.DataFrame:
-    # modified_ns and file_size are cache-key inputs; path_text is the data source.
+def _load_csv_path_cached(
+    path_text: str, modified_ns: int, file_size: int
+) -> pd.DataFrame:
+    """Load a CSV path through Streamlit cache invalidated by file metadata."""
     _ = modified_ns, file_size
     return core_load_csv(path_text)
 
@@ -118,24 +155,29 @@ def _load_data_folder_cached(
     folder_text: str,
     file_signature: tuple[tuple[str, int, int], ...],
 ) -> dict[str, pd.DataFrame]:
-    # file_signature invalidates the cache when any required CSV changes.
+    """Load a data folder through Streamlit cache invalidated by CSV signatures."""
     _ = file_signature
     loaded = core_load_data_folder(Path(folder_text))
     characters, skills, equipment_sets, patch_notes = normalize_master_tables(
-        loaded["characters"], loaded["skills"], loaded["equipment_sets"], loaded["patch_notes"]
+        loaded["characters"],
+        loaded["skills"],
+        loaded["equipment_sets"],
+        loaded["patch_notes"],
     )
-    loaded.update({
-        "battle_logs": apply_lol_patch_version_mapping(loaded["battle_logs"]),
-        "characters": characters,
-        "skills": skills,
-        "equipment_sets": equipment_sets,
-        "patch_notes": patch_notes,
-    })
+    loaded.update(
+        {
+            "battle_logs": apply_lol_patch_version_mapping(loaded["battle_logs"]),
+            "characters": characters,
+            "skills": skills,
+            "equipment_sets": equipment_sets,
+            "patch_notes": patch_notes,
+        }
+    )
     return loaded
 
 
-
 def load_csv(uploaded_file, sample_path: Path) -> pd.DataFrame:
+    """Load an uploaded CSV or fallback sample file with dataset validation."""
     dataset_name = sample_path.stem if sample_path.stem in EXPECTED_DATA_FILES else None
     if uploaded_file is not None:
         return core_load_csv(uploaded_file, name=dataset_name)
@@ -159,14 +201,13 @@ def find_data_folders(search_roots: tuple[str, ...]) -> List[Path]:
 def load_data_from_folder(folder: Path):
     """선택한 폴더에서 CSV 5개를 자동으로 연결."""
     resolved = folder.resolve()
-    signature = tuple(_file_cache_key(resolved / filename) for filename in EXPECTED_DATA_FILES.values())
+    signature = tuple(
+        _file_cache_key(resolved / filename)
+        for filename in EXPECTED_DATA_FILES.values()
+    )
     loaded = _load_data_folder_cached(str(resolved), signature)
     return tuple(loaded[name] for name in EXPECTED_DATA_FILES)
 
-
-# =========================================================
-# Tool factory
-# =========================================================
 
 def make_tool_functions(
     battles: pd.DataFrame,
@@ -175,73 +216,28 @@ def make_tool_functions(
     equipment_sets: pd.DataFrame,
     patch_notes: pd.DataFrame,
 ):
-    return build_tool_functions(AnalysisContext(
-        battles=battles,
-        characters=characters,
-        skills=skills,
-        equipment_sets=equipment_sets,
-        patch_notes=patch_notes,
-    ))
+    """Build Agent tool functions for the currently loaded Streamlit dataset."""
+    return build_tool_functions(
+        AnalysisContext(
+            battles=battles,
+            characters=characters,
+            skills=skills,
+            equipment_sets=equipment_sets,
+            patch_notes=patch_notes,
+        )
+    )
 
-
-
-
-
-
-
-# =========================================================
-# Live Tool Trace UI helpers
-# =========================================================
-
-
-
-
-
-# =========================================================
-# Generative Agent Loop
-# =========================================================
-
-
-
-# =========================================================
-# Dataset profile helpers
-# =========================================================
 
 def detect_dataset_profile(battles: pd.DataFrame) -> str:
+    """Infer whether the loaded battle logs use the LoL or sample RPG schema."""
     cols = set(battles.columns)
     if {"champion_name", "queue_id", "match_id"}.issubset(cols):
         return "League of Legends"
     return "Sample RPG"
 
 
-
-
-
-# =========================================================
-# HITL Review helpers
-# =========================================================
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def render_review_logs_panel() -> None:
+    """Render recent HITL review logs and a CSV download control."""
     with st.expander("저장된 HITL 검토 로그"):
         try:
             logs_df = load_review_logs()
@@ -259,18 +255,20 @@ def render_review_logs_panel() -> None:
             mime="text/csv",
         )
 
-# =========================================================
-# UI
-# =========================================================
 
 st.title(f"{APP_NAME} v{APP_VERSION}")
-st.caption("가상 예제 및 LoL 데이터를 분석하고, 가상 패치 후보와 휴리스틱 기반 시나리오 추정, Agent 자기반성, HITL 검토 기록을 지원하는 PoC용 밸런스 분석 Agent")
+st.caption(
+    "가상 예제 및 LoL 데이터를 분석하고, 가상 패치 후보와 휴리스틱 기반 시나리오 추정, Agent 자기반성, HITL 검토 기록을 지원하는 PoC용 밸런스 분석 Agent"
+)
 
 with st.sidebar:
     st.header("LLM Agent 설정")
-    api_key = st.text_input("OpenAI API Key", type="password", value=get_secret("OPENAI_API_KEY"))
-    if not api_key:
-        st.caption("OPENAI_API_KEY가 없습니다. 로컬 .env 또는 배포 환경의 Secret 저장소에 설정하세요. 키를 txt 파일에 저장하지 마세요.")
+    openai_key_configured = bool(get_secret("OPENAI_API_KEY"))
+    st.caption(f"OpenAI API Key: {'설정됨' if openai_key_configured else '미설정'}")
+    if not openai_key_configured:
+        st.caption(
+            "OPENAI_API_KEY가 없습니다. 로컬 .env 또는 배포 환경의 Secret 저장소에 설정하세요. 키를 txt 파일에 저장하지 마세요."
+        )
 
     model_options = [
         "gpt-5.4",
@@ -296,7 +294,9 @@ with st.sidebar:
         model = model_choice
 
     reasoning_options = ["none", "minimal", "low", "medium", "high", "xhigh"]
-    env_reasoning = normalize_reasoning_effort(os.getenv("OPENAI_REASONING_EFFORT", DEFAULT_REASONING_EFFORT))
+    env_reasoning = normalize_reasoning_effort(
+        os.getenv("OPENAI_REASONING_EFFORT", DEFAULT_REASONING_EFFORT)
+    )
     if env_reasoning not in reasoning_options:
         env_reasoning = "none"
     reasoning_effort = st.selectbox(
@@ -321,13 +321,21 @@ with st.sidebar:
         help="자동: gpt-5 계열 또는 reasoning 사용 시 Responses API, 그 외에는 Chat Completions를 사용합니다.",
     )
     api_mode = normalize_api_mode(api_mode_label)
-    effective_api_preview = choose_effective_openai_api(api_mode, reasoning_effort, model)
-    st.caption(f"실행 예정 API: {effective_api_preview} / reasoning: {reasoning_effort}")
+    effective_api_preview = choose_effective_openai_api(
+        api_mode, reasoning_effort, model
+    )
+    st.caption(
+        f"실행 예정 API: {effective_api_preview} / reasoning: {reasoning_effort}"
+    )
 
     st.divider()
     min_samples = st.slider("권장 최소 표본 수", 10, 200, BALANCE_MIN_SAMPLES, 1)
-    win_rate_threshold = st.slider("권장 검토 후보 승률 기준", 0.50, 0.99, BALANCE_MIN_WIN_RATE, 0.01)
-    win_rate_gap = st.slider("권장 평균 대비 차이", 0.01, 0.60, BALANCE_MIN_WIN_RATE_DIFF, 0.01)
+    win_rate_threshold = st.slider(
+        "권장 검토 후보 승률 기준", 0.50, 0.99, BALANCE_MIN_WIN_RATE, 0.01
+    )
+    win_rate_gap = st.slider(
+        "권장 평균 대비 차이", 0.01, 0.60, BALANCE_MIN_WIN_RATE_DIFF, 0.01
+    )
 
 st.subheader("1. 데이터 입력")
 
@@ -351,12 +359,16 @@ if data_mode == "기본 샘플 데이터":
         st.success("기본 가상 예제 데이터를 불러왔습니다.")
     except Exception as e:
         st.error(f"기본 샘플 데이터를 불러오지 못했습니다: {e}")
-        st.info("data 폴더에 battle_logs.csv, characters.csv, skills.csv, equipment_sets.csv, patch_notes.csv가 있는지 확인하세요.")
+        st.info(
+            "data 폴더에 battle_logs.csv, characters.csv, skills.csv, equipment_sets.csv, patch_notes.csv가 있는지 확인하세요."
+        )
         st.stop()
 
 elif data_mode == "LoL 데이터":
     try:
-        battles, characters, skills, equipment_sets, patch_notes = load_data_from_folder(LOL_DATA_DIR)
+        battles, characters, skills, equipment_sets, patch_notes = (
+            load_data_from_folder(LOL_DATA_DIR)
+        )
         selected_data_folder = LOL_DATA_DIR
         st.success(f"League of Legends 데이터셋을 불러왔습니다: {LOL_DATA_DIR}")
         summary_path = LOL_DATA_DIR / "dataset_summary.json"
@@ -410,7 +422,9 @@ elif data_mode == "폴더에서 자동 연결":
 
     if selected_data_folder is not None:
         try:
-            battles, characters, skills, equipment_sets, patch_notes = load_data_from_folder(selected_data_folder)
+            battles, characters, skills, equipment_sets, patch_notes = (
+                load_data_from_folder(selected_data_folder)
+            )
             st.success(f"데이터 폴더 연결 완료: {selected_data_folder}")
         except Exception as e:
             st.error(f"데이터 폴더를 불러오지 못했습니다: {e}")
@@ -480,9 +494,16 @@ if data_profile == "League of Legends":
             """
         )
         if "game_version" in battles.columns:
-            preview_cols = [c for c in ["game_version", "original_patch_version", "patch_version"] if c in battles.columns]
+            preview_cols = [
+                c
+                for c in ["game_version", "original_patch_version", "patch_version"]
+                if c in battles.columns
+            ]
             st.dataframe(
-                battles[preview_cols].drop_duplicates().sort_values("patch_version", key=lambda s: s.map(patch_sort_key)).head(20),
+                battles[preview_cols]
+                .drop_duplicates()
+                .sort_values("patch_version", key=lambda s: s.map(patch_sort_key))
+                .head(20),
                 width="stretch",
             )
         st.markdown("**내장 LoL 스탯 공식 지식 베이스**")
@@ -499,11 +520,37 @@ user_goal = st.text_area("Agent에게 줄 업무 지시", value=default_goal, he
 run = st.button("생성형 AI Agent 실행", type="primary")
 
 if run:
-    if not api_key:
+    if not openai_key_configured:
         st.error("생성형 AI Agent 모드는 OpenAI API Key가 필요합니다.")
         st.stop()
 
-    tool_functions = make_tool_functions(battles, characters, skills, equipment_sets, patch_notes)
+    try:
+        guarded_request = validate_agent_request(
+            query=user_goal,
+            model=model,
+            reasoning_effort=reasoning_effort,
+            context={"entrypoint": "streamlit", "data_profile": data_profile},
+        )
+    except GuardrailViolation as error:
+        st.error(f"입력값이 안전 기준을 통과하지 못했습니다: {error}")
+        st.stop()
+
+    rag_result = retrieve_rag_context(guarded_request.query, project_root=PROJECT_ROOT)
+    agent_user_goal = append_rag_to_prompt(guarded_request.query, rag_result)
+    if rag_result.status == "ok":
+        st.caption(
+            "RAG 근거: "
+            + ", ".join(
+                f"{item['source']}#{item['section']}"
+                for item in rag_result.sources_metadata()[:3]
+            )
+        )
+    elif rag_result.status == "insufficient_evidence":
+        st.caption("RAG 근거 부족: 내부 문서에서 충분한 관련 근거를 찾지 못했습니다.")
+
+    tool_functions = make_tool_functions(
+        battles, characters, skills, equipment_sets, patch_notes
+    )
 
     st.subheader("3. 실시간 Agent 실행 상태")
     live_progress_placeholder = st.empty()
@@ -513,36 +560,47 @@ if run:
     with st.spinner("LLM Agent가 tool을 선택하고 분석 중입니다..."):
         try:
             final_answer, trace, messages = run_generative_agent(
-                api_key=api_key,
-                model=model,
-                user_goal=user_goal,
+                model=guarded_request.model,
+                user_goal=agent_user_goal,
                 tool_functions=tool_functions,
                 max_turns=MAX_AGENT_ITERATIONS,
                 live_placeholder=live_log_placeholder,
                 progress_placeholder=live_progress_placeholder,
-                reasoning_effort=reasoning_effort,
+                reasoning_effort=guarded_request.reasoning_effort,
                 api_mode=api_mode,
             )
+        except OpenAIKeyMissingError:
+            st.error("OPENAI_API_KEY is not configured on the server.")
+            st.stop()
         except Exception as e:
-            st.error(f"Agent 실행 실패: {e}")
+            st.error(f"Agent 실행 실패: {safe_error_message('api', e)}")
             if ENABLE_DEBUG_LOG:
                 st.code(type(e).__name__)
             st.stop()
 
-    run_id = str(trace[0].get("run_id", "")) if trace else str(messages[0].get("run_id", new_run_id()))
+    run_id = (
+        str(trace[0].get("run_id", ""))
+        if trace
+        else str(messages[0].get("run_id", new_run_id()))
+    )
     st.session_state["last_agent_result"] = {
         "run_id": run_id,
         "created_at_kst": now_kst_iso(),
         "model": model,
-        "reasoning_effort": reasoning_effort,
+        "reasoning_effort": guarded_request.reasoning_effort,
         "api_mode": api_mode,
         "effective_api": choose_effective_openai_api(api_mode, reasoning_effort, model),
         "user_goal": "[USER_INPUT_REDACTED]",
         "data_profile": data_profile,
-        "selected_data_folder": str(selected_data_folder) if selected_data_folder else "",
-        "final_answer": final_answer,
+        "selected_data_folder": str(selected_data_folder)
+        if selected_data_folder
+        else "",
+        "final_answer": mask_sensitive_output(final_answer),
         "trace": trace,
         "messages": messages,
+        "rag_status": rag_result.status,
+        "rag_sources": rag_result.sources_metadata(),
+        "guardrail_warnings": list(guarded_request.warnings),
     }
 
 agent_state = st.session_state.get("last_agent_result")
@@ -551,21 +609,41 @@ if agent_state:
     trace = agent_state.get("trace", [])
     final_answer = agent_state.get("final_answer", "")
     messages = agent_state.get("messages", [])
+    rag_sources = agent_state.get("rag_sources", [])
 
     st.subheader("4. Agent Tool Call Trace 상세")
-    st.caption(f"실행 ID: {agent_state.get('run_id', '')} / 제한: 반복 {MAX_AGENT_ITERATIONS}회, Tool {MAX_TOOL_CALLS}회, {AGENT_TIMEOUT_SECONDS}초")
+    if rag_sources:
+        st.caption(
+            "RAG sources: "
+            + ", ".join(
+                f"{item.get('source')}#{item.get('section')}"
+                for item in rag_sources[:4]
+            )
+        )
+    st.caption(
+        f"실행 ID: {agent_state.get('run_id', '')} / 제한: 반복 {MAX_AGENT_ITERATIONS}회, Tool {MAX_TOOL_CALLS}회, {AGENT_TIMEOUT_SECONDS}초"
+    )
     if trace:
         for i, step in enumerate(trace, start=1):
             with st.expander(f"{i}. {step['tool']}"):
                 st.write("입력 요약:", step.get("input_summary", ""))
-                st.write("출력 요약:", step.get("output_summary", step.get("summary", "")))
+                st.write(
+                    "출력 요약:", step.get("output_summary", step.get("summary", ""))
+                )
                 st.write("상태:", "성공" if step.get("success") else "실패")
                 st.write("실행 시간(ms):", step.get("duration_ms", 0))
                 if ENABLE_TOOL_TRACE:
                     st.markdown("**안전 처리된 입력/결과**")
-                    st.json({"arguments": step.get("arguments", {}), "result": step.get("result", {})})
+                    st.json(
+                        {
+                            "arguments": step.get("arguments", {}),
+                            "result": step.get("result", {}),
+                        }
+                    )
     else:
-        st.warning("Tool call이 발생하지 않았습니다. 지시문에 '반드시 tool을 호출'하도록 더 명확히 적어보세요.")
+        st.warning(
+            "Tool call이 발생하지 않았습니다. 지시문에 '반드시 tool을 호출'하도록 더 명확히 적어보세요."
+        )
 
     st.subheader("5. 생성형 AI Agent 최종 분석")
     st.markdown(final_answer)
@@ -584,7 +662,9 @@ if agent_state:
     review_cols[0].metric(
         "Tool 호출 수", sum(bool(step.get("executed")) for step in trace)
     )
-    review_cols[1].metric("데이터 프로필", agent_state.get("data_profile", data_profile))
+    review_cols[1].metric(
+        "데이터 프로필", agent_state.get("data_profile", data_profile)
+    )
     review_cols[2].metric("실행 모델", agent_state.get("model", model))
     st.caption(
         f"OpenAI API: {agent_state.get('effective_api', choose_effective_openai_api(api_mode, reasoning_effort, model))} / "
@@ -605,33 +685,49 @@ if agent_state:
         with st.expander("가상 패치노트 구조화 데이터"):
             st.json(virtual_patch)
     else:
-        st.warning("이번 실행에서 `generate_virtual_patch_note` Tool 결과가 없습니다. 기본 프롬프트를 유지하고 다시 실행하면 가상 패치노트 단계가 포함됩니다.")
+        st.warning(
+            "이번 실행에서 `generate_virtual_patch_note` Tool 결과가 없습니다. 기본 프롬프트를 유지하고 다시 실행하면 가상 패치노트 단계가 포함됩니다."
+        )
 
     if virtual_simulation:
         st.markdown("**가정 기반 영향 시나리오 추정**")
-        st.warning("아래 수치는 입력 가정에 따른 휴리스틱 시나리오 추정입니다. 실제 예측 모델이나 게임 엔진 시뮬레이션 결과가 아니며 실제 패치 전 QA 테스트가 필요합니다.")
+        st.warning(
+            "아래 수치는 입력 가정에 따른 휴리스틱 시나리오 추정입니다. 실제 예측 모델이나 게임 엔진 시뮬레이션 결과가 아니며 실제 패치 전 QA 테스트가 필요합니다."
+        )
         sim_cols = st.columns(4)
         before = virtual_simulation.get("before", {})
         after = virtual_simulation.get("projected_after", {})
-        sim_cols[0].metric("현재 승률", f"{float(before.get('win_rate') or 0) * 100:.1f}%")
-        sim_cols[1].metric("시나리오 승률", f"{float(after.get('win_rate') or 0) * 100:.1f}%")
-        sim_cols[2].metric("현재 평균 피해량", f"{float(before.get('avg_damage') or 0):,.0f}")
-        sim_cols[3].metric("시나리오 평균 피해량", f"{float(after.get('avg_damage') or 0):,.0f}")
+        sim_cols[0].metric(
+            "현재 승률", f"{float(before.get('win_rate') or 0) * 100:.1f}%"
+        )
+        sim_cols[1].metric(
+            "시나리오 승률", f"{float(after.get('win_rate') or 0) * 100:.1f}%"
+        )
+        sim_cols[2].metric(
+            "현재 평균 피해량", f"{float(before.get('avg_damage') or 0):,.0f}"
+        )
+        sim_cols[3].metric(
+            "시나리오 평균 피해량", f"{float(after.get('avg_damage') or 0):,.0f}"
+        )
         scenario_rows = []
         for scenario_name, scenario in virtual_simulation.get("scenarios", {}).items():
-            scenario_rows.append({
-                "시나리오": scenario_name,
-                "효과 배수": scenario.get("assumed_effect_multiplier"),
-                "시나리오 승률": scenario.get("scenario_win_rate"),
-                "피해량 변화 가정": scenario.get("scenario_damage_change"),
-                "리스크 안내": scenario.get("risk_note"),
-            })
+            scenario_rows.append(
+                {
+                    "시나리오": scenario_name,
+                    "효과 배수": scenario.get("assumed_effect_multiplier"),
+                    "시나리오 승률": scenario.get("scenario_win_rate"),
+                    "피해량 변화 가정": scenario.get("scenario_damage_change"),
+                    "리스크 안내": scenario.get("risk_note"),
+                }
+            )
         if scenario_rows:
             st.dataframe(pd.DataFrame(scenario_rows), width="stretch")
         with st.expander("가상 패치 시나리오 추정 상세"):
             st.json(virtual_simulation)
     else:
-        st.info("가정 기반 영향 시나리오 추정 결과가 없습니다. 가상 패치노트가 생성되도록 다시 실행해보세요.")
+        st.info(
+            "가정 기반 영향 시나리오 추정 결과가 없습니다. 가상 패치노트가 생성되도록 다시 실행해보세요."
+        )
 
     if virtual_reflection:
         st.markdown("**Agent 자기반성**")
@@ -649,7 +745,9 @@ if agent_state:
         with st.expander("Agent 자기반성 상세"):
             st.json(virtual_reflection)
     else:
-        st.info("Agent 자기반성 결과가 아직 없습니다. 이번 버전에서는 가상 패치노트가 생성되면 앱이 이 단계를 자동 보완하도록 수정했습니다. 다시 실행해보세요.")
+        st.info(
+            "Agent 자기반성 결과가 아직 없습니다. 이번 버전에서는 가상 패치노트가 생성되면 앱이 이 단계를 자동 보완하도록 수정했습니다. 다시 실행해보세요."
+        )
 
     with st.form("hitl_review_form"):
         st.markdown("### Human Review 입력")
@@ -658,7 +756,14 @@ if agent_state:
             reviewer = st.text_input("검토자", value="QA/밸런스 담당자")
             review_status = st.selectbox(
                 "검토 상태",
-                ["Pending", "Approve Virtual Patch", "Reject Virtual Patch", "Needs Revision", "Retest Required", "Save as Candidate"],
+                [
+                    "Pending",
+                    "Approve Virtual Patch",
+                    "Reject Virtual Patch",
+                    "Needs Revision",
+                    "Retest Required",
+                    "Save as Candidate",
+                ],
                 index=0,
             )
             human_risk_level = st.selectbox(
@@ -694,7 +799,9 @@ if agent_state:
             height=140,
         )
 
-        save_review = st.form_submit_button("가상 패치 HITL 검토 로그 저장", type="primary")
+        save_review = st.form_submit_button(
+            "가상 패치 HITL 검토 로그 저장", type="primary"
+        )
 
     if save_review:
         try:
@@ -713,13 +820,19 @@ if agent_state:
             st.session_state["last_review_log"] = log_row
             storage_result = log_row.get("storage_result", {})
             if storage_result.get("status") == "saved":
-                st.success(f"HITL 검토 로그와 호환 export 저장 완료: {log_row['review_id']}")
+                st.success(
+                    f"HITL 검토 로그와 호환 export 저장 완료: {log_row['review_id']}"
+                )
             else:
                 st.warning(
                     f"HITL 검토 로그는 SQLite에 저장됐지만 일부 export가 실패했습니다: "
                     f"{log_row['review_id']}"
                 )
-                st.warning(storage_result.get("mirror_warning", "호환 export 상태를 확인하세요."))
+                st.warning(
+                    storage_result.get(
+                        "mirror_warning", "호환 export 상태를 확인하세요."
+                    )
+                )
             st.json(log_row)
         except ReviewPersistenceError as error:
             st.error(f"HITL 검토 기록을 저장하지 못했습니다: {error}")
@@ -728,7 +841,9 @@ if agent_state:
                 st.json(storage_result)
 
     if st.session_state.get("last_review_log"):
-        st.info(f"최근 저장된 검토 상태: {st.session_state['last_review_log'].get('review_status')}")
+        st.info(
+            f"최근 저장된 검토 상태: {st.session_state['last_review_log'].get('review_status')}"
+        )
 
     render_review_logs_panel()
 
@@ -736,5 +851,7 @@ if agent_state:
         st.json(messages)
 else:
     st.subheader("3. Virtual Patch Scenario Estimate & HITL Review Gate")
-    st.info("Agent를 먼저 실행하면 Tool Trace, 가상 패치노트, 가정 기반 시나리오 추정, Agent 자기반성, Human Review 저장 폼이 표시됩니다.")
+    st.info(
+        "Agent를 먼저 실행하면 Tool Trace, 가상 패치노트, 가정 기반 시나리오 추정, Agent 자기반성, Human Review 저장 폼이 표시됩니다."
+    )
     render_review_logs_panel()

@@ -4,7 +4,12 @@ import json
 import time
 from typing import Any, Dict, List, Optional
 
-from qagent_core.config import AGENT_TIMEOUT_SECONDS, MAX_AGENT_ITERATIONS, MAX_TOOL_CALLS
+from qagent_core.config import (
+    AGENT_TIMEOUT_SECONDS,
+    MAX_AGENT_ITERATIONS,
+    MAX_TOOL_CALLS,
+    get_secret,
+)
 from qagent_core.runtime import new_run_id, safe_error_message, safe_for_log
 from qagent_core.tool_executor import ToolExecutor
 from qagent_core.tool_registry import TOOL_SCHEMAS
@@ -13,6 +18,11 @@ from .chat_completions import run_generative_agent_with_chat_completions
 from .prompts import build_system_prompt
 from .presentation import render_live_trace, summarize_tool_result
 from .responses import run_generative_agent_with_responses_api
+
+
+class OpenAIKeyMissingError(RuntimeError):
+    """Raised when the server has no OpenAI API key configured."""
+
 
 def normalize_reasoning_effort(value: Optional[str]) -> str:
     """UI 입력값을 OpenAI reasoning.effort 값으로 정규화한다."""
@@ -34,6 +44,7 @@ def normalize_reasoning_effort(value: Optional[str]) -> str:
     }
     return aliases.get(text, text)
 
+
 def normalize_api_mode(value: Optional[str]) -> str:
     """UI 표시값을 내부 API mode로 변환한다."""
     text = str(value or "auto").strip().lower()
@@ -43,7 +54,10 @@ def normalize_api_mode(value: Optional[str]) -> str:
         return "chat_completions"
     return "auto"
 
-def choose_effective_openai_api(api_mode: str, reasoning_effort: str, model: str) -> str:
+
+def choose_effective_openai_api(
+    api_mode: str, reasoning_effort: str, model: str
+) -> str:
     """
     function tools + reasoning_effort 조합은 Chat Completions에서 막히는 모델이 있으므로
     reasoning을 명시한 경우 자동으로 Responses API를 사용한다.
@@ -66,8 +80,34 @@ def choose_effective_openai_api(api_mode: str, reasoning_effort: str, model: str
 
     return "chat_completions"
 
+
+def create_openai_client(api_key: Optional[str] = None):
+    """Create an OpenAI client from the server-side API key.
+
+    Args:
+        api_key: Optional internal override for tests. Production UI/API callers
+            should omit it so ``OPENAI_API_KEY`` is read from the environment.
+
+    Returns:
+        An initialized ``openai.OpenAI`` client.
+
+    Raises:
+        OpenAIKeyMissingError: ``OPENAI_API_KEY`` is not configured.
+        ImportError: The OpenAI SDK is not installed.
+
+    Security:
+        The key is never returned, logged, or exposed through Streamlit/API
+        responses. Do not pass user-entered keys into this function.
+    """
+    key = (api_key or get_secret("OPENAI_API_KEY")).strip()
+    if not key:
+        raise OpenAIKeyMissingError("OPENAI_API_KEY is not configured on the server.")
+    from openai import OpenAI
+
+    return OpenAI(api_key=key, timeout=min(60, AGENT_TIMEOUT_SECONDS), max_retries=0)
+
+
 def run_generative_agent(
-    api_key: str,
     model: str,
     user_goal: str,
     tool_functions: Dict[str, Any],
@@ -76,9 +116,34 @@ def run_generative_agent(
     progress_placeholder=None,
     reasoning_effort: str = "none",
     api_mode: str = "auto",
+    api_key: Optional[str] = None,
 ):
-    from openai import OpenAI
-    client = OpenAI(api_key=api_key, timeout=min(60, AGENT_TIMEOUT_SECONDS), max_retries=0)
+    """Run the tool-calling balance analysis Agent.
+
+    Args:
+        model: OpenAI model name.
+        user_goal: User request or generated analysis prompt.
+        tool_functions: Tool registry for the loaded dataset.
+        max_turns: Maximum LLM/tool loop turns.
+        live_placeholder: Optional Streamlit live trace placeholder.
+        progress_placeholder: Optional Streamlit progress placeholder.
+        reasoning_effort: OpenAI reasoning effort value.
+        api_mode: Requested OpenAI API surface.
+        api_key: Optional internal/test override. It must not come from UI or
+            external API request bodies.
+
+    Returns:
+        ``(final_answer, trace, sanitized_messages)``.
+
+    Raises:
+        OpenAIKeyMissingError: The server has no ``OPENAI_API_KEY``.
+        RuntimeError: Sanitized OpenAI API failure.
+
+    Security:
+        The OpenAI key is read server-side and is not included in tool traces,
+        logs, messages, or endpoint responses.
+    """
+    client = create_openai_client(api_key=api_key)
     run_id = new_run_id()
     started_at = time.monotonic()
     runtime_state = {"tool_calls": 0}
@@ -107,11 +172,14 @@ def run_generative_agent(
     )
 
     def update_live(current_message: str = ""):
+        """Update optional Streamlit live trace widgets during an Agent run."""
         if live_placeholder is not None:
             live_placeholder.markdown(render_live_trace(trace, current_message))
         if progress_placeholder is not None:
             completed = len([step for step in trace if step.get("finished")])
-            progress_placeholder.progress(min(completed / 14, 1.0), text=f"완료된 Tool: {completed}개")
+            progress_placeholder.progress(
+                min(completed / 14, 1.0), text=f"완료된 Tool: {completed}개"
+            )
 
     update_live(
         f"LLM Agent가 분석 계획을 세우는 중입니다. API={effective_api}, model={model}, reasoning={reasoning_effort}"

@@ -7,28 +7,49 @@ import pandas as pd
 
 from qagent_core.data_io import summarize_battle_metrics
 from qagent_core.config import (
-    BALANCE_FDR_ALPHA, BALANCE_MIN_SAMPLES, BALANCE_MIN_WILSON_DIFF,
-    BALANCE_MIN_WIN_RATE, BALANCE_MIN_WIN_RATE_DIFF,
+    BALANCE_FDR_ALPHA,
+    BALANCE_MIN_SAMPLES,
+    BALANCE_MIN_WILSON_DIFF,
+    BALANCE_MIN_WIN_RATE,
+    BALANCE_MIN_WIN_RATE_DIFF,
 )
 from qagent_core.simulation import (
-    SCENARIO_WARNINGS, project_patch_scenario, project_patch_scenario_range,
+    SCENARIO_WARNINGS,
+    project_patch_scenario,
+    project_patch_scenario_range,
     validate_patch_scenario_result,
 )
-from qagent_core.statistics import analyze_balance_stages, detect_balance_candidates, win_rate
+from qagent_core.statistics import (
+    analyze_balance_stages,
+    detect_balance_candidates,
+    win_rate,
+)
 from qagent_core.utils import (
-    apply_lol_patch_version_mapping, ensure_column, first_existing_column,
-    format_value, get_latest_patch_version, get_previous_patch_version,
-    normalize_text, parse_number, patch_sort_key, pct, search_lol_stat_knowledge,
-    split_team, to_jsonable_df,
+    apply_lol_patch_version_mapping,
+    ensure_column,
+    first_existing_column,
+    format_value,
+    get_latest_patch_version,
+    get_previous_patch_version,
+    normalize_text,
+    parse_number,
+    patch_sort_key,
+    pct,
+    search_lol_stat_knowledge,
+    split_team,
+    to_jsonable_df,
 )
 from .validators import (
-    ToolValidationError, validate_float_range, validate_choice,
+    ToolValidationError,
+    validate_float_range,
+    validate_choice,
     validation_error_dict,
 )
 from .context import AnalysisContext
 
 
 def build_virtual_patch_tools(context: AnalysisContext) -> dict[str, Any]:
+    """Build virtual patch proposal, simulation, and reflection tools."""
     battles = context.battles
     characters = context.characters
     skills = context.skills
@@ -41,6 +62,7 @@ def build_virtual_patch_tools(context: AnalysisContext) -> dict[str, Any]:
         skill_used_most: str = "",
         patch_version: str = "",
     ) -> pd.DataFrame:
+        """Filter battle rows to the candidate target population."""
         df = battles.copy()
         if player_team:
             df = df[df["player_team"].astype(str) == str(player_team)]
@@ -53,6 +75,7 @@ def build_virtual_patch_tools(context: AnalysisContext) -> dict[str, Any]:
         return df
 
     def _next_virtual_patch_version(base_patch: str = "") -> str:
+        """Create the next virtual patch label from a base patch version."""
         if not base_patch:
             base_patch = get_latest_patch_version(battles)
         match = re.match(r"^(\d+)\.(\d+)", str(base_patch))
@@ -80,14 +103,24 @@ def build_virtual_patch_tools(context: AnalysisContext) -> dict[str, Any]:
         실제 CSV나 게임 데이터를 수정하지 않고 HITL 검토용 후보만 생성한다.
         """
         try:
-            # Input validation
             if not player_team or not isinstance(player_team, str):
-                raise ToolValidationError("player_team은 비어있지 않은 문자열이어야 합니다")
-            risk_level = validate_choice(risk_level, ["Low", "Medium", "High", "Critical"], param_name="risk_level")
-            adjustment_intensity = validate_float_range(adjustment_intensity, min_val=0.1, max_val=1.0, param_name="adjustment_intensity")
+                raise ToolValidationError(
+                    "player_team은 비어있지 않은 문자열이어야 합니다"
+                )
+            risk_level = validate_choice(
+                risk_level,
+                ["Low", "Medium", "High", "Critical"],
+                param_name="risk_level",
+            )
+            adjustment_intensity = validate_float_range(
+                adjustment_intensity,
+                min_val=0.1,
+                max_val=1.0,
+                param_name="adjustment_intensity",
+            )
         except ToolValidationError as e:
             return validation_error_dict(e)
-        
+
         if not patch_version:
             patch_version = get_latest_patch_version(battles)
 
@@ -147,12 +180,16 @@ def build_virtual_patch_tools(context: AnalysisContext) -> dict[str, Any]:
 
         if direction == "nerf":
             estimated_win_rate_delta_points = -round(min(base_delta, 0.08), 4)
-            estimated_damage_delta_percent = -round(min(0.04 + intensity * 0.08, 0.14), 4)
+            estimated_damage_delta_percent = -round(
+                min(0.04 + intensity * 0.08, 0.14), 4
+            )
             action_word = "하향"
             balance_intent = "과도한 성능 상승 완화"
         elif direction == "buff":
             estimated_win_rate_delta_points = round(min(base_delta, 0.06), 4)
-            estimated_damage_delta_percent = round(min(0.03 + intensity * 0.06, 0.10), 4)
+            estimated_damage_delta_percent = round(
+                min(0.03 + intensity * 0.06, 0.10), 4
+            )
             action_word = "상향"
             balance_intent = "저조한 성능 보정"
         else:
@@ -231,20 +268,25 @@ def build_virtual_patch_tools(context: AnalysisContext) -> dict[str, Any]:
         실제 게임 시뮬레이터가 아니라 통계 기반 counterfactual 추정이다.
         """
         try:
-            # Input validation
             if not player_team or not isinstance(player_team, str):
-                raise ToolValidationError("player_team은 비어있지 않은 문자열이어야 합니다")
+                raise ToolValidationError(
+                    "player_team은 비어있지 않은 문자열이어야 합니다"
+                )
             expected_win_rate_delta_points = validate_float_range(
-                expected_win_rate_delta_points, min_val=-1.0, max_val=1.0, 
-                param_name="expected_win_rate_delta_points"
+                expected_win_rate_delta_points,
+                min_val=-1.0,
+                max_val=1.0,
+                param_name="expected_win_rate_delta_points",
             )
             expected_damage_delta_percent = validate_float_range(
-                expected_damage_delta_percent, min_val=-1.0, max_val=1.0,
-                param_name="expected_damage_delta_percent"
+                expected_damage_delta_percent,
+                min_val=-1.0,
+                max_val=1.0,
+                param_name="expected_damage_delta_percent",
             )
         except ToolValidationError as e:
             return validation_error_dict(e)
-        
+
         if not base_patch_version:
             base_patch_version = get_latest_patch_version(battles)
         if not virtual_patch_version:
@@ -292,10 +334,9 @@ def build_virtual_patch_tools(context: AnalysisContext) -> dict[str, Any]:
         scenarios = project_patch_scenario_range(
             wr_before, dmg_before, duration_before, wr_delta, dmg_delta
         )
-        
-        # Validate scenario results
+
         is_valid, validation_warnings = validate_patch_scenario_result(scenarios)
-        
+
         wr_after = projected["win_rate"]
         dmg_after = projected["avg_damage"]
         duration_after = projected["avg_duration_sec"]
@@ -316,14 +357,20 @@ def build_virtual_patch_tools(context: AnalysisContext) -> dict[str, Any]:
                 seg_before = summarize_battle_metrics(seg_df)
                 seg_wr = float(seg_before.get("win_rate") or 0)
                 seg_dmg = float(seg_before.get("avg_damage") or 0)
-                segment_rows.append({
-                    "user_segment": str(segment),
-                    "battles": seg_before.get("battles"),
-                    "before_win_rate": seg_before.get("win_rate"),
-                    "projected_win_rate": round(min(max(seg_wr + wr_delta, 0.01), 0.99), 4),
-                    "before_avg_damage": seg_before.get("avg_damage"),
-                    "projected_avg_damage": round(max(seg_dmg * (1 + dmg_delta), 0), 2),
-                })
+                segment_rows.append(
+                    {
+                        "user_segment": str(segment),
+                        "battles": seg_before.get("battles"),
+                        "before_win_rate": seg_before.get("win_rate"),
+                        "projected_win_rate": round(
+                            min(max(seg_wr + wr_delta, 0.01), 0.99), 4
+                        ),
+                        "before_avg_damage": seg_before.get("avg_damage"),
+                        "projected_avg_damage": round(
+                            max(seg_dmg * (1 + dmg_delta), 0), 2
+                        ),
+                    }
+                )
 
         return {
             "status": "ok",
@@ -348,7 +395,9 @@ def build_virtual_patch_tools(context: AnalysisContext) -> dict[str, Any]:
                 "win_rate": round(wr_after, 4),
                 "avg_damage": round(dmg_after, 2),
                 "avg_duration_sec": round(duration_after, 2),
-                "win_rate_vs_overall_after": round(wr_after - float(overall_summary.get("win_rate") or 0), 4),
+                "win_rate_vs_overall_after": round(
+                    wr_after - float(overall_summary.get("win_rate") or 0), 4
+                ),
             },
             "scenarios": scenarios,
             "warnings": list(SCENARIO_WARNINGS) + validation_warnings,
@@ -419,32 +468,56 @@ def build_virtual_patch_tools(context: AnalysisContext) -> dict[str, Any]:
 
         if sample_size < 30:
             concerns.append("표본 수가 30전 미만이라 가상 패치 추론 신뢰도가 낮음")
-            revision_suggestions.append("패치 후보 승인 전에 동일 조건 전투 로그를 추가 수집")
+            revision_suggestions.append(
+                "패치 후보 승인 전에 동일 조건 전투 로그를 추가 수집"
+            )
         elif sample_size < 100:
-            concerns.append("표본 수가 충분하지 않아 티어별/포지션별 분리 검증이 필요함")
+            concerns.append(
+                "표본 수가 충분하지 않아 티어별/포지션별 분리 검증이 필요함"
+            )
         else:
             positives.append("표본 수가 최소 검토 기준을 어느 정도 충족함")
 
         if projected_wr < overall_wr - 0.05:
-            concerns.append("가상 패치 시나리오 승률이 전체 평균보다 5%p 이상 낮아질 수 있어 과조정 위험이 있음")
+            concerns.append(
+                "가상 패치 시나리오 승률이 전체 평균보다 5%p 이상 낮아질 수 있어 과조정 위험이 있음"
+            )
             revision_suggestions.append("하향 폭을 줄이거나 단계적 조정안으로 분리")
         elif abs(projected_wr - overall_wr) <= 0.05:
-            positives.append("가상 패치 시나리오 승률이 전체 평균 근처로 수렴할 가능성이 있음")
+            positives.append(
+                "가상 패치 시나리오 승률이 전체 평균 근처로 수렴할 가능성이 있음"
+            )
         elif projected_wr > overall_wr + 0.10:
-            concerns.append("가상 패치 후에도 전체 평균보다 10%p 이상 높게 남을 수 있음")
-            revision_suggestions.append("조정폭을 재검토하거나 아이템/룬/포지션 원인을 추가 분석")
+            concerns.append(
+                "가상 패치 후에도 전체 평균보다 10%p 이상 높게 남을 수 있음"
+            )
+            revision_suggestions.append(
+                "조정폭을 재검토하거나 아이템/룬/포지션 원인을 추가 분석"
+            )
 
         if abs(damage_delta) >= 0.12:
-            concerns.append("평균 피해량 변화 가정이 12% 이상으로 커서 체감 변화가 과도할 수 있음")
-            revision_suggestions.append("피해량 조정보다 쿨다운, 성장값, 아이템 상호작용 등 대안을 비교")
+            concerns.append(
+                "평균 피해량 변화 가정이 12% 이상으로 커서 체감 변화가 과도할 수 있음"
+            )
+            revision_suggestions.append(
+                "피해량 조정보다 쿨다운, 성장값, 아이템 상호작용 등 대안을 비교"
+            )
         else:
             positives.append("피해량 변화 가정이 비교적 보수적인 범위에 있음")
 
-        if "|" in str(target_df.get("user_segment", pd.Series(dtype=str)).astype(str).iloc[0] if not target_df.empty and "user_segment" in target_df.columns else ""):
-            concerns.append("source_tiers가 여러 티어로 묶여 있어 특정 티어 영향이 흐려질 수 있음")
+        if "|" in str(
+            target_df.get("user_segment", pd.Series(dtype=str)).astype(str).iloc[0]
+            if not target_df.empty and "user_segment" in target_df.columns
+            else ""
+        ):
+            concerns.append(
+                "source_tiers가 여러 티어로 묶여 있어 특정 티어 영향이 흐려질 수 있음"
+            )
 
         if not revision_suggestions:
-            revision_suggestions.append("가상 패치 후보를 저장하고 QA/밸런스 담당자가 승인 여부를 검토")
+            revision_suggestions.append(
+                "가상 패치 후보를 저장하고 QA/밸런스 담당자가 승인 여부를 검토"
+            )
 
         if concerns and sample_size < 100:
             agent_recommendation = "Retest Required"

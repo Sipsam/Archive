@@ -12,14 +12,23 @@ FIXTURE_DIR = Path(__file__).parent / "fixtures"
 class AgentEvaluationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.cases = json.loads((FIXTURE_DIR / "agent_eval_cases.json").read_text(encoding="utf-8"))
-        cls.traces = json.loads((FIXTURE_DIR / "agent_tool_results.json").read_text(encoding="utf-8"))
-        cls.client = FakeAgentClient({case["id"]: case["fake_response"] for case in cls.cases})
+        cls.cases = json.loads(
+            (FIXTURE_DIR / "agent_eval_cases.json").read_text(encoding="utf-8")
+        )
+        cls.traces = json.loads(
+            (FIXTURE_DIR / "agent_tool_results.json").read_text(encoding="utf-8")
+        )
+        cls.client = FakeAgentClient(
+            {case["id"]: case["fake_response"] for case in cls.cases}
+        )
 
     def test_dataset_has_required_fields_and_minimum_case_count(self):
         required = {
-            "user_query", "expected_tools", "forbidden_claims",
-            "required_output_keywords", "expected_limitations",
+            "user_query",
+            "expected_tools",
+            "forbidden_claims",
+            "required_output_keywords",
+            "expected_limitations",
         }
         self.assertGreaterEqual(len(self.cases), 5)
         self.assertEqual(len({case["id"] for case in self.cases}), len(self.cases))

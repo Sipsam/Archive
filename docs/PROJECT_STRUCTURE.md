@@ -1,10 +1,31 @@
 # QAgent 프로젝트 구조 설명
 
+## 최신 구조 요약
+
+현재 실행 구조는 Streamlit UI와 FastAPI API가 같은 Agent 실행 서비스를 공유하는 형태입니다.
+
+- UI 진입점: `app.py`
+- API 진입점: `api.py`
+- 공통 Agent 실행: `qagent_core/agent/service.py`
+- OpenAI loop: `qagent_core/agent/responses.py`, `qagent_core/agent/chat_completions.py`
+- Tool schema/실행: `qagent_core/tool_registry.py`, `qagent_core/tool_executor.py`
+- RAG: `qagent_core/rag.py`
+- Guardrail: `qagent_core/guardrails.py`
+- API 문서: `docs/API.md`
+- RAG 문서: `docs/RAG_GUIDE.md`
+- 보안 문서: `docs/SECURITY_NOTES.md`
+- 아키텍처 판단 문서: `docs/AGENT_ARCHITECTURE.md`
+
+RAG는 별도 벡터 DB 없이 repository 내부 문서와 데이터 설명 파일을 검색합니다. LangChain/LangGraph/MCP/A2A는 현재 코드에는 도입하지 않고, 적용 판단과 확장 후보를 문서화했습니다.
+
+FastAPI 응답 metadata에는 `rag_status`, `rag_sources`, `guardrail_warnings`, `execution_nodes`가 포함됩니다.
+
 ## 루트 디렉토리
 
 ```
 QAgent/
 ├── app.py                      # Streamlit 메인 애플리케이션
+├── api.py                      # FastAPI 외부 호출 endpoint
 ├── requirements.txt            # Python 의존성 (pip install -r)
 ├── .env.example                # 환경변수 템플릿
 ├── .gitignore                  # Git 제외 설정
@@ -22,6 +43,7 @@ QAgent/
 | 파일 | 목적 |
 |------|------|
 | `app.py` | Streamlit 웹 UI 진입점. `streamlit run app.py`로 실행 |
+| `api.py` | FastAPI API 서버 진입점. `uvicorn api:app`으로 실행 |
 | `requirements.txt` | Python 패키지 의존성. `pip install -r requirements.txt`로 설치 |
 | `README.md` | 프로젝트 최상위 안내서. 빠른 실행, 폴더 구조, 주요 링크 포함 |
 | `.env.example` | 환경변수 템플릿. 로컬에서 `.env`로 복사하여 설정 |
@@ -183,6 +205,7 @@ python scripts/profile_core.py --output PERFORMANCE_BASELINE.md
 docs/
 ├── README.md (../README.md로 링크)
 ├── RUN.md                      # 상세 실행 가이드 및 환경 설정
+├── API.md                      # 외부 API 인증, 요청/응답, 에러 명세
 ├── DELIVERY_CHECKLIST.md       # 납품 체크리스트 및 보안 확인
 ├── SUBMISSION_NOTES.md         # 프로젝트 목적, 기능, 한계, 주의사항
 ├── PROJECT_STRUCTURE.md        # 이 파일
@@ -203,6 +226,7 @@ docs/
 | 문서 | 내용 |
 |------|------|
 | [RUN.md](RUN.md) | 상세 실행 가이드: 환경 설정, 데이터 구조, 테스트 명령어 |
+| [API.md](API.md) | 외부 API endpoint 명세와 curl 예시 |
 | [DELIVERY_CHECKLIST.md](DELIVERY_CHECKLIST.md) | 납품용 체크리스트: 보안 확인, 필수 파일, 제외 파일 |
 | [SUBMISSION_NOTES.md](SUBMISSION_NOTES.md) | 프로젝트 개요: 목적, 기능, 한계, 운영 전 필요사항 |
 | [review/](review/) | 코드 구조, 리팩토링 내역, 데이터 정규화 |
@@ -265,7 +289,8 @@ Copy-Item .env.example .env
 
 | 변수 | 필수 | 기본값 | 설명 |
 |------|------|--------|------|
-| `OPENAI_API_KEY` | 필수 | - | OpenAI API 키 (Agent 실행) |
+| `OPENAI_API_KEY` | 필수 | - | 서버 내부 OpenAI 호출용 키. UI/API에 원문 노출 금지 |
+| `AGENT_API_KEY` | API 사용 시 필수 | - | 외부 API 호출 인증용 키. OpenAI 키와 분리 |
 | `RIOT_API_KEY` | 선택 | - | Riot API 키 (신규 데이터 수집만) |
 | `OPENAI_MODEL` | 선택 | `gpt-5.4` | 사용할 OpenAI 모델명 |
 | `OPENAI_API_MODE` | 선택 | `responses` | API 모드 (Chat Completions 또는 Responses) |
@@ -273,6 +298,12 @@ Copy-Item .env.example .env
 | `MAX_AGENT_ITERATIONS` | 선택 | 18 | 최대 Agent 반복 횟수 |
 | `MAX_TOOL_CALLS` | 선택 | 30 | 최대 Tool 호출 횟수 |
 | `AGENT_TIMEOUT_SECONDS` | 선택 | 180 | Agent 실행 제한 시간 (초) |
+| `AGENT_DATA_DIR` | 선택 | `data/lol_assignment_dataset` | API 서버가 사용할 데이터셋 폴더 |
+| `AGENT_CORS_ORIGINS` | 선택 | 빈 값 | 허용할 CORS origin 목록. 기본값은 열지 않음 |
+| `ENABLE_RAG` | 선택 | `true` | 파일 기반 RAG 사용 여부 |
+| `RAG_INCLUDE_DATA_DOCS` | 선택 | `true` | `data/**` README, prompt, patch note 파일을 RAG 검색에 포함 |
+| `RAG_TOP_K` | 선택 | `4` | API/UI prompt에 첨부할 RAG 근거 개수 제한 |
+| `MAX_AGENT_QUERY_CHARS` | 선택 | `12000` | UI/API query 길이 제한 |
 | `ENABLE_TOOL_TRACE` | 선택 | `true` | Tool trace 표시 여부 |
 | `ENABLE_DEBUG_LOG` | 선택 | `false` | 디버그 로그 표시 여부 |
 
@@ -300,6 +331,9 @@ Copy-Item .env.example .env
 ```powershell
 # 실행
 streamlit run app.py
+
+# API 서버 실행
+uvicorn api:app --host 127.0.0.1 --port 8000
 
 # 테스트
 python -m unittest discover -s tests -v

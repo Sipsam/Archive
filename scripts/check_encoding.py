@@ -1,4 +1,5 @@
 """Validate source and documentation encoding and reject common mojibake."""
+
 from __future__ import annotations
 
 import re
@@ -35,6 +36,7 @@ SUSPICIOUS_PATTERNS = (
 
 
 def source_files(root: Path):
+    """Yield project source/doc files included in the encoding check."""
     for path in sorted(root.rglob("*")):
         if not path.is_file() or path.suffix.lower() not in INCLUDED_SUFFIXES:
             continue
@@ -44,11 +46,12 @@ def source_files(root: Path):
 
 
 def check_file(path: Path) -> list[tuple[int, str]]:
+    """Return suspicious encoding findings for one UTF-8 text file."""
     raw = path.read_bytes()
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError as error:
-        line_number = raw[:error.start].count(b"\n") + 1
+        line_number = raw[: error.start].count(b"\n") + 1
         return [(line_number, f"UTF-8 decode error at byte {error.start}")]
 
     findings: list[tuple[int, str]] = []
@@ -60,6 +63,7 @@ def check_file(path: Path) -> list[tuple[int, str]]:
 
 
 def main() -> int:
+    """Run the encoding check and return a process exit code."""
     findings: list[tuple[Path, int, str]] = []
     checked = 0
     for path in source_files(PROJECT_ROOT):
