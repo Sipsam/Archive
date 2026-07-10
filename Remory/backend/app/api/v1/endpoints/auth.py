@@ -23,18 +23,6 @@ router = APIRouter(
 )
 
 
-def _build_user_response(user: User) -> UserResponse:
-    role_value = user.role.name if hasattr(user.role, "name") else str(user.role).upper()
-    return UserResponse(
-        id=user.id,
-        email=user.email,
-        nickname=user.nickname,
-        role=role_value,
-        created_at=user.created_at,
-        updated_at=user.updated_at,
-    )
-
-
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     user_data: RegisterRequest,
@@ -48,7 +36,7 @@ async def register(
             access_token=tokens["access_token"],
             refresh_token=tokens["refresh_token"],
             token_type="bearer",
-            user=_build_user_response(user),
+            user=UserResponse.model_validate(user),
         )
     except RemoryException as e:
         raise to_http_exception(e)
@@ -76,7 +64,7 @@ async def login(
             access_token=tokens["access_token"],
             refresh_token=tokens["refresh_token"],
             token_type="bearer",
-            user=_build_user_response(user),
+            user=UserResponse.model_validate(user),
         )
     except RemoryException as e:
         raise to_http_exception(e)
@@ -85,7 +73,7 @@ async def login(
 @router.get("/me", response_model=UserResponse)
 async def me(current_user: User = Depends(get_current_user)):
     """현재 로그인한 사용자 조회"""
-    return _build_user_response(current_user)
+    return UserResponse.model_validate(current_user)
 
 
 @router.post("/refresh-token", response_model=TokenResponse)

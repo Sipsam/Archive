@@ -1,21 +1,18 @@
 from datetime import datetime
-from typing import Generic, List, Optional, TypeVar
-
-from pydantic import BaseModel, ConfigDict
+from typing import Generic, TypeVar, List, Optional
+from pydantic import BaseModel
 
 T = TypeVar("T")
 
 
 class PaginationParams(BaseModel):
-    """Pagination query parameters."""
-
+    """페이지네이션 파라미터"""
     skip: int = 0
     limit: int = 20
 
 
 class PaginatedResponse(BaseModel, Generic[T]):
-    """Paginated list response."""
-
+    """페이지네이션 응답"""
     total: int
     skip: int
     limit: int
@@ -23,16 +20,14 @@ class PaginatedResponse(BaseModel, Generic[T]):
 
 
 class MessageResponse(BaseModel):
-    """Common message response."""
-
+    """메시지 응답"""
     status: str
     message: str
     data: Optional[dict] = None
 
 
 class ErrorResponse(BaseModel):
-    """Common error response."""
-
+    """에러 응답"""
     status: str = "error"
     message: str
     detail: Optional[str] = None
@@ -40,9 +35,10 @@ class ErrorResponse(BaseModel):
 
 
 class TimestampMixin(BaseModel):
-    """Created and updated timestamps."""
-
+    """생성/수정 시간 포함"""
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    class Config:
+        from_attributes = True
+
