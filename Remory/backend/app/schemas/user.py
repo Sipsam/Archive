@@ -1,5 +1,4 @@
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
-from typing import Literal
 
 from app.schemas.common import TimestampMixin
 
@@ -43,7 +42,6 @@ class UserResponse(TimestampMixin):
     id: int
     email: EmailStr
     nickname: str
-    role: Literal["USER", "ADMIN"]
 
     model_config = ConfigDict(from_attributes=True)
 
