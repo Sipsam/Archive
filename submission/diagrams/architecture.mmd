@@ -1,0 +1,13 @@
+flowchart LR
+    U[Balance Designer / Operator] --> UI[Streamlit UI]
+    UI --> O[Agent Orchestrator]
+    O <--> L[OpenAI LLM\nResponses or Chat Completions]
+    O --> X[ToolExecutor\ntimeout / count / validation / trace]
+    X --> T[16 callable analysis tools]
+    T --> D[(5 CSV DataFrames\nmatch / character / skill / item / patch)]
+    T --> R[Structured tool results]
+    R --> O
+    O --> OUT[Analysis / virtual patch candidate\nscenario estimate / reflection]
+    OUT --> H{Human Review Gate}
+    H -->|approve candidate / reject / revise / retest| P[(SQLite authoritative log\nCSV and JSON mirrors)]
+    H -. no automatic live patch .-> STOP[Internal review and QA]

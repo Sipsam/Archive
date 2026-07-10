@@ -1,0 +1,20 @@
+flowchart TD
+    A[Load one folder or upload five CSV files] --> B[Normalize master tables and patch versions]
+    B --> C[Set model, reasoning, thresholds, and task prompt]
+    C --> D[Click 생성형 AI Agent 실행]
+    D --> E[LLM selects tool]
+    E --> F[Validate and execute tool]
+    F --> G[Return structured evidence and append safe trace]
+    G --> H{More evidence needed?}
+    H -->|yes, within limits| E
+    H -->|no| I[Generate final analysis]
+    I --> J{Virtual patch note exists?}
+    J -->|yes| K[Ensure scenario estimate and self-reflection]
+    J -->|no| L[Show missing-stage warning]
+    K --> M[Show HITL review form]
+    L --> M
+    M --> N{Human decision}
+    N --> O[Pending / Approve candidate / Reject / Needs Revision / Retest / Save Candidate]
+    O --> P[Persist review record]
+    F -->|validation, timeout, API, or empty result| Q[Expose failure in trace or UI]
+    Q --> R[Revise input, collect data, or rerun]

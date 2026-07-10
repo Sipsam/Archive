@@ -35,6 +35,4 @@ data/human_review/
 
 # Generated reports (remove this rule if reports are intentionally versioned)
 report/*.tmp
-
-# sUBMISSIONs
-submission/
+submission/~$*
