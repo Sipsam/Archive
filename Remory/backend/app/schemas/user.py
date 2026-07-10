@@ -1,62 +1,53 @@
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
-from typing import Literal
-
+from pydantic import BaseModel, EmailStr, Field
 from app.schemas.common import TimestampMixin
 
 
 class RegisterRequest(BaseModel):
-    """User registration request."""
-
+    """회원가입 요청"""
     email: EmailStr
     nickname: str = Field(..., min_length=2, max_length=100)
     password: str = Field(..., min_length=8, max_length=100)
 
 
 class LoginRequest(BaseModel):
-    """User login request."""
-
+    """로그인 요청"""
     email: EmailStr
     password: str
 
 
 class RefreshTokenRequest(BaseModel):
-    """Refresh token rotation request."""
-
+    """리프레시 토큰 갱신 요청"""
     refresh_token: str
 
 
 class LogoutRequest(BaseModel):
-    """Logout request."""
-
+    """로그아웃 요청"""
     refresh_token: str
 
 
 class MessageResponse(BaseModel):
-    """Common message response."""
-
+    """공통 메시지 응답"""
     message: str
 
 
 class UserResponse(TimestampMixin):
-    """User response."""
-
+    """사용자 응답"""
     id: int
     email: EmailStr
     nickname: str
-    role: Literal["USER", "ADMIN"]
 
-    model_config = ConfigDict(from_attributes=True)
+    class Config:
+        from_attributes = True
 
 
 class TokenResponse(BaseModel):
-    """Token response."""
-
+    """토큰 응답"""
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
 
 
 class AuthResponse(TokenResponse):
-    """Authentication response."""
-
+    """로그인/회원가입 응답"""
     user: UserResponse
+
