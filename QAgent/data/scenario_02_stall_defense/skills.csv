@@ -1,0 +1,11 @@
+﻿skill_name,character,skill_type,damage_multiplier,cooldown_sec,effect,balance_note
+Moon Slash,Luna,damage,3.8,8,AOE damage,광역 피해
+Shield Break,Arthur,debuff,1.2,10,defense_down,방어력 감소
+Critical Order,Kain,buff,0.0,12,critical_rate_up,치명타 증가
+Dark Pierce,Noah,damage,3.2,7,single_target_damage,단일 대상 피해
+Healing Rain,Rin,heal,0.0,12,team_heal,1.2.0 패치에서 회복량이 상향됨
+Stone Guard,Evan,defense,0.0,15,damage_reduction,1.2.0 패치에서 피해 감소량이 상향됨
+Flame Burst,Mira,damage,3.5,9,AOE fire damage,광역 화염 피해
+Blessing Mark,Selene,buff,0.0,13,attack_speed_up,공격 속도 증가
+Iron Wall,Darius,defense,0.0,15,shield,1.2.0 패치에서 실드량이 상향됨
+Frost Arrow,Iris,damage,3.3,8,slow_and_damage,감속 및 피해

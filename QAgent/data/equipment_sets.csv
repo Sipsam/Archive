@@ -1,0 +1,5 @@
+﻿set_name,set_type,bonus_type,bonus_value,condition
+Vanguard Set,tank/dps,damage_reduction+attack,15%,3-set
+Assassin Set,burst,crit_damage,20%,3-set
+Mage Set,magic,skill_damage,18%,3-set
+Guardian Set,defense,hp,25%,3-set

@@ -1,0 +1,6 @@
+﻿patch_version,date,change_target,before_value,after_value,description
+1.1.0,2026-06-20,Baseline,-,-,패치 전 기준 버전
+1.2.0,2026-07-01,Evan Stone Guard damage reduction,12%,22%,Evan의 Stone Guard 피해 감소량이 증가함
+1.2.0,2026-07-01,Rin Healing Rain healing bonus,10%,18%,Rin의 Healing Rain 회복량이 증가함
+1.2.0,2026-07-01,Darius Iron Wall shield value,15%,25%,Darius의 Iron Wall 실드량이 증가함
+1.2.0,2026-07-01,Guardian set damage reduction,12%,18%,Guardian 세트 피해 감소량이 증가함

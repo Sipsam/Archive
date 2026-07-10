@@ -1,0 +1,38 @@
+# Secrets
+.env
+.env.*
+!.env.example
+OPENAI_API_KEYS.txt
+.streamlit/secrets.toml
+
+# Python / virtual environments
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Runtime output, caches, and temporary files
+*.log
+*.tmp
+*.bak
+*.lock
+data/cache/
+data/tmp/
+# Local collection outputs may contain account identifiers, match IDs, or raw API payloads.
+data/riot_dataset/
+data/lol_assignment_dataset/extras/
+# Human review records are runtime artifacts and may contain reviewer names/comments.
+data/human_review/
+
+# Generated reports (remove this rule if reports are intentionally versioned)
+report/*.tmp
+submission/~$*

@@ -1,0 +1,11 @@
+﻿character_id,name,role,element,base_attack,base_hp,main_skill,design_intent
+C001,Luna,Dealer,Dark,920,4200,Moon Slash,광역 피해를 통해 중후반 전투를 마무리하는 딜러
+C002,Arthur,Tank,Light,610,7600,Shield Break,방어력 감소 디버프를 제공하는 탱커
+C003,Kain,Support,Dark,540,5100,Critical Order,치명타 확률 버프로 딜러를 보조하는 서포터
+C004,Noah,Dealer,Fire,870,4300,Dark Pierce,단일 대상 피해에 강한 딜러
+C005,Rin,Healer,Water,430,5900,Healing Rain,지속 회복을 통해 장기전을 지원하는 힐러
+C006,Evan,Tank,Earth,590,8000,Stone Guard,피해 감소 기반 방어형 탱커
+C007,Mira,Dealer,Fire,890,4100,Flame Burst,광역 화염 피해를 가진 딜러
+C008,Selene,Support,Light,510,5400,Blessing Mark,공격 속도와 행동 순서를 보조하는 서포터
+C009,Darius,Tank,Dark,640,7900,Iron Wall,실드와 도발로 아군을 보호하는 탱커
+C010,Iris,Dealer,Water,840,4400,Frost Arrow,감속과 단일 피해를 함께 제공하는 딜러
