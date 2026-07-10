@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>결제 처리 중...</title>
+    <link rel="icon" href="favicon.png" type="image/png">
+  </head>
+  <body>
+    <div style="text-align:center; padding-top:100px;">
+        <h2>결제 승인 처리 중입니다...</h2>
+        <p>잠시만 기다려주세요.</p>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+      // URL 파라미터 파싱
+      const urlParams = new URLSearchParams(window.location.search);
+      const paymentKey = urlParams.get("paymentKey");
+      const orderId = urlParams.get("orderId");
+      const amount = urlParams.get("amount");
+      
+      // payment.js에서 전달한 공구 ID (상품 결제인 경우에만 존재)
+      const groupBuyId = urlParams.get("groupBuyId");
+
+      async function confirm() {
+        const requestData = {
+          paymentKey: paymentKey,
+          orderId: orderId,
+          amount: amount,
+        };
+
+        const token = localStorage.getItem('accessToken');
+        let apiUrl = '';
+
+        // 1. 주문 ID를 보고 포인트 충전인지, 상품 결제인지 API 구분
+        if (orderId.startsWith("POINT_")) {
+            apiUrl = '/api/payment/point/charge'; // 포인트 충전 승인 API
+        } else {
+            apiUrl = '/api/payment/confirm'; // 상품 결제 승인 API
+        }
+
+        try {
+            // 2. 백엔드에 결제 승인 요청
+            const response = await fetch(apiUrl, {
+                method: "POST",
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}` 
+                },
+                body: JSON.stringify(requestData),
+            });
+
+            if (!response.ok) {
+                // 실패 시 처리
+                const json = await response.json();
+                console.error("결제 승인 실패:", json);
+                alert("결제 승인 실패: " + (json.message || "알 수 없는 오류"));
+                
+                // 실패 시 돌아갈 경로
+                if (groupBuyId) {
+                    window.location.href = `payment.html?groupBuyId=${groupBuyId}`;
+                } else {
+                    window.location.href = "index.html";
+                }
+                return;
+            }
+
+            // 3. 성공 시 페이지 리다이렉트 분기 처리
+            if (orderId.startsWith("POINT_")) {
+                // [케이스 A] 포인트 충전 성공 -> 마이페이지로 이동
+                alert("포인트 충전이 완료되었습니다!");
+                window.location.href = "mypage.html";
+            } else {
+                // [케이스 B] 상품 결제 성공 -> 다시 결제 페이지로 이동 (완료 상태 확인용)
+                alert("상품 결제가 완료되었습니다!");
+                if (groupBuyId) {
+                    window.location.href = `payment.html?groupBuyId=${groupBuyId}`;
+                } else {
+                    window.location.href = "recruitment-list.html";
+                }
+            }
+
+        } catch (e) {
+            console.error(e);
+            alert("결제 처리 중 통신 오류가 발생했습니다.");
+            window.location.href = "index.html";
+        }
+      }
+
+      // 함수 실행
+      confirm();
+    </script>
+  </body>
+</html>

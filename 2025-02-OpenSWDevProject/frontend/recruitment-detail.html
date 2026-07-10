@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Together - 모집글 상세</title>
+    <link rel="icon" href="favicon.png" type="image/png">
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/recruitment-detail.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="index.html" class="logo">TOGETHER</a>
+            <div class="header-actions" style="display: flex; align-items: center; gap: 10px;">
+                <a href="recruitment-list.html" class="btn btn-secondary">목록으로</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <h1 class="page-title">모집글 상세</h1>
+        
+        <div class="recruitment-detail">
+            <div class="recruiter-card">
+                <div class="recruiter-avatar">👤</div>
+                <div class="recruiter-info">
+                    <div class="recruiter-name" id="hostName">로딩 중...</div>
+                    <div class="recruiter-date" id="recruitDate">-</div>
+                    <button id="btnHeaderChat" class="btn btn-primary" style="display: none; padding: 8px 15px; font-size: 14px;">
+                        💬 채팅방 입장
+                    </button>
+                </div>
+            </div>
+
+            <div class="product-section">
+                <div class="product-images">
+                    <div class="main-image" id="productImage">
+                        <div class="image-placeholder">이미지 로딩 중...</div>
+                    </div>
+                </div>
+
+                <div class="product-info">
+                    <div class="info-row">
+                        <label>상품명</label>
+                        <div class="info-value" id="productName">-</div>
+                    </div>
+                    
+                    <div class="info-row">
+                        <label>가격 정보</label>
+                        <div class="info-value" id="priceInfo">-</div>
+                    </div>
+
+                    <div class="info-row">
+                        <label>모집 목표 인원</label>
+                        <div class="info-value" id="targetCount">0명</div>
+                    </div>
+
+                    <div class="info-row">
+                        <label>현재 참여 인원</label>
+                        <div class="info-value" id="currentCount">0명</div>
+                    </div>
+
+                    <div class="info-row" id="sourceLinkRow" style="display: none;">
+                        <label>구매 링크</label>
+                        <div class="info-value">
+                            <a id="sourceLink" href="#" target="_blank" style="color:#4a90e2; font-weight:bold;">
+                                상품 원본 페이지 보러가기 ↗
+                            </a>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary btn-join">참여하기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script src="js/recruitment-detail.js"></script>
+</body>
+</html>

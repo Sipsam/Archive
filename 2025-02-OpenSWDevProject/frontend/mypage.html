@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Together - 마이페이지</title>
+    <link rel="icon" href="favicon.png" type="image/png">
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/mypage.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="index.html" class="logo">TOGETHER</a>
+            <div class="header-actions">
+                <a href="index.html" class="btn btn-secondary">메인으로</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <h1 class="page-title">마이페이지</h1>
+        
+        <div class="mypage-layout">
+            <div class="profile-section">
+                <div class="profile-card">
+                    <div class="avatar">
+                        <svg width="80" height="80" viewBox="0 0 80 80">
+                            <circle cx="40" cy="30" r="15" fill="#ccc"/>
+                            <path d="M 20 70 Q 20 50 40 50 Q 60 50 60 70" stroke="#ccc" stroke-width="3" fill="none"/>
+                        </svg>
+                    </div>
+                    <div class="profile-info">
+                        <div class="name-section">
+                            <span class="name-label">이름</span>
+                            <span class="name-value" id="userName"></span>
+                            <span class="score" id="manner_temp"></span>
+                        </div>
+                        <div class="point-section">
+                            <span class="point-label">포인트</span>
+                            <span class="point-value" id="userPoints">0</span>
+                            <a href="point.html"><button class="point-detail-btn">🔍</button></a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="menu-section">
+                    <ul class="mypage-menu">
+                        <li><a class="menu-link active" data-tab="section-orders">주문 내역 (참여중)</a></li>
+                        <li><a class="menu-link" data-tab="section-completed">완료된 공구</a></li>
+                        <li><a class="menu-link" data-tab="section-settings">설정</a></li>
+                        <li><a href="#" onclick="logout()">로그아웃</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="content-section">
+                <div id="section-orders" class="tab-content active content-card">
+                    <h2>참여 중인 모집글</h2>
+                    <div class="participation-list" id="participationList"></div>
+                </div>
+
+                <div id="section-completed" class="tab-content content-card">
+                    <h2>완료된 모집글</h2>
+                    <div class="participation-list" id="completedList"></div>
+                </div>
+
+                <div id="section-settings" class="tab-content content-card">
+                    <h2>내 정보 설정</h2>
+                    <form id="settingsForm" class="settings-form">
+                        <div class="form-grid">
+                            <div class="form-group"><label>이름</label><input type="text" id="settingName"></div>
+                            <div class="form-group"><label>닉네임</label><input type="text" id="settingNickname"></div>
+                            <div class="form-group"><label>이메일</label><input type="email" id="settingEmail"></div>
+                            <div class="form-group"><label>전화번호</label><input type="tel" id="settingPhone"></div>
+                            <div class="form-group"><label>주소</label><input type="text" id="settingAddress"></div>
+                            <div class="form-group"><label>상세 주소</label><input type="text" id="settingAddressDetail"></div>
+                            <div class="form-group"><label>우편번호</label><input type="text" id="settingZip"></div>
+                            <div class="password-section-divider"></div>
+                            <div class="form-group full-width"><label>현재 비밀번호</label><input type="password" id="settingPassword"></div>
+                            <div class="form-group"><label>새 비밀번호</label><input type="password" id="newPassword"></div>
+                            <div class="form-group"><label>새 비밀번호 확인</label><input type="password" id="confirmNewPassword"></div>
+                        </div>
+                        <div class="form-actions"><button type="submit" class="btn btn-primary">저장하기</button></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script src="js/mypage.js"></script>
+</body>
+</html>
