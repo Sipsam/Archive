@@ -3,19 +3,28 @@ spring:
     name: final
 
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: jdbc:mysql://localhost:3306/final_study_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: your-local-mysql-password
+    driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
     hibernate:
       ddl-auto: create
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+    show-sql: true
 
 jwt:
-  secret-key: ${JWT_SECRET_KEY}
+  # NOTE: 로컬 개발용 예시 값입니다. 운영 환경에서는 환경변수/서버 설정으로 분리하세요.
+  secret-key: your-jwt-secret-key-placeholder
   access-token:
     header: Authorization
-    expiration:
+    expiration: 3600000
+  refresh-token:
+    expiration: 1209600000
 
 springdoc:
   api-docs:
@@ -26,3 +35,13 @@ springdoc:
     tags-sorter: alpha
     operations-sorter: alpha
     try-it-out-enabled: true
+  show-actuator: true
+
+logging:
+  level:
+    root: INFO
+    com.likelion.finalstudy: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
+
+
