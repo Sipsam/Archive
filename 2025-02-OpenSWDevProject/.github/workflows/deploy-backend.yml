@@ -1,0 +1,34 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [ backend ]
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    
+    steps:
+    - name: Pull Backend Code
+      run: |
+        cd ~/project/backend
+        git pull origin backend
+    
+    - name: Rebuild Backend Container
+      run: |
+        cd ~/project
+        docker-compose up -d --build springboot
+    
+    - name: Check Container Status
+      run: |
+        docker ps | grep springboot-container
+        
+    - name: Show Logs
+      run: |
+        cd ~/project
+        docker-compose logs --tail=50 springboot
+    
+    - name: Notify Deployment Success
+      run: |
+        echo "✅ Backend deployment completed successfully!"
