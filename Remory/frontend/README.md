@@ -1,78 +1,67 @@
-<<<<<<< HEAD
-# remoryFE
-front
-=======
-# React + TypeScript + Vite
+# Remory Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Remory 프론트엔드는 React, TypeScript, Vite 기반의 기억 플랫폼 웹 클라이언트입니다. 현재 `demo` 브랜치는 배포된 FastAPI 백엔드와 연동되는 로컬 개발 환경, 그리고 같은 서버/Nginx 배포로 전환 가능한 환경 변수 구조를 기준으로 정리되어 있습니다.
 
-Currently, two official plugins are available:
+## 기술 스택
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- React 19
+- TypeScript
+- Vite
+- ESLint
+- lucide-react
 
-## React Compiler
+## 로컬 실행
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+- Frontend: `http://localhost:5173`
+- Backend: `http://141.164.48.128:8000`
+- API prefix: `/api/v1`
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+`.env.local` 예시:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```env
+VITE_API_BASE_URL=http://141.164.48.128:8000/api/v1
+VITE_WS_BASE_URL=ws://141.164.48.128:8000/api/v1
 ```
->>>>>>> 7aec064 (initial commit)
+
+같은 서버/Nginx 배포에서는 상대 경로를 사용합니다.
+
+```env
+VITE_API_BASE_URL=/api/v1
+VITE_WS_BASE_URL=/api/v1
+```
+
+## 주요 명령어
+
+```bash
+npm run dev
+npm run build
+npm run lint
+npm run preview
+```
+
+## 현재 구현 상태 요약
+
+- 실제 API 연결: Auth, User me, Target, TargetMedia, ConsentLog, TargetVerificationRequest, Persona, PersonaVoiceProfile, PersonaChat, PersonaMessage, Voice WebSocket, AIInterviewSession, PhotoMemory, StoryBook, StoryChapter, ShareLink, MemoryGroup, GroupMember, GroupStoryBook, DeletionRequest, Report, Admin 주요 기능
+- 부분 연결/주의: Persona 전체 목록은 백엔드 전역 list endpoint가 없어 Target 기반 흐름 중심입니다. Interview 전체 목록도 endpoint가 없어 생성/직접 조회 중심입니다. 일부 Admin report 응답은 OpenAPI schema가 구체 object가 아니므로 일반 필드 렌더링을 유지합니다.
+- 제거/통합: CampaignsPage, legacy ProfilePage, legacy StorybookPage, 회원가입 직후 자동 데이터 생성 flow는 제거 또는 Remory 백엔드 도메인으로 통합했습니다.
+- Mock: 개발용 mock skeleton 자산은 남아 있지만, 실제 API가 없는 실행 버튼은 비활성화하거나 API 연결 예정 안내를 표시합니다.
+
+## 문서
+
+- [프론트 구조와 UI 가이드](docs/FRONTEND_GUIDE.md)
+- [API 연동과 백엔드 정합성](docs/API_INTEGRATION.md)
+- [배포와 QA 체크리스트](docs/DEPLOYMENT_AND_QA.md)
+- [Agent 작업 규칙](AGENTS.md)
+
+## 원칙
+
+- 백엔드 문서와 OpenAPI에 없는 endpoint, request body, response body를 만들지 않습니다.
+- 페이지 컴포넌트에서 직접 `fetch`를 사용하지 않습니다.
+- REST 요청은 `src/services/apiClient.ts`와 domain service를 통해 처리합니다.
+- API/WS base URL은 `VITE_API_BASE_URL`, `VITE_WS_BASE_URL`만 사용합니다.
+- 서버 비밀번호, 토큰, SSH key, DB 계정 같은 민감 정보는 문서와 코드에 기록하지 않습니다.

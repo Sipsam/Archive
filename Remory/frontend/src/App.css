@@ -1,3 +1,64 @@
+.app-loading,
+.app-access-page {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  background: var(--gradient-page);
+  color: var(--color-text);
+}
+
+.app-access-page section {
+  width: min(560px, calc(100% - 32px));
+  padding: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.app-access-page span {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--color-text);
+  color: #fffdfa;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.app-access-page h1 {
+  margin: 18px 0 0;
+  font-family: var(--sans);
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  font-weight: 850;
+  letter-spacing: 0;
+  line-height: 1.08;
+}
+
+.app-access-page p {
+  margin: 16px 0 0;
+  color: var(--color-muted);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.55;
+}
+
+.app-access-page a {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  margin-top: 20px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: var(--gradient-action);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 850;
+  text-decoration: none;
+}
+
 .memory-editorial {
   position: relative;
   min-height: 270vh;
