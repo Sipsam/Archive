@@ -1,0 +1,1400 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  getSleepCoachFeedback,
+  getSleepRecordByDate,
+  getSleepRecords,
+  saveSleepRecord,
+} from "../../api/sleepApi.js";
+import {
+  connectFitbit,
+  getFitbitSleepByDate,
+  getFitbitStatus,
+} from "../../api/wearableApi.js";
+import { colors } from "../../styles/colors.js";
+import "./SleepPage.css";
+
+const defaultWakeGoals = [
+  "물마시기",
+  "푸쉬업 20회",
+  "스쿼트 20회",
+  "창문 열기",
+  "가벼운 스트레칭",
+];
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function toMinutes(hour, minute) {
+  return hour * 60 + minute;
+}
+
+function parseLocalDate(dateString) {
+  if (!dateString) return new Date();
+  const [year, month, day] = dateString.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function formatLocalDate(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function calculateSleepHours(bedHour, bedMinute, wakeHour, wakeMinute) {
+  const bed = toMinutes(bedHour, bedMinute);
+  let wake = toMinutes(wakeHour, wakeMinute);
+
+  if (wake <= bed) wake += 24 * 60;
+
+  return Number(((wake - bed) / 60).toFixed(1));
+}
+
+function getSleepQualityScore(hours, satisfaction, memo) {
+  let score = 50;
+  const normalizedMemo = memo.replace(/\s+/g, "").toLowerCase();
+
+  if (hours >= 7 && hours <= 8.5) score += 20;
+  else if (hours >= 6 && hours < 7) score += 10;
+  else if (hours > 8.5 && hours <= 9.5) score += 12;
+  else score -= 8;
+
+  score += satisfaction * 8;
+
+  if (
+    normalizedMemo.includes("자주깸") ||
+    normalizedMemo.includes("깼음") ||
+    normalizedMemo.includes("깨서") ||
+    normalizedMemo.includes("중간에깸") ||
+    normalizedMemo.includes("계속깸")
+  ) {
+    score -= 8;
+  }
+
+  if (
+    normalizedMemo.includes("뒤척") ||
+    normalizedMemo.includes("설침") ||
+    normalizedMemo.includes("선잠") ||
+    normalizedMemo.includes("얕은잠")
+  ) {
+    score -= 6;
+  }
+
+  if (
+    normalizedMemo.includes("악몽") ||
+    normalizedMemo.includes("무서운꿈") ||
+    normalizedMemo.includes("꿈많이") ||
+    normalizedMemo.includes("꿈을많이")
+  ) {
+    score -= 5;
+  }
+
+  if (
+    normalizedMemo.includes("개운") ||
+    normalizedMemo.includes("상쾌") ||
+    normalizedMemo.includes("푹잠") ||
+    normalizedMemo.includes("숙면") ||
+    normalizedMemo.includes("잘잠")
+  ) {
+    score += 6;
+  }
+
+  return clamp(Math.round(score), 0, 100);
+}
+
+function getFreshnessScore(hours, satisfaction, memo) {
+  let score = 45 + satisfaction * 9;
+  const normalizedMemo = memo.replace(/\s+/g, "").toLowerCase();
+
+  if (hours >= 7 && hours <= 8.5) score += 18;
+  else if (hours < 6) score -= 12;
+  else if (hours > 9) score -= 6;
+
+  if (
+    normalizedMemo.includes("개운") ||
+    normalizedMemo.includes("상쾌") ||
+    normalizedMemo.includes("푹잠") ||
+    normalizedMemo.includes("숙면")
+  ) {
+    score += 10;
+  }
+
+  if (
+    normalizedMemo.includes("피곤") ||
+    normalizedMemo.includes("몸이무거") ||
+    normalizedMemo.includes("몽롱") ||
+    normalizedMemo.includes("졸림") ||
+    normalizedMemo.includes("못일어나")
+  ) {
+    score -= 10;
+  }
+
+  if (
+    normalizedMemo.includes("자주깸") ||
+    normalizedMemo.includes("깼음") ||
+    normalizedMemo.includes("깨서") ||
+    normalizedMemo.includes("중간에깸") ||
+    normalizedMemo.includes("계속깸")
+  ) {
+    score -= 8;
+  }
+
+  return clamp(Math.round(score), 0, 100);
+}
+
+function getGrowthScore(hours, sleepQuality) {
+  let score = 40;
+
+  if (hours >= 7.5 && hours <= 9) score += 28;
+  else if (hours >= 6.5) score += 16;
+  else score -= 8;
+
+  score += Math.round((sleepQuality - 50) * 0.35);
+
+  return clamp(score, 0, 100);
+}
+
+function getMissionRate(goals) {
+  if (!goals.length) return 0;
+  const checked = goals.filter((goal) => goal.done).length;
+  return Math.round((checked / goals.length) * 100);
+}
+
+function getKoreanDayLabel(date) {
+  return ["일", "월", "화", "수", "목", "금", "토"][date.getDay()];
+}
+
+function normalizeSleepRecord(record) {
+  return {
+    ...record,
+    date: record.date ?? "",
+    sleepHours: Number(record.sleepHours || 0),
+    satisfaction: Number(record.satisfaction || 0),
+    bedHour: Number(record.bedHour || 0),
+    bedMinute: Number(record.bedMinute || 0),
+    wakeHour: Number(record.wakeHour || 0),
+    wakeMinute: Number(record.wakeMinute || 0),
+    sleepQuality: Number(record.sleepQuality || 0),
+    freshness: Number(record.freshness || 0),
+    growth: Number(record.growth || 0),
+    missionRate: Number(record.missionRate || 0),
+    goals: Array.isArray(record.goals) ? record.goals : [],
+  };
+}
+
+function buildWeeklySleepData(records, baseDateString) {
+  const baseDate = parseLocalDate(baseDateString);
+  const result = [];
+
+  const startOfWeek = new Date(baseDate);
+  const day = startOfWeek.getDay();
+  startOfWeek.setDate(startOfWeek.getDate() - day);
+
+  for (let i = 0; i < 7; i += 1) {
+    const targetDate = new Date(startOfWeek);
+    targetDate.setDate(startOfWeek.getDate() + i);
+
+    const dateKey = formatLocalDate(targetDate);
+    const found = records.find((record) => record.date === dateKey);
+
+    result.push({
+      day: getKoreanDayLabel(targetDate),
+      hours: found ? Number(found.sleepHours || 0) : 0,
+      date: dateKey,
+    });
+  }
+
+  return result;
+}
+
+function buildCoachComment({
+  sleepHours,
+  satisfaction,
+  memo,
+  missionRate,
+  sleepQuality,
+  freshness,
+  growth,
+}) {
+  let comment = "";
+  const normalizedMemo = memo.replace(/\s+/g, "").toLowerCase();
+  let memoAnalysis = "";
+
+  if (sleepHours < 6) {
+    comment += `오늘 수면 시간은 ${sleepHours}시간으로 부족한 편이에요. `;
+  } else if (sleepHours >= 7 && sleepHours <= 8.5) {
+    comment += `수면 시간은 ${sleepHours}시간으로 비교적 안정적인 편이에요. `;
+  } else {
+    comment += `수면 시간은 충분하지만 일정한 패턴을 유지하는 것이 더 중요해요. `;
+  }
+
+  if (satisfaction >= 4) {
+    comment += `수면 만족도도 높아서 전반적인 회복 상태는 좋은 편이에요. `;
+  } else if (satisfaction <= 2.5) {
+    comment += `수면 만족도가 낮아 실제 회복감은 부족했을 가능성이 있어요. `;
+  }
+
+  const hasFragmentedSleep =
+    normalizedMemo.includes("자주깸") ||
+    normalizedMemo.includes("깼음") ||
+    normalizedMemo.includes("깨서") ||
+    normalizedMemo.includes("중간에깸") ||
+    normalizedMemo.includes("중간에몇번") ||
+    normalizedMemo.includes("자다깸") ||
+    normalizedMemo.includes("계속깸");
+
+  const hasRestlessSleep =
+    normalizedMemo.includes("뒤척") ||
+    normalizedMemo.includes("설침") ||
+    normalizedMemo.includes("선잠") ||
+    normalizedMemo.includes("얕은잠");
+
+  const hasBadDream =
+    normalizedMemo.includes("악몽") ||
+    normalizedMemo.includes("무서운꿈") ||
+    normalizedMemo.includes("꿈많이") ||
+    normalizedMemo.includes("꿈을많이");
+
+  const hasTiredWake =
+    normalizedMemo.includes("피곤") ||
+    normalizedMemo.includes("몸이무거") ||
+    normalizedMemo.includes("몽롱") ||
+    normalizedMemo.includes("졸림") ||
+    normalizedMemo.includes("졸렸다") ||
+    normalizedMemo.includes("개운하지않") ||
+    normalizedMemo.includes("못일어나");
+
+  const hasGoodWake =
+    normalizedMemo.includes("개운") ||
+    normalizedMemo.includes("상쾌") ||
+    normalizedMemo.includes("잘잠") ||
+    normalizedMemo.includes("푹잠") ||
+    normalizedMemo.includes("숙면");
+
+  const hasLateSleep =
+    normalizedMemo.includes("늦게잠") ||
+    normalizedMemo.includes("늦잠") ||
+    normalizedMemo.includes("늦게잤") ||
+    normalizedMemo.includes("새벽에잠");
+
+  if (memo.trim()) {
+    if (hasFragmentedSleep) {
+      memoAnalysis +=
+        "수면 중간에 여러 번 깬 흔적이 있어서 수면의 연속성이 떨어졌을 가능성이 있어요. ";
+    }
+
+    if (hasRestlessSleep) {
+      memoAnalysis +=
+        "뒤척이거나 얕게 잔 느낌이 있었다면 깊은 수면 비중이 부족했을 수 있어요. ";
+    }
+
+    if (hasBadDream) {
+      memoAnalysis +=
+        "꿈이 많거나 악몽이 있었다면 실제 수면 시간보다 더 피곤하게 느껴질 수 있어요. ";
+    }
+
+    if (hasTiredWake) {
+      memoAnalysis +=
+        "기상 후에도 피곤함이나 몽롱함이 남아 있었다면 회복 효율이 충분하지 않았을 가능성이 커요. ";
+    }
+
+    if (hasGoodWake) {
+      memoAnalysis +=
+        "반대로 개운함이나 상쾌함이 있었다면 전반적인 수면 질은 비교적 괜찮았던 편이에요. ";
+    }
+
+    if (hasLateSleep) {
+      memoAnalysis +=
+        "취침이 늦어졌다면 생체 리듬이 밀려 다음날 컨디션에도 영향을 줄 수 있어요. ";
+    }
+
+    if (!memoAnalysis) {
+      memoAnalysis +=
+        "메모에 적은 내용을 보면 오늘 수면 상태에 개인적인 변동 요인이 있었던 것으로 보여요. ";
+    }
+
+    comment += memoAnalysis;
+  }
+
+  if (missionRate >= 70) {
+    comment += `기상 미션 수행률이 ${missionRate}%로 높아 아침 루틴이 잘 형성되고 있어요. `;
+  } else {
+    comment += `기상 미션 수행률은 ${missionRate}%로, 내일은 하나라도 확실히 완료하는 것이 중요해요. `;
+  }
+
+  comment += `종합적으로 수면 질 ${sleepQuality}점, 개운함 ${freshness}점, 회복 기여도 ${growth}점 수준입니다. `;
+  comment += "내일은 취침 시간을 일정하게 유지하는 것에 집중해보세요.";
+
+  return comment;
+}
+
+function StarRating({ value, onChange, disabled = false }) {
+  const [hoverValue, setHoverValue] = useState(null);
+  const displayValue = hoverValue ?? value;
+
+  const getFill = (index) => {
+    if (displayValue >= index + 1) return "100%";
+    if (displayValue >= index + 0.5) return "50%";
+    return "0%";
+  };
+
+  const getValueFromPointer = (index, e) => {
+    const { left, width } = e.currentTarget.getBoundingClientRect();
+    const pointerX = e.clientX - left;
+    const isHalf = pointerX < width / 2;
+    return index + (isHalf ? 0.5 : 1);
+  };
+
+  return (
+    <div className={`sleep-star-rating ${disabled ? "is-disabled" : ""}`}>
+      {[0, 1, 2, 3, 4].map((index) => (
+        <div
+          key={index}
+          className={`sleep-star ${disabled ? "disabled" : "clickable"}`}
+          onMouseMove={
+            disabled
+              ? undefined
+              : (e) => setHoverValue(getValueFromPointer(index, e))
+          }
+          onMouseLeave={disabled ? undefined : () => setHoverValue(null)}
+          onClick={
+            disabled
+              ? undefined
+              : (e) => onChange(getValueFromPointer(index, e))
+          }
+        >
+          <span className="sleep-star-base">★</span>
+          <span
+            className="sleep-star-fill"
+            style={{ width: getFill(index) }}
+          >
+            ★
+          </span>
+        </div>
+      ))}
+
+      <span className="sleep-star-value">{value === 0 ? "-" : value}</span>
+    </div>
+  );
+}
+
+function TimeSelect({
+  value,
+  onChange,
+  options,
+  unit = "시",
+  disabled = false,
+}) {
+  const [open, setOpen] = useState(false);
+  const [hoveredValue, setHoveredValue] = useState(null);
+  const wrapperRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!wrapperRef.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
+
+  return (
+    <div
+      ref={wrapperRef}
+      className={`sleep-time-select ${disabled ? "is-disabled" : ""}`}
+    >
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((prev) => !prev)}
+        className={`sleep-time-button ${open ? "is-open" : "is-closed"} ${
+          disabled ? "disabled" : "clickable"
+        }`}
+      >
+        <span>
+          {String(value).padStart(2, "0")}
+          {unit}
+        </span>
+        <span className={`sleep-time-arrow ${open ? "is-open" : "is-closed"}`}>
+          ▼
+        </span>
+      </button>
+
+      {open && !disabled && (
+        <div className="sleep-time-dropdown">
+          {options.map((option) => {
+            const isSelected = option === value;
+            const isHovered = hoveredValue === option;
+
+            return (
+              <div
+                key={option}
+                className={`sleep-time-option ${
+                  isSelected ? "selected" : isHovered ? "hovered" : "default"
+                }`}
+                onMouseEnter={() => setHoveredValue(option)}
+                onMouseLeave={() => setHoveredValue(null)}
+                onClick={() => {
+                  onChange(option);
+                  setOpen(false);
+                }}
+              >
+                {String(option).padStart(2, "0")}
+                {unit}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RadarChart({ data }) {
+  const size = 260;
+  const center = size / 2;
+  const radius = 82;
+  const levels = 5;
+
+  const [displayData, setDisplayData] = useState(data);
+  const prevDataRef = useRef(data);
+  const firstRenderRef = useRef(true);
+
+  const dataSignature = useMemo(() => {
+    return data.map((item) => `${item.label}:${item.value}`).join("|");
+  }, [data]);
+
+  useEffect(() => {
+    const end = data;
+    const start = firstRenderRef.current
+      ? end.map((item) => ({ ...item, value: 0 }))
+      : prevDataRef.current;
+
+    firstRenderRef.current = false;
+
+    let frame = 0;
+    const totalFrames = 24;
+    let rafId;
+
+    const animate = () => {
+      frame += 1;
+      const progress = frame / totalFrames;
+      const eased = 1 - Math.pow(1 - progress, 3);
+
+      const interpolated = start.map((item, i) => ({
+        ...item,
+        value: item.value + (end[i].value - item.value) * eased,
+      }));
+
+      setDisplayData(interpolated);
+
+      if (frame < totalFrames) {
+        rafId = requestAnimationFrame(animate);
+      } else {
+        setDisplayData(end);
+        prevDataRef.current = end;
+      }
+    };
+
+    rafId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafId);
+  }, [dataSignature, data]);
+
+  const axisData = useMemo(() => {
+    return displayData.map((item, index) => {
+      const angle = (Math.PI * 2 * index) / displayData.length - Math.PI / 2;
+
+      const axisX = center + Math.cos(angle) * radius;
+      const axisY = center + Math.sin(angle) * radius;
+
+      const valueRadius = (item.value / 100) * radius;
+      const pointX = center + Math.cos(angle) * valueRadius;
+      const pointY = center + Math.sin(angle) * valueRadius;
+
+      const labelRadius = radius + 26;
+      const labelX = center + Math.cos(angle) * labelRadius;
+      const labelY = center + Math.sin(angle) * labelRadius;
+
+      return {
+        ...item,
+        axisX,
+        axisY,
+        pointX,
+        pointY,
+        labelX,
+        labelY,
+      };
+    });
+  }, [displayData, center, radius]);
+
+  const polygonPoints = axisData
+    .map((point) => `${point.pointX},${point.pointY}`)
+    .join(" ");
+
+  return (
+    <div className="sleep-radar-wrap">
+      <svg width={260} height={260} style={{ overflow: "visible" }}>
+        {[...Array(levels)].map((_, levelIndex) => {
+          const r = (radius / levels) * (levelIndex + 1);
+
+          const points = axisData
+            .map((_, index) => {
+              const angle =
+                (Math.PI * 2 * index) / axisData.length - Math.PI / 2;
+              return `${center + Math.cos(angle) * r},${center + Math.sin(angle) * r}`;
+            })
+            .join(" ");
+
+          return (
+            <polygon
+              key={levelIndex}
+              points={points}
+              fill="none"
+              stroke={colors.border}
+              strokeWidth="1"
+            />
+          );
+        })}
+
+        {axisData.map((item) => (
+          <line
+            key={item.label}
+            x1={center}
+            y1={center}
+            x2={item.axisX}
+            y2={item.axisY}
+            stroke={colors.border}
+            strokeWidth="1"
+          />
+        ))}
+
+        <polygon
+          points={polygonPoints}
+          fill={colors.aiTag}
+          fillOpacity={0.28}
+          stroke={colors.aiTag}
+          strokeWidth="2"
+        />
+
+        {axisData.map((item) => (
+          <circle
+            key={item.label}
+            cx={item.pointX}
+            cy={item.pointY}
+            r="4"
+            fill={colors.aiTag}
+          />
+        ))}
+
+        {axisData.map((item) => (
+          <g key={`label-${item.label}`}>
+            <text
+              x={item.labelX}
+              y={item.labelY}
+              textAnchor="middle"
+              fontSize="11"
+              fontWeight="700"
+              fill={colors.text}
+            >
+              {item.label}
+            </text>
+            <text
+              x={item.labelX}
+              y={item.labelY + 14}
+              textAnchor="middle"
+              fontSize="10"
+              fill={colors.sub}
+            >
+              {Math.round(item.value)}%
+            </text>
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+function WeeklyBarChart({ data }) {
+  const [displayData, setDisplayData] = useState(data);
+  const [hoveredDay, setHoveredDay] = useState(null);
+  const prevDataRef = useRef(data);
+  const firstRenderRef = useRef(true);
+
+  const dataSignature = useMemo(() => {
+    return data.map((item) => `${item.date}:${item.hours}`).join("|");
+  }, [data]);
+
+  useEffect(() => {
+    const end = data;
+    const start = firstRenderRef.current
+      ? end.map((item) => ({ ...item, hours: 0 }))
+      : prevDataRef.current;
+
+    firstRenderRef.current = false;
+
+    let frame = 0;
+    const totalFrames = 24;
+    let rafId;
+
+    const animate = () => {
+      frame += 1;
+      const progress = frame / totalFrames;
+      const eased = 1 - Math.pow(1 - progress, 3);
+
+      const interpolated = start.map((item, i) => ({
+        ...item,
+        hours: item.hours + (end[i].hours - item.hours) * eased,
+      }));
+
+      setDisplayData(interpolated);
+
+      if (frame < totalFrames) {
+        rafId = requestAnimationFrame(animate);
+      } else {
+        setDisplayData(end);
+        prevDataRef.current = end;
+      }
+    };
+
+    rafId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafId);
+  }, [dataSignature, data]);
+
+  const maxBarArea = 190;
+  const maxHours = Math.max(...displayData.map((d) => d.hours), 1);
+
+  return (
+    <div className="sleep-weekly-chart">
+      <div className="sleep-weekly-bars">
+        {displayData.map((item) => {
+          const barHeight =
+            item.hours === 0
+              ? 4
+              : Math.max(12, (item.hours / maxHours) * maxBarArea);
+          const isHovered = hoveredDay === item.date;
+
+          return (
+            <div
+              key={item.date}
+              className="sleep-weekly-bar-col"
+              onMouseEnter={() => setHoveredDay(item.date)}
+              onMouseLeave={() => setHoveredDay(null)}
+            >
+              <span
+                className={`sleep-weekly-bar-label-top ${
+                  isHovered ? "hovered" : "default"
+                }`}
+              >
+                {item.hours.toFixed(1)}h
+              </span>
+
+              <div className="sleep-weekly-bar-wrap">
+                <div
+                  className="sleep-weekly-bar"
+                  style={{
+                    height: barHeight,
+                    background: colors.aiTag,
+                    opacity: isHovered ? 0.45 : 0.25,
+                    border: `1px solid ${colors.aiTag}`,
+                    transform: isHovered ? "translateY(-3px)" : "translateY(0)",
+                    boxShadow: isHovered
+                      ? `0 8px 18px ${colors.aiTagLight}`
+                      : "none",
+                  }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="sleep-weekly-divider" />
+
+      <div className="sleep-weekly-days">
+        {displayData.map((item) => {
+          const isHovered = hoveredDay === item.date;
+
+          return (
+            <div
+              key={`${item.date}-label`}
+              className="sleep-weekly-day-col"
+              onMouseEnter={() => setHoveredDay(item.date)}
+              onMouseLeave={() => setHoveredDay(null)}
+            >
+              <span
+                className={`sleep-weekly-day-text ${
+                  isHovered ? "hovered" : "default"
+                }`}
+              >
+                {item.day}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export default function SleepPage() {
+  const [selectedDate, setSelectedDate] = useState(() =>
+    formatLocalDate(new Date()),
+  );
+
+  const [bedHour, setBedHour] = useState(23);
+  const [bedMinute, setBedMinute] = useState(30);
+  const [wakeHour, setWakeHour] = useState(7);
+  const [wakeMinute, setWakeMinute] = useState(30);
+  const [satisfaction, setSatisfaction] = useState(0);
+  const [memo, setMemo] = useState("");
+  const [isEditingGoals, setIsEditingGoals] = useState(false);
+  const [newGoalText, setNewGoalText] = useState("");
+  const [goals, setGoals] = useState(
+    defaultWakeGoals.map((goal) => ({ text: goal, done: false })),
+  );
+  const [sleepRecords, setSleepRecords] = useState([]);
+  const [aiCoachComment, setAiCoachComment] = useState("");
+  const [hasAnalyzed, setHasAnalyzed] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isLoadingRecord, setIsLoadingRecord] = useState(false);
+  const [wearableStatus, setWearableStatus] = useState("미연동");
+  const [isFitbitConnected, setIsFitbitConnected] = useState(false);
+
+  const sleepHours = useMemo(
+    () => calculateSleepHours(bedHour, bedMinute, wakeHour, wakeMinute),
+    [bedHour, bedMinute, wakeHour, wakeMinute],
+  );
+
+  const missionRate = useMemo(() => getMissionRate(goals), [goals]);
+
+  const sleepQuality = useMemo(
+    () => getSleepQualityScore(sleepHours, satisfaction, memo),
+    [sleepHours, satisfaction, memo],
+  );
+
+  const freshness = useMemo(
+    () => getFreshnessScore(sleepHours, satisfaction, memo),
+    [sleepHours, satisfaction, memo],
+  );
+
+  const growth = useMemo(
+    () => getGrowthScore(sleepHours, sleepQuality),
+    [sleepHours, sleepQuality],
+  );
+
+  const radarData = useMemo(
+    () => [
+      { label: "수면 질", value: sleepQuality },
+      { label: "근성장", value: growth },
+      { label: "개운함", value: freshness },
+      { label: "기상미션", value: missionRate },
+      {
+        label: "수면시간",
+        value: clamp(Math.round((sleepHours / 8) * 100), 0, 100),
+      },
+    ],
+    [sleepQuality, growth, freshness, missionRate, sleepHours],
+  );
+
+  const localCoachComment = useMemo(
+    () =>
+      buildCoachComment({
+        sleepHours,
+        satisfaction,
+        memo,
+        missionRate,
+        sleepQuality,
+        freshness,
+        growth,
+      }),
+    [
+      sleepHours,
+      satisfaction,
+      memo,
+      missionRate,
+      sleepQuality,
+      freshness,
+      growth,
+    ],
+  );
+
+  const weeklyChartData = useMemo(
+    () => buildWeeklySleepData(sleepRecords, selectedDate),
+    [sleepRecords, selectedDate],
+  );
+
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const minutes = Array.from({ length: 60 }, (_, i) => i);
+
+  const getWeekRangeLabel = (dateString) => {
+    const baseDate = parseLocalDate(dateString);
+    const startOfWeek = new Date(baseDate);
+    const day = startOfWeek.getDay();
+    startOfWeek.setDate(startOfWeek.getDate() - day);
+
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+    const format = (date) => {
+      const mm = String(date.getMonth() + 1).padStart(2, "0");
+      const dd = String(date.getDate()).padStart(2, "0");
+      return `${mm}.${dd}`;
+    };
+
+    return `${format(startOfWeek)} ~ ${format(endOfWeek)}`;
+  };
+
+  useEffect(() => {
+    const fetchSleepRecords = async () => {
+      try {
+        const data = await getSleepRecords();
+
+        if (data.success && Array.isArray(data.records)) {
+          setSleepRecords(data.records.map(normalizeSleepRecord));
+        }
+      } catch (error) {
+        console.error("sleep records fetch error:", error);
+      }
+    };
+
+    fetchSleepRecords();
+  }, []);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const resetFormForEmptyDate = () => {
+      if (isCancelled) return;
+
+      setBedHour(23);
+      setBedMinute(30);
+      setWakeHour(7);
+      setWakeMinute(30);
+      setSatisfaction(0);
+      setMemo("");
+      setGoals(defaultWakeGoals.map((goal) => ({ text: goal, done: false })));
+    };
+
+    const fetchRecordByDate = async () => {
+      setIsLoadingRecord(true);
+
+      try {
+        const data = await getSleepRecordByDate(selectedDate);
+
+        if (isCancelled) return;
+
+        if (data.success && data.record) {
+          const record = normalizeSleepRecord(data.record);
+
+          setBedHour(record.bedHour);
+          setBedMinute(record.bedMinute);
+          setWakeHour(record.wakeHour);
+          setWakeMinute(record.wakeMinute);
+          setSatisfaction(Number(record.satisfaction ?? 0));
+          setMemo(record.memo || "");
+          setGoals(
+            Array.isArray(record.goals) && record.goals.length
+              ? record.goals
+              : defaultWakeGoals.map((goal) => ({ text: goal, done: false })),
+          );
+        } else {
+          resetFormForEmptyDate();
+        }
+      } catch (error) {
+        console.error("date record fetch error:", error);
+        resetFormForEmptyDate();
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingRecord(false);
+        }
+      }
+    };
+
+    if (selectedDate) {
+      fetchRecordByDate();
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedDate]);
+
+  useEffect(() => {
+    const checkFitbitStatus = async () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const fitbitResult = params.get("fitbit");
+
+        const statusData = await getFitbitStatus();
+
+        if (statusData.success && statusData.connected) {
+          setIsFitbitConnected(true);
+          setWearableStatus("연동 완료");
+        } else {
+          setIsFitbitConnected(false);
+          setWearableStatus("미연동");
+        }
+
+        if (fitbitResult) {
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname,
+          );
+        }
+      } catch (error) {
+        console.error("Fitbit 상태 확인 오류:", error);
+        setIsFitbitConnected(false);
+        setWearableStatus("미연동");
+      }
+    };
+
+    checkFitbitStatus();
+  }, []);
+
+  useEffect(() => {
+    const loadFitbitSleepData = async () => {
+      if (!isFitbitConnected || !selectedDate) return;
+
+      try {
+        const sleepData = await getFitbitSleepByDate(selectedDate);
+
+        if (sleepData.success && sleepData.record) {
+          const record = sleepData.record;
+
+          setBedHour(Number(record.bedHour ?? 23));
+          setBedMinute(Number(record.bedMinute ?? 30));
+          setWakeHour(Number(record.wakeHour ?? 7));
+          setWakeMinute(Number(record.wakeMinute ?? 30));
+
+          setMemo((prev) => {
+            if (prev?.trim()) return prev;
+            return "Fitbit에서 자동으로 불러온 수면 기록입니다.";
+          });
+        }
+      } catch (error) {
+        console.error("Fitbit 수면 데이터 불러오기 오류:", error);
+      }
+    };
+
+    loadFitbitSleepData();
+  }, [isFitbitConnected, selectedDate]);
+
+  const handleSaveRecord = async () => {
+    const payload = {
+      date: selectedDate,
+      bedHour,
+      bedMinute,
+      wakeHour,
+      wakeMinute,
+      sleepHours,
+      satisfaction,
+      memo,
+      sleepQuality,
+      freshness,
+      growth,
+      missionRate,
+      goals,
+    };
+
+    const data = await saveSleepRecord(payload);
+
+    if (!data.success) {
+      throw new Error(data.message || "수면 기록 저장 실패");
+    }
+
+    const refresh = await getSleepRecords();
+
+    if (refresh.success && Array.isArray(refresh.records)) {
+      setSleepRecords(refresh.records.map(normalizeSleepRecord));
+    }
+
+    return data.record;
+  };
+
+  const handleAddGoal = () => {
+    const trimmed = newGoalText.trim();
+    if (!trimmed) return;
+
+    setGoals((prev) => [...prev, { text: trimmed, done: false }]);
+    setNewGoalText("");
+  };
+
+  const handleDeleteGoal = (indexToDelete) => {
+    setGoals((prev) => prev.filter((_, index) => index !== indexToDelete));
+  };
+
+  const handleNewGoalKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAddGoal();
+    }
+  };
+
+  const handleWearableSync = async () => {
+    try {
+      setWearableStatus("연동 중");
+
+      const data = await connectFitbit();
+      console.log("Fitbit connect 응답:", data);
+
+      if (data.success && data.authUrl) {
+        window.location.href = data.authUrl;
+        return;
+      }
+
+      alert(data.message || "authUrl이 없음");
+      setWearableStatus("미연동");
+    } catch (error) {
+      console.error("Fitbit 연동 오류:", error);
+      alert(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Fitbit connect 요청 실패",
+      );
+      setWearableStatus("미연동");
+    }
+  };
+
+  const handleAnalyzeWithAI = async () => {
+    try {
+      setHasAnalyzed(true);
+      setIsAnalyzing(true);
+      setAiCoachComment("");
+
+      await handleSaveRecord();
+
+      const data = await getSleepCoachFeedback({
+        sleepHours,
+        satisfaction,
+        memo,
+        missionRate,
+        sleepQuality,
+        freshness,
+        growth,
+        bedHour,
+        bedMinute,
+        wakeHour,
+        wakeMinute,
+      });
+
+      if (data.success) {
+        setAiCoachComment(data.coachComment || "");
+      } else {
+        setAiCoachComment(
+          "현재 AI API 사용이 불가능해서 기본 분석 결과를 보여드려요.\n\n" +
+            localCoachComment,
+        );
+      }
+    } catch (error) {
+      console.error(error);
+      setAiCoachComment(
+        "현재 AI API 연결이 불가능해서 기본 분석 결과를 보여드려요.\n\n" +
+          localCoachComment,
+      );
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const isFormDisabled = isLoadingRecord || isAnalyzing;
+
+  return (
+    <div
+      className="sleep-page"
+      style={{
+        "--sleep-card-bg": colors.card,
+        "--sleep-border": colors.border,
+        "--sleep-text": colors.text,
+        "--sleep-sub": colors.sub,
+        "--sleep-bg": colors.card,
+        "--sleep-accent": colors.aiTag,
+        "--sleep-accent-light": colors.aiTagLight,
+      }}
+    >
+      <div className="sleep-page-root">
+        <div className="sleep-page-header">
+          <h2 className="sleep-page-title">수면관리</h2>
+          <span className="sleep-page-badge">✦ AI 분석 포함</span>
+        </div>
+
+        <div className="sleep-page-layout">
+          <div className="sleep-page-left">
+            <div className="sleep-card">
+              <div className="sleep-record-header">
+                <div className="sleep-record-header-left">
+                  <h3 className="sleep-card-title">수면 기록</h3>
+                  <span className="sleep-record-sub">
+                    총 수면 시간 {sleepHours}시간
+                  </span>
+                </div>
+
+                <div className="sleep-record-actions">
+                  <span
+                    className={`sleep-status-chip ${
+                      wearableStatus === "미연동" ? "is-inactive" : "is-active"
+                    }`}
+                  >
+                    {wearableStatus}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={handleWearableSync}
+                    className="sleep-btn sleep-btn-secondary"
+                  >
+                    ⌚ 웨어러블 연동
+                  </button>
+                </div>
+              </div>
+
+              <div className="sleep-form-grid">
+                <div>
+                  <label className="sleep-label">날짜</label>
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    disabled={isLoadingRecord}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="sleep-date-input"
+                  />
+                </div>
+
+                <div>
+                  <label className="sleep-label">취침 시간</label>
+                  <div className="sleep-time-grid">
+                    <TimeSelect
+                      value={bedHour}
+                      onChange={setBedHour}
+                      options={hours}
+                      unit="시"
+                      disabled={isFormDisabled}
+                    />
+                    <TimeSelect
+                      value={bedMinute}
+                      onChange={setBedMinute}
+                      options={minutes}
+                      unit="분"
+                      disabled={isFormDisabled}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="sleep-label">기상 시간</label>
+                  <div className="sleep-time-grid">
+                    <TimeSelect
+                      value={wakeHour}
+                      onChange={setWakeHour}
+                      options={hours}
+                      unit="시"
+                      disabled={isFormDisabled}
+                    />
+                    <TimeSelect
+                      value={wakeMinute}
+                      onChange={setWakeMinute}
+                      options={minutes}
+                      unit="분"
+                      disabled={isFormDisabled}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="sleep-rating-wrap">
+                <label className="sleep-label">수면 만족도</label>
+                <StarRating
+                  value={satisfaction}
+                  onChange={setSatisfaction}
+                  disabled={isFormDisabled}
+                />
+              </div>
+
+              <div>
+                <label className="sleep-label">메모</label>
+                <textarea
+                  value={memo}
+                  disabled={isFormDisabled}
+                  onChange={(e) => setMemo(e.target.value)}
+                  placeholder="예: 중간에 두 번 깼음, 꿈을 많이 꿈, 아침에 몸이 무거웠음, 평소보다 개운했음"
+                  className="sleep-textarea"
+                />
+
+                <div className="sleep-memo-footer">
+                  <p className="sleep-memo-help">
+                    여기에 적은 수면 세부사항은 AI 코치 분석에 반영됩니다.
+                  </p>
+
+                  <div className="sleep-inline-actions">
+                    <button
+                      type="button"
+                      onClick={handleAnalyzeWithAI}
+                      disabled={isFormDisabled}
+                      className="sleep-btn sleep-btn-primary"
+                    >
+                      {isAnalyzing
+                        ? "저장 및 AI 분석 중..."
+                        : isLoadingRecord
+                          ? "기록 불러오는 중..."
+                          : "저장 후 AI 분석하기"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="sleep-middle-grid">
+              <div className="sleep-card sleep-chart-card">
+                <div className="sleep-card-head-between mb10">
+                  <h3 className="sleep-card-title">주간 수면 그래프</h3>
+                  <span className="sleep-week-range">
+                    {getWeekRangeLabel(selectedDate)}
+                  </span>
+                </div>
+
+                <WeeklyBarChart data={weeklyChartData} />
+              </div>
+
+              <div className="sleep-card sleep-goals-card">
+                <div className="sleep-card-head-between mb16">
+                  <h3 className="sleep-card-title">기상 목표</h3>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingGoals((prev) => !prev)}
+                    disabled={isFormDisabled}
+                    className="sleep-btn sleep-btn-small"
+                  >
+                    {isEditingGoals ? "완료" : "수정"}
+                  </button>
+                </div>
+
+                <div className="sleep-goals-list">
+                  {goals.map((goal, index) => (
+                    <div
+                      key={index}
+                      className={`sleep-goal-row ${
+                        isEditingGoals ? "editing" : "view"
+                      } ${isFormDisabled ? "disabled" : ""}`}
+                    >
+                      <input
+                        type="checkbox"
+                        disabled={isFormDisabled}
+                        checked={goal.done}
+                        onChange={() => {
+                          const next = [...goals];
+                          next[index] = {
+                            ...next[index],
+                            done: !next[index].done,
+                          };
+                          setGoals(next);
+                        }}
+                      />
+
+                      <div className="sleep-goal-content">
+                        {isEditingGoals ? (
+                          <input
+                            type="text"
+                            disabled={isFormDisabled}
+                            value={goal.text}
+                            onChange={(e) => {
+                              const next = [...goals];
+                              next[index] = {
+                                ...next[index],
+                                text: e.target.value,
+                              };
+                              setGoals(next);
+                            }}
+                            className="sleep-goal-input"
+                          />
+                        ) : (
+                          <div className="sleep-goal-text">{goal.text}</div>
+                        )}
+                      </div>
+
+                      {isEditingGoals && (
+                        <button
+                          type="button"
+                          disabled={isFormDisabled}
+                          onClick={() => handleDeleteGoal(index)}
+                          className="sleep-btn sleep-btn-danger"
+                        >
+                          삭제
+                        </button>
+                      )}
+                    </div>
+                  ))}
+
+                  {isEditingGoals && (
+                    <div className="sleep-goal-add-row">
+                      <input
+                        type="text"
+                        disabled={isFormDisabled}
+                        value={newGoalText}
+                        onChange={(e) => setNewGoalText(e.target.value)}
+                        onKeyDown={handleNewGoalKeyDown}
+                        placeholder="새 기상 목표 추가"
+                        className="sleep-goal-add-input"
+                      />
+
+                      <button
+                        type="button"
+                        disabled={isFormDisabled}
+                        onClick={handleAddGoal}
+                        className="sleep-btn sleep-btn-accent"
+                      >
+                        추가
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="sleep-page-right">
+            <div className="sleep-card">
+              <h3 className="sleep-card-title sleep-card-title-margin">
+                오늘의 총정리
+              </h3>
+              <RadarChart data={radarData} />
+            </div>
+
+            <div className="sleep-card sleep-summary-card">
+              <h3 className="sleep-card-title sleep-card-title-margin-lg">
+                AI 코치 분석
+              </h3>
+
+              <div className="sleep-ai-box">
+                {!hasAnalyzed ? (
+                  <div className="sleep-ai-placeholder">
+                    저장 후 AI 분석하기 버튼을 누르면 오늘 수면 상태를 바탕으로
+                    운동 강도, 추천 운동, 수면 피드백을 분석해드려요.
+                  </div>
+                ) : isAnalyzing ? (
+                  <div className="sleep-ai-loading">
+                    AI 코치가 오늘의 수면 데이터를 분석하고 있어요...
+                  </div>
+                ) : aiCoachComment ? (
+                  <div className="sleep-preserve-linebreaks">
+                    {aiCoachComment}
+                  </div>
+                ) : (
+                  <div className="sleep-ai-placeholder">
+                    분석 결과가 없습니다.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

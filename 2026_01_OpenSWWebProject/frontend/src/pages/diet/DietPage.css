@@ -1,0 +1,1214 @@
+:root {
+    --c-bg: var(--theme-bg);
+    --c-card: var(--theme-card);
+    --c-border: var(--theme-border);
+    --c-text: var(--theme-text);
+    --c-sub: var(--theme-sub);
+    --c-muted: var(--theme-muted);
+    --c-primary: var(--theme-primary);
+    --c-primary-light: var(--theme-primary-light);
+    --c-success: var(--theme-success);
+    --c-warning: var(--theme-warning);
+    --c-danger: var(--theme-danger);
+    --c-ai: var(--theme-ai);
+    --c-ai-light: var(--theme-ai-light);
+    --r-xs: 4px;
+    --r-sm: 6px;
+    --r-md: 8px;
+    --r-lg: 12px;
+    --g-xs: 8px;
+    --g-sm: 12px;
+    --g-md: 16px;
+    --g-lg: 24px;
+}
+
+.dietPageContainer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: var(--g-lg);
+    color: var(--c-text);
+}
+
+.dietPageMainArea,
+.dietPageSidebar {
+    min-width: 0;
+}
+
+.dietPageSidebar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--g-md);
+    margin-top: 56px;
+}
+
+.dietPageHeader,
+.nutritionGoalHeader,
+.aiCoachHeader {
+    display: flex;
+    align-items: center;
+    gap: var(--g-xs);
+}
+
+.dietPageHeader {
+    margin-bottom: var(--g-lg);
+}
+
+.dietPageTitle {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.aiAnalysisTag {
+    border-radius: var(--r-sm);
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--c-ai);
+    background: var(--c-ai-light);
+}
+
+.aiAnalysisGridLarge {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--g-sm);
+    margin-bottom: var(--g-lg);
+}
+
+.analysisButton {
+    border: 1px solid transparent;
+    border-radius: var(--r-lg);
+    padding: var(--g-md);
+    min-height: 50px;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: opacity .15s ease;
+}
+
+.analysisButton:hover {
+    opacity: .9;
+}
+
+.analysisButtonPrimary {
+    color: var(--c-card);
+    background: var(--c-primary);
+}
+
+.analysisButtonSecondary {
+    color: var(--c-text);
+    background: var(--c-card);
+    border-color: var(--c-border);
+}
+
+.aiAnalysisSection,
+.totalCaloriesSection {
+    margin-bottom: var(--g-lg);
+}
+
+.dietListToolbar {
+    min-height: 44px;
+    margin-bottom: var(--g-lg);
+    padding: 6px 12px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-lg);
+    background: var(--c-card);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--g-sm);
+}
+
+.dietListToolbarTitle {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.dietDateFilterForm {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dietDateFilterInput {
+    height: 30px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-sm);
+    padding: 4px 8px;
+    font-size: 12px;
+    color: var(--c-text);
+    background: var(--c-card);
+}
+
+.dietDateFilterButton {
+    height: 30px;
+    border: 1px solid var(--c-primary);
+    border-radius: var(--r-sm);
+    padding: 0 10px;
+    background: var(--c-primary);
+    color: var(--c-card);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.foodList,
+.nutrientsGrid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--g-sm);
+}
+
+.foodCard,
+.aiAnalysisFoodCard,
+.nutritionGoalCard,
+.aiCoachCard {
+    background: var(--c-card);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-lg);
+}
+
+.foodCard,
+.aiAnalysisFoodCard,
+.aiCoachCard {
+    padding: var(--g-md);
+}
+
+.foodCard {
+    display: grid;
+    grid-template-columns: 100px minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto auto;
+    column-gap: var(--g-sm);
+    row-gap: var(--g-xs);
+    padding: var(--g-md);
+    background: var(--c-card);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-lg);
+    cursor: pointer;
+}
+
+.foodCard.isExpanded {
+    border-color: var(--c-primary);
+}
+
+.foodCardTitle {
+    grid-column: 1 / 3;
+    grid-row: 1;
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    align-self: start;
+    min-width: 0;
+}
+
+.foodCardNutrients {
+    grid-column: 2 / 4;
+    grid-row: 3;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
+    align-self: end;
+}
+
+.foodCardImageWrapper {
+    grid-column: 1;
+    grid-row: 2 / 4;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+}
+
+.foodCardImage {
+    width: 100px;
+    height: 100px;
+    border-radius: var(--r-md);
+    overflow: hidden;
+    background: var(--c-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    flex-shrink: 0;
+}
+
+.foodCardImageElement {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.foodCardImagePlaceholder {
+    font-size: 48px;
+}
+
+.foodCardDetail {
+    grid-column: 2 / 4;
+    grid-row: 2;
+    margin: 0;
+    font-size: 12px;
+    color: var(--c-sub);
+    white-space: normal;
+    overflow: visible;
+    word-break: break-word;
+    max-width: 100%;
+    align-self: start;
+    min-width: 0;
+}
+
+.foodCardActionGroup {
+    grid-column: 3;
+    grid-row: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    align-self: start;
+    justify-self: end;
+}
+
+.foodCardHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--g-sm);
+    margin-bottom: var(--g-xs);
+    /* ...existing code... */
+}
+
+.foodCardTitle {
+    margin: 0;
+    flex: none;
+    font-size: 18px;
+    font-weight: 600;
+    /* ...existing code... */
+}
+
+.foodCardNutrients {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 6px;
+    /* ...existing code... */
+}
+
+.foodCardFooter {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: var(--g-xs);
+    margin-top: auto;
+}
+
+.nutrientTag {
+    border-radius: var(--r-xs);
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.nutrientTagKcal {
+    color: var(--c-primary);
+    background: var(--c-primary-light);
+}
+
+.nutrientTagProtein {
+    color: var(--c-success);
+    background: rgb(34 197 94 / 16%);
+}
+
+.nutrientTagCarbs {
+    color: var(--c-warning);
+    background: rgb(245 158 11 / 15%);
+}
+
+.nutrientTagFat {
+    color: var(--c-danger);
+    background: rgb(239 68 68 / 15%);
+}
+
+.foodCardDetail {
+    margin: 0;
+    font-size: 12px;
+    color: var(--c-sub);
+    flex: 0 1 auto;
+    min-width: 0;
+    white-space: normal;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    max-width: 100%;
+}
+
+.foodCardActionGroup {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    justify-self: end;
+    white-space: nowrap;
+}
+
+.foodCardActionButton,
+.foodCardFavoriteButton {
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-sm);
+    background: var(--c-card);
+    color: var(--c-sub);
+    height: 22px;
+    cursor: pointer;
+}
+
+.foodCardActionButton {
+    padding: 0 8px;
+    font-size: 11px;
+}
+
+.foodCardActionButton:hover {
+    border-color: var(--c-primary);
+    color: var(--c-primary);
+}
+
+.foodCardActionButtonDanger:hover {
+    border-color: var(--c-danger);
+    color: var(--c-danger);
+}
+
+.foodCardFavoriteButton {
+    width: 22px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--c-muted);
+}
+
+.foodCardFavoriteButton:hover {
+    color: var(--c-warning);
+    border-color: var(--c-warning);
+}
+
+.foodCardFavoriteIcon {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+}
+
+.foodCardFavoriteButton.isActive {
+    color: var(--c-warning);
+    border-color: var(--c-warning);
+    background: rgb(245 158 11 / 12%);
+}
+
+.foodCardFavoriteButton.isActive .foodCardFavoriteIcon {
+    fill: currentColor;
+}
+
+.foodCardExpanded {
+    grid-column: 1 / 4;
+    grid-row: 4;
+    margin-top: var(--g-sm);
+    border-top: 1px solid var(--c-border);
+    padding-top: var(--g-xs);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.foodCardExpandedRow {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.foodCardExpandedName {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.foodCardExpandedMeta {
+    font-size: 11px;
+    color: var(--c-sub);
+}
+
+.aiAnalysisFoodCard {
+    padding-top: 12px;
+}
+
+.aiAnalysisFoodTitle {
+    margin-bottom: var(--g-sm);
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.aiAnalysisFoodBody {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: var(--g-sm);
+}
+
+.aiAnalysisFoodImage {
+    width: 96px;
+    height: 96px;
+    border-radius: var(--r-md);
+    font-size: 42px;
+    background: var(--c-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.aiAnalysisFoodPreviewImage {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: var(--r-md);
+}
+
+.aiAnalysisFoodContent {
+    display: flex;
+    flex-direction: column;
+    gap: var(--g-xs);
+    min-width: 0;
+}
+
+.aiAnalysisFoodSubtitle {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--c-sub);
+}
+
+.aiAnalysisFoodSubtitleMain,
+.aiAnalysisFoodSubtitle strong,
+.aiAnalysisItemName,
+.aiAnalysisEmptyStateTitle {
+    color: var(--c-text);
+}
+
+.aiAnalysisItemList {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.aiAnalysisItemRow {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.aiAnalysisItemName {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.aiAnalysisItemMeta,
+.aiAnalysisEmptyStateDesc {
+    font-size: 11px;
+    color: var(--c-sub);
+}
+
+.aiAnalysisEmptyStateDesc {
+    margin: 0;
+    line-height: 1.5;
+}
+
+.aiAnalysisFoodActions {
+    display: flex;
+    gap: var(--g-xs);
+    margin-top: 4px;
+}
+
+.aiAnalysisActionButton,
+.dietUploadSelectButton,
+.dietUploadCancelButton,
+.dietUploadSubmitButton {
+    border-radius: var(--r-sm);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.aiAnalysisActionButton {
+    border: 1px solid transparent;
+    padding: 6px 10px;
+}
+
+.aiAnalysisActionButtonComplete {
+    color: var(--c-card);
+    background: var(--c-success);
+}
+
+.aiAnalysisActionButtonEdit {
+    color: var(--c-primary);
+    background: var(--c-card);
+    border-color: var(--c-primary);
+}
+
+.aiAnalysisActionButton:disabled,
+.dietUploadSubmitButton:disabled,
+.dietUploadCancelButton:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+}
+
+.nutritionGoalCard {
+    padding: 18px var(--g-md);
+}
+
+.nutritionGoalHeader {
+    margin-bottom: var(--g-sm);
+}
+
+.nutritionGoalEditButton {
+    margin-left: auto;
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-sm);
+    background: var(--c-card);
+    color: var(--c-sub);
+    font-size: 11px;
+    padding: 4px 8px;
+    cursor: pointer;
+}
+
+.nutritionGoalEditButton:hover {
+    border-color: var(--c-primary);
+    color: var(--c-primary);
+}
+
+.nutritionGoalIcon {
+    font-size: 16px;
+}
+
+.nutritionGoalTitle {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.nutritionGoalKcalBlock {
+    text-align: center;
+    margin-bottom: 14px;
+}
+
+.nutritionGoalCurrentKcal {
+    margin: 0;
+    font-size: 34px;
+    line-height: 1;
+    font-weight: 800;
+    color: var(--c-primary);
+}
+
+.nutritionGoalTargetKcal,
+.nutritionGoalRemaining {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: var(--c-sub);
+    text-align: center;
+}
+
+.nutritionGoalRemaining {
+    margin-top: var(--g-xs);
+}
+
+.progressBar,
+.nutrientSmallProgressBar {
+    height: 10px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--c-border);
+}
+
+.progressBarFill,
+.nutrientSmallProgressBarFill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width .25s ease;
+}
+
+.progressBarFill,
+.nutrientBarProtein {
+    background: var(--c-primary);
+}
+
+.nutrientBarCarbs {
+    background: var(--c-warning);
+}
+
+.nutrientBarFat {
+    background: var(--c-danger);
+}
+
+.nutrientGoalLabel {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: var(--g-xs);
+}
+
+.nutrientGoalLabelText,
+.nutrientGoalValue {
+    font-size: 12px;
+}
+
+.nutrientGoalValue {
+    color: var(--c-muted);
+    font-weight: 600;
+}
+
+.nutritionGoalForm {
+    margin-top: var(--g-sm);
+    border-top: 1px solid var(--c-border);
+    padding-top: var(--g-sm);
+}
+
+.aiCoachCard {
+    border-color: var(--c-ai);
+    background: var(--c-ai-light);
+}
+
+.aiCoachHeader {
+    margin-bottom: var(--g-xs);
+}
+
+.aiCoachRefreshButton {
+    margin-left: auto;
+    border: 1px solid var(--c-ai);
+    border-radius: var(--r-sm);
+    padding: 4px 8px;
+    background: var(--c-card);
+    color: var(--c-ai);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.aiCoachRefreshButton:disabled {
+    opacity: .6;
+    cursor: default;
+}
+
+.aiCoachDirtyBadge {
+    border: 1px solid var(--c-ai);
+    border-radius: 999px;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--c-ai);
+    background: var(--c-card);
+}
+
+.aiCoachTitle {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--c-ai);
+}
+
+.aiCoachContent {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--c-ai);
+    white-space: pre-line;
+}
+
+.aiCoachMeta {
+    margin: 0 0 6px;
+    font-size: 11px;
+    color: var(--c-ai);
+    opacity: .8;
+}
+
+.dietUploadModalOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgb(30 41 59 / 45%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--g-md);
+    z-index: 1000;
+}
+
+.dietUploadModal {
+    width: min(100%, 560px);
+    max-height: min(88vh, 760px);
+    overflow: auto;
+    background: var(--c-card);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-lg);
+    padding: 18px;
+    box-shadow: 0 16px 36px rgb(15 23 42 / 14%);
+}
+
+.dietUploadModalHeader {
+    margin-bottom: var(--g-xs);
+}
+
+.dietUploadModalTitle {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.dietUploadModalDescription {
+    margin: 0 0 var(--g-sm);
+    font-size: 12px;
+    color: var(--c-sub);
+}
+
+.dietInlineForm {
+    display: flex;
+    flex-direction: column;
+    gap: var(--g-sm);
+}
+
+.dietFormGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--g-xs);
+}
+
+.dietFormLabel {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--c-sub);
+}
+
+.dietFormInput {
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-sm);
+    padding: 8px 10px;
+    font-size: 12px;
+    color: var(--c-text);
+    background: var(--c-card);
+}
+
+.dietFormInput:focus-visible,
+.dietUploadSelectButton:focus-visible,
+.dietUploadCancelButton:focus-visible,
+.dietUploadSubmitButton:focus-visible {
+    outline: 2px solid var(--c-primary);
+    outline-offset: 1px;
+}
+
+.dietFormRadioRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    font-size: 12px;
+    color: var(--c-sub);
+}
+
+.dietFormRadioRow label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dietItemActionRow {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--g-xs);
+}
+
+.dietFavoriteList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--g-xs);
+}
+
+.dietFavoriteItem {
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-md);
+    background: var(--c-card);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    cursor: pointer;
+    text-align: left;
+}
+
+.dietFavoriteItem:hover {
+    border-color: var(--c-primary);
+    background: var(--c-primary-light);
+}
+
+.dietFavoriteItemTitle {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.dietFavoriteItemMeta {
+    font-size: 11px;
+    color: var(--c-sub);
+}
+
+.dietFavoriteItemActions {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--g-xs);
+    margin-top: 4px;
+}
+
+.dietUploadDropzone {
+    border: 1px dashed var(--c-border);
+    border-radius: var(--r-md);
+    background: var(--c-bg);
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--g-xs);
+}
+
+.dietUploadDropzoneText,
+.dietUploadFileName {
+    margin: 0;
+    font-size: 12px;
+    color: var(--c-sub);
+}
+
+
+.dietUploadProgressWrap {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.dietUploadProgressLabel,
+.dietUploadErrorHint {
+    font-size: 11px;
+    color: var(--c-sub);
+}
+
+.dietUploadProgressBar {
+    width: 100%;
+    height: 10px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--c-border);
+}
+
+.dietUploadProgressFill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--c-primary), #7c3aed);
+    transition: width .2s ease;
+}
+
+.dietUploadErrorBox {
+    width: 100%;
+    border: 1px solid rgb(239 68 68 / 25%);
+    background: rgb(254 242 242);
+    border-radius: var(--r-md);
+    padding: 10px 12px;
+}
+
+.dietUploadErrorText {
+    margin: 0 0 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--c-danger);
+}
+
+.dietUploadErrorHint {
+    margin: 0;
+    line-height: 1.5;
+}
+.dietUploadSelectButton,
+.dietUploadCancelButton,
+.dietUploadSubmitButton {
+    padding: 8px 12px;
+}
+
+.dietUploadSelectButton {
+    border: 1px solid var(--c-primary);
+    background: var(--c-card);
+    color: var(--c-primary);
+}
+
+.dietUploadCancelButton {
+    border: 1px solid var(--c-border);
+    background: var(--c-card);
+    color: var(--c-sub);
+}
+
+.dietUploadSubmitButton {
+    border: 1px solid var(--c-primary);
+    background: var(--c-primary);
+    color: var(--c-card);
+}
+
+.dietUploadInput {
+    display: none;
+}
+
+.dietUploadPreviewWrap {
+    width: min(42vw, 220px);
+    max-width: 100%;
+    aspect-ratio: 1 / 1;
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    background: var(--c-card);
+}
+
+.dietUploadPreviewImage {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.dietUploadActions {
+    margin-top: var(--g-md);
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--g-xs);
+}
+
+@media (max-width: 1200px) {
+    .dietPageContainer {
+        grid-template-columns: minmax(0, 1fr) 250px;
+    }
+}
+
+@media (max-width: 992px) {
+    .dietPageContainer {
+        grid-template-columns: 1fr;
+    }
+
+    .dietPageSidebar {
+        margin-top: 0;
+    }
+
+    .aiAnalysisGridLarge {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .foodCard {
+        grid-template-columns: 80px minmax(0, 1fr) auto;
+        grid-template-rows: auto auto auto auto;
+    }
+
+    .foodCardTitle {
+        grid-column: 1 / 3;
+        grid-row: 1;
+    }
+
+    .foodCardActionGroup {
+        grid-column: 3;
+        grid-row: 1;
+        justify-self: end;
+    }
+
+    .foodCardImageWrapper {
+        grid-column: 1;
+        grid-row: 2 / 4;
+    }
+
+    .foodCardDetail {
+        grid-column: 2 / 4;
+        grid-row: 2;
+        align-self: start;
+        white-space: normal;
+        overflow: visible;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+
+    .foodCardNutrients {
+        grid-column: 2 / 4;
+        grid-row: 3;
+        justify-self: stretch;
+        justify-content: flex-end;
+        align-self: end;
+    }
+
+    .foodCardImage {
+        width: 80px;
+        height: 80px;
+    }
+
+    .dietUploadModal {
+         padding: 14px;
+     }
+}
+
+@media (max-width: 560px) {
+    .dietPageContainer {
+        gap: var(--g-md);
+    }
+
+    .dietPageHeader,
+    .nutritionGoalHeader,
+    .aiCoachHeader {
+        flex-wrap: wrap;
+    }
+
+    .aiAnalysisGridLarge,
+    .aiAnalysisFoodBody,
+    .dietFormGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .aiAnalysisFoodImage {
+        width: 100%;
+        max-width: 140px;
+    }
+
+    .dietUploadPreviewWrap {
+        width: min(56vw, 180px);
+    }
+
+    .foodCard {
+        grid-template-columns: 70px minmax(0, 1fr) auto;
+        grid-template-rows: auto auto auto auto;
+        padding: var(--g-sm);
+    }
+
+    .foodCardTitle {
+        grid-column: 1 / 3;
+        grid-row: 1;
+        font-size: 16px;
+    }
+
+    .foodCardActionGroup {
+        grid-column: 3;
+        grid-row: 1;
+        gap: 4px;
+        justify-self: end;
+        align-self: start;
+    }
+
+    .foodCardImageWrapper {
+        grid-column: 1;
+        grid-row: 2 / 4;
+        justify-self: start;
+    }
+
+    .foodCardImage {
+        width: 70px;
+        height: 70px;
+        font-size: 36px;
+    }
+
+    .foodCardDetail {
+        grid-column: 2 / 4;
+        grid-row: 2;
+        font-size: 11px;
+        white-space: normal;
+        overflow: visible;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+
+    .foodCardNutrients {
+        grid-column: 2 / 4;
+        grid-row: 3;
+        justify-self: stretch;
+        justify-content: flex-end;
+        align-self: end;
+        gap: 4px;
+    }
+
+    .foodCardExpanded {
+        grid-column: 1 / 4;
+        grid-row: 4;
+    }
+
+    .nutrientTag {
+        padding: 2px 6px;
+        font-size: 10px;
+    }
+
+    .dietListToolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .dietDateFilterForm {
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+
+    .dietDateFilterInput,
+    .dietDateFilterButton {
+        flex: 1 1 120px;
+    }
+}
+
+@media (max-width: 420px) {
+    .foodCard {
+        grid-template-columns: 1fr;
+    }
+
+    .foodCardTitle,
+    .foodCardActionGroup,
+    .foodCardImageWrapper,
+    .foodCardDetail,
+    .foodCardNutrients,
+    .foodCardExpanded {
+        grid-column: 1;
+    }
+
+    .foodCardTitle {
+        grid-row: 1;
+    }
+
+    .foodCardActionGroup {
+        grid-row: 2;
+        justify-self: start;
+    }
+
+    .foodCardImageWrapper {
+        grid-row: 3;
+    }
+
+    .foodCardDetail {
+        grid-row: 4;
+    }
+
+    .foodCardNutrients {
+        grid-row: 5;
+        justify-content: flex-start;
+    }
+
+    .foodCardExpanded {
+        grid-row: 6;
+    }
+
+    .aiAnalysisFoodActions,
+    .dietUploadActions,
+    .dietItemActionRow,
+    .dietFavoriteItemActions {
+        flex-wrap: wrap;
+    }
+
+    .aiAnalysisActionButton,
+    .dietUploadCancelButton,
+    .dietUploadSubmitButton,
+    .dietUploadSelectButton {
+        flex: 1 1 120px;
+    }
+}
+
