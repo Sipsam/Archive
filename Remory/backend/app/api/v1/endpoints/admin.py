@@ -1,42 +1,24 @@
-"""Admin APIs."""
-
-from datetime import datetime
+"""관리자 API"""
 from fastapi import APIRouter, Depends, HTTPException, Query, status as http_status
-from fastapi.responses import FileResponse
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.deps import get_admin_user
-from app.models.audit_log import AuditAction, AuditTargetType
 from app.models.user import User
-from app.schemas.audit_log import AuditLogResponse
-from app.schemas.common import PaginatedResponse
-from app.schemas.deletion import DeletionRequestResponse
+from app.models.target_verification import VerificationStatus
 from app.schemas.target_verification import (
     VerificationRequestAdminResponse,
     VerificationRequestApproveRequest,
-    VerificationRequestNeedMoreInfoRequest,
     VerificationRequestRejectRequest,
-    VerificationRequestRevokeRequest,
 )
-from app.schemas.persona import PersonaVoiceProfileResponse, VoiceProfileReviewRequest
-from app.schemas.usage_limit import (
-    UsageLimitResponse,
-    PersonaUsageLimitResponse,
-    RateLimitEventResponse,
-    UpdateUsageLimitRequest,
-    UpdatePersonaUsageLimitRequest,
-)
-from app.services.audit_log_service import AuditLogService
-from app.services.deletion_service import deletion_service
-from app.services.rate_limit_service import RateLimitService
+from app.schemas.common import PaginatedResponse
 from app.services.verification_service import verification_service
-from app.services.persona_service import persona_service
-from app.services.protected_file_service import ProtectedFileService
 from app.utils.exceptions import RemoryException, to_http_exception
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(
+    prefix="/admin",
+    tags=["admin"],
+)
 
 
 @router.get(
@@ -50,57 +32,25 @@ async def list_verification_requests(
     admin_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
+    """관리자 입증 요청 목록 조회"""
     try:
         status_filter = None
         if status is not None:
             try:
-                status_filter = verification_service._parse_status(status)
-            except (KeyError, ValueError) as exc:
+                status_filter = VerificationStatus(status.lower())
+            except ValueError as exc:
                 raise HTTPException(
                     status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="Invalid status value",
                 ) from exc
 
         result = verification_service.get_admin_verification_requests(db, status_filter, page, size)
+
         return PaginatedResponse(
             total=result["total"],
             skip=(page - 1) * size,
             limit=size,
             items=result["items"],
-        )
-    except RemoryException as e:
-        raise to_http_exception(e)
-
-
-@router.get(
-    "/verification-requests/{request_id}",
-    response_model=VerificationRequestAdminResponse,
-)
-async def get_admin_verification_request(
-    request_id: int,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    try:
-        return verification_service.get_verification_request(db, request_id)
-    except RemoryException as e:
-        raise to_http_exception(e)
-
-
-@router.get("/verification-requests/{request_id}/file")
-async def get_admin_verification_file(
-    request_id: int,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    try:
-        request = verification_service.get_verification_request(db, request_id)
-        return ProtectedFileService.response(
-            request.submitted_file_path,
-            "Verification file",
-            request.id,
-            media_type=request.mime_type,
-            filename=request.original_filename,
         )
     except RemoryException as e:
         raise to_http_exception(e)
@@ -112,19 +62,19 @@ async def get_admin_verification_file(
 )
 async def approve_verification_request(
     request_id: int,
-    approve_data: VerificationRequestApproveRequest | None = None,
+    _: VerificationRequestApproveRequest,
     admin_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
+    """입증 요청 승인"""
     try:
-        approve_data = approve_data or VerificationRequestApproveRequest()
-        return verification_service.approve_verification_request(
+        request = verification_service.approve_verification_request(
             db,
             request_id,
             admin_user.id,
-            admin_note=approve_data.admin_note,
-            expires_at=approve_data.expires_at,
         )
+
+        return request
     except RemoryException as e:
         raise to_http_exception(e)
 
@@ -139,607 +89,17 @@ async def reject_verification_request(
     admin_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
+    """입증 요청 거절"""
     try:
-        return verification_service.reject_verification_request(
+        request = verification_service.reject_verification_request(
             db,
             request_id,
             admin_user.id,
             reject_data.rejection_reason,
-            admin_note=reject_data.admin_note,
         )
+
+        return request
     except RemoryException as e:
         raise to_http_exception(e)
 
 
-@router.patch(
-    "/verification-requests/{request_id}/need-more-info",
-    response_model=VerificationRequestAdminResponse,
-)
-async def need_more_info_verification_request(
-    request_id: int,
-    need_more_info_data: VerificationRequestNeedMoreInfoRequest,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    try:
-        return verification_service.need_more_info_verification_request(
-            db,
-            request_id,
-            admin_user.id,
-            need_more_info_data.admin_note,
-        )
-    except RemoryException as e:
-        raise to_http_exception(e)
-
-
-@router.patch(
-    "/verification-requests/{request_id}/revoke",
-    response_model=VerificationRequestAdminResponse,
-)
-async def revoke_verification_request(
-    request_id: int,
-    revoke_data: VerificationRequestRevokeRequest | None = None,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    try:
-        revoke_data = revoke_data or VerificationRequestRevokeRequest()
-        return verification_service.revoke_verification_request(
-            db,
-            request_id,
-            admin_user.id,
-            admin_note=revoke_data.admin_note,
-        )
-    except RemoryException as e:
-        raise to_http_exception(e)
-
-
-@router.get(
-    "/deletion-requests",
-    response_model=list[DeletionRequestResponse],
-)
-async def list_deletion_requests(
-    status: str | None = Query(default=None),
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """List all deletion requests (admin only)."""
-    try:
-        status_filter = None
-        if status is not None:
-            try:
-                from app.models.deletion import DeletionStatus
-                status_filter = DeletionStatus(status)
-            except (KeyError, ValueError) as exc:
-                raise HTTPException(
-                    status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="Invalid status value",
-                ) from exc
-        return deletion_service.list_deletion_requests_admin(db, status_filter)
-    except RemoryException as e:
-        raise to_http_exception(e)
-
-
-@router.get(
-    "/deletion-requests/{request_id}",
-    response_model=DeletionRequestResponse,
-)
-async def get_deletion_request(
-    request_id: int,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """Get a deletion request detail (admin only)."""
-    try:
-        return deletion_service.get_deletion_request_admin(db, request_id)
-    except RemoryException as e:
-        raise to_http_exception(e)
-
-
-@router.patch(
-    "/deletion-requests/{request_id}/approve-and-process",
-    response_model=DeletionRequestResponse,
-)
-async def approve_and_process_deletion_request(
-    request_id: int,
-    admin_note: str | None = Query(default=None),
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """Admin approves and immediately processes a deletion request."""
-    try:
-        return deletion_service.process_deletion_request(
-            db,
-            admin_user.id,
-            request_id,
-            admin_note=admin_note,
-        )
-    except RemoryException as e:
-        raise to_http_exception(e)
-
-
-@router.patch(
-    "/deletion-requests/{request_id}/reject",
-    response_model=DeletionRequestResponse,
-)
-async def reject_deletion_request(
-    request_id: int,
-    admin_note: str | None = Query(default=None),
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """Admin rejects a deletion request."""
-    try:
-        return deletion_service.reject_deletion_request(
-            db,
-            admin_user.id,
-            request_id,
-            admin_note=admin_note,
-        )
-    except RemoryException as e:
-        raise to_http_exception(e)
-
-
-@router.get("/audit-logs", response_model=PaginatedResponse[AuditLogResponse])
-async def list_audit_logs(
-    action: str | None = Query(default=None),
-    actor_user_id: int | None = Query(default=None),
-    target_type: str | None = Query(default=None),
-    target_id: int | None = Query(default=None),
-    start_date: datetime | None = Query(default=None),
-    end_date: datetime | None = Query(default=None),
-    page: int = Query(default=1, ge=1),
-    size: int = Query(default=20, ge=1, le=100),
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """List audit logs (admin only).
-
-    Query parameters:
-    - action: AuditAction enum value
-    - actor_user_id: Filter by user who performed action
-    - target_type: AuditTargetType enum value
-    - target_id: Filter by target ID
-    - start_date: ISO format datetime (e.g., 2026-05-12T10:00:00)
-    - end_date: ISO format datetime (e.g., 2026-05-12T20:00:00)
-    - page: Page number (1-indexed)
-    - size: Page size (1-100)
-    """
-    try:
-        # Parse action enum
-        parsed_action = None
-        if action:
-            try:
-                parsed_action = AuditAction[action]
-            except KeyError:
-                raise HTTPException(
-                    status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=f"Invalid action value: {action}",
-                )
-
-        # Parse target_type enum
-        parsed_target_type = None
-        if target_type:
-            try:
-                parsed_target_type = AuditTargetType[target_type]
-            except KeyError:
-                raise HTTPException(
-                    status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=f"Invalid target_type value: {target_type}",
-                )
-
-        result = AuditLogService.list_audit_logs(
-            db,
-            page=page,
-            size=size,
-            action=parsed_action,
-            actor_user_id=actor_user_id,
-            target_type=parsed_target_type,
-            target_id=target_id,
-            start_date=start_date,
-            end_date=end_date,
-        )
-
-        return PaginatedResponse(
-            total=result["total"],
-            skip=(page - 1) * size,
-            limit=size,
-            items=result["items"],
-        )
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(
-            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        ) from exc
-
-
-@router.get("/usage-limits", response_model=PaginatedResponse[UsageLimitResponse])
-async def list_usage_limits(
-    user_id: int | None = Query(default=None),
-    page: int = Query(default=1, ge=1),
-    size: int = Query(default=20, ge=1, le=100),
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """List user usage limits (admin only)."""
-    try:
-        result = RateLimitService.list_user_usage_limits(
-            db,
-            user_id=user_id,
-            skip=(page - 1) * size,
-            limit=size,
-        )
-
-        # Build response with remaining counts
-        items_response = []
-        for item in result["items"]:
-            items_response.append({
-                "id": item.id,
-                "user_id": item.user_id,
-                "period_ym": item.period_ym,
-                "voice_generation_count": item.voice_generation_count,
-                "voice_generation_limit": item.voice_generation_limit,
-                "voice_generation_remaining": item.voice_generation_limit - item.voice_generation_count,
-                "stt_request_count": item.stt_request_count,
-                "stt_request_limit": item.stt_request_limit,
-                "stt_request_remaining": item.stt_request_limit - item.stt_request_count,
-                "voice_call_seconds": item.voice_call_seconds,
-                "voice_call_seconds_limit": item.voice_call_seconds_limit,
-                "voice_call_seconds_remaining": item.voice_call_seconds_limit - item.voice_call_seconds,
-                "created_at": item.created_at,
-                "updated_at": item.updated_at,
-            })
-
-        return PaginatedResponse(
-            total=result["total"],
-            skip=(page - 1) * size,
-            limit=size,
-            items=items_response,
-        )
-    except SQLAlchemyError as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Usage limit data is temporarily unavailable.",
-        ) from exc
-    except Exception as exc:
-        raise HTTPException(
-            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to list usage limits.",
-        ) from exc
-
-
-@router.patch("/users/{user_id}/usage-limit", response_model=UsageLimitResponse)
-async def update_user_usage_limit(
-    user_id: int,
-    update_data: UpdateUsageLimitRequest,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """Update user usage limit (admin only)."""
-    try:
-        usage_limit = RateLimitService.update_user_usage_limit(
-            db,
-            user_id,
-            voice_generation_limit=update_data.voice_generation_limit,
-            stt_request_limit=update_data.stt_request_limit,
-            voice_call_seconds_limit=update_data.voice_call_seconds_limit,
-        )
-
-        return {
-            "id": usage_limit.id,
-            "user_id": usage_limit.user_id,
-            "period_ym": usage_limit.period_ym,
-            "voice_generation_count": usage_limit.voice_generation_count,
-            "voice_generation_limit": usage_limit.voice_generation_limit,
-            "voice_generation_remaining": usage_limit.voice_generation_limit - usage_limit.voice_generation_count,
-            "stt_request_count": usage_limit.stt_request_count,
-            "stt_request_limit": usage_limit.stt_request_limit,
-            "stt_request_remaining": usage_limit.stt_request_limit - usage_limit.stt_request_count,
-            "voice_call_seconds": usage_limit.voice_call_seconds,
-            "voice_call_seconds_limit": usage_limit.voice_call_seconds_limit,
-            "voice_call_seconds_remaining": usage_limit.voice_call_seconds_limit - usage_limit.voice_call_seconds,
-            "created_at": usage_limit.created_at,
-            "updated_at": usage_limit.updated_at,
-        }
-    except SQLAlchemyError as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Usage limit update failed.",
-        ) from exc
-    except Exception as exc:
-        raise HTTPException(
-            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update user usage limit.",
-        ) from exc
-
-
-@router.patch("/personas/{persona_id}/usage-limit", response_model=PersonaUsageLimitResponse)
-async def update_persona_usage_limit(
-    persona_id: int,
-    update_data: UpdatePersonaUsageLimitRequest,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """Update persona usage limit (admin only)."""
-    try:
-        usage_limit = RateLimitService.update_persona_usage_limit(
-            db,
-            persona_id,
-            voice_generation_limit=update_data.voice_generation_limit,
-            voice_call_seconds_limit=update_data.voice_call_seconds_limit,
-        )
-
-        return {
-            "id": usage_limit.id,
-            "persona_id": usage_limit.persona_id,
-            "period_ym": usage_limit.period_ym,
-            "voice_generation_count": usage_limit.voice_generation_count,
-            "voice_generation_limit": usage_limit.voice_generation_limit,
-            "voice_generation_remaining": usage_limit.voice_generation_limit - usage_limit.voice_generation_count,
-            "voice_call_seconds": usage_limit.voice_call_seconds,
-            "voice_call_seconds_limit": usage_limit.voice_call_seconds_limit,
-            "voice_call_seconds_remaining": usage_limit.voice_call_seconds_limit - usage_limit.voice_call_seconds,
-            "created_at": usage_limit.created_at,
-            "updated_at": usage_limit.updated_at,
-        }
-    except SQLAlchemyError as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Persona usage limit update failed.",
-        ) from exc
-    except Exception as exc:
-        raise HTTPException(
-            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update persona usage limit.",
-        ) from exc
-
-
-@router.get("/rate-limit-events", response_model=PaginatedResponse[RateLimitEventResponse])
-async def list_rate_limit_events(
-    user_id: int | None = Query(default=None),
-    page: int = Query(default=1, ge=1),
-    size: int = Query(default=20, ge=1, le=100),
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """List rate limit events (admin only)."""
-    try:
-        result = RateLimitService.list_rate_limit_events(
-            db,
-            user_id=user_id,
-            skip=(page - 1) * size,
-            limit=size,
-        )
-
-        return PaginatedResponse(
-            total=result["total"],
-            skip=(page - 1) * size,
-            limit=size,
-            items=result["items"],
-        )
-    except SQLAlchemyError as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Rate limit event data is temporarily unavailable.",
-        ) from exc
-    except Exception as exc:
-        raise HTTPException(
-            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to list rate limit events.",
-        ) from exc
-
-
-# ============================================================================
-# Report Management Endpoints
-# ============================================================================
-
-
-@router.get("/reports", response_model=PaginatedResponse)
-async def list_reports(
-    status: str | None = Query(default=None),
-    page: int = Query(default=1, ge=1),
-    size: int = Query(default=20, ge=1, le=100),
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """List all reports (admin only)."""
-    try:
-        from app.models.report import ReportStatus
-        from app.schemas.report import AdminReportListResponse
-        from app.services.report_service import report_service
-
-        status_filter = None
-        if status is not None:
-            try:
-                status_filter = ReportStatus(status)
-            except (KeyError, ValueError) as exc:
-                raise HTTPException(
-                    status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="Invalid status value",
-                ) from exc
-
-        result = report_service.get_admin_reports(db, status_filter, page, size)
-        return PaginatedResponse(
-            total=result["total"],
-            skip=(page - 1) * size,
-            limit=size,
-            items=result["items"],
-        )
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(
-            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        ) from exc
-
-
-@router.get("/reports/{report_id}")
-async def get_report(
-    report_id: int,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """Get a specific report (admin only)."""
-    try:
-        from app.services.report_service import report_service
-
-        return report_service.get_admin_report(db, report_id)
-    except RemoryException as e:
-        raise to_http_exception(e)
-
-
-@router.patch("/reports/{report_id}/reviewing")
-async def update_report_reviewing(
-    report_id: int,
-    request_data: dict | None = None,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """Mark report as under review (admin only)."""
-    try:
-        from app.services.report_service import report_service
-
-        admin_note = None
-        if request_data and isinstance(request_data, dict):
-            admin_note = request_data.get("admin_note")
-
-        return report_service.update_report_reviewing(db, admin_user.id, report_id, admin_note)
-    except RemoryException as e:
-        raise to_http_exception(e)
-
-
-@router.patch("/reports/{report_id}/resolve")
-async def resolve_report(
-    report_id: int,
-    request_data: dict | None = None,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """Resolve report without taking action (admin only)."""
-    try:
-        from app.services.report_service import report_service
-
-        admin_note = None
-        if request_data and isinstance(request_data, dict):
-            admin_note = request_data.get("admin_note")
-
-        return report_service.resolve_report(db, admin_user.id, report_id, admin_note)
-    except RemoryException as e:
-        raise to_http_exception(e)
-
-
-@router.patch("/reports/{report_id}/reject")
-async def reject_report(
-    report_id: int,
-    request_data: dict | None = None,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """Reject report (admin only)."""
-    try:
-        from app.services.report_service import report_service
-
-        admin_note = None
-        if request_data and isinstance(request_data, dict):
-            admin_note = request_data.get("admin_note")
-
-        return report_service.reject_report(db, admin_user.id, report_id, admin_note)
-    except RemoryException as e:
-        raise to_http_exception(e)
-
-
-@router.patch("/reports/{report_id}/action-taken")
-async def take_action_on_report(
-    report_id: int,
-    request_data: dict | None = None,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """Take action on report - disable the reported content (admin only)."""
-    try:
-        from app.services.report_service import report_service
-
-        admin_note = None
-        if request_data and isinstance(request_data, dict):
-            admin_note = request_data.get("admin_note")
-
-        return report_service.take_action_on_report(db, admin_user.id, report_id, admin_note)
-    except RemoryException as e:
-        raise to_http_exception(e)
-
-
-@router.get("/voice-profiles/{voice_profile_id}", response_model=PersonaVoiceProfileResponse)
-async def get_voice_profile_admin(
-    voice_profile_id: int,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """Get a voice profile detail (admin only)."""
-    try:
-        return persona_service.admin_get_voice_profile(db, voice_profile_id)
-    except RemoryException as e:
-        raise to_http_exception(e)
-
-
-@router.patch("/voice-profiles/{voice_profile_id}/approve", response_model=PersonaVoiceProfileResponse)
-async def approve_voice_profile_admin(
-    voice_profile_id: int,
-    request_data: VoiceProfileReviewRequest,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """Approve a READY voice profile (admin only)."""
-    try:
-        return persona_service.admin_approve_voice_profile(
-            db,
-            voice_profile_id,
-            admin_user.id,
-            review_note=request_data.review_note,
-        )
-    except RemoryException as e:
-        raise to_http_exception(e)
-
-
-@router.patch("/voice-profiles/{voice_profile_id}/reject", response_model=PersonaVoiceProfileResponse)
-async def reject_voice_profile_admin(
-    voice_profile_id: int,
-    request_data: VoiceProfileReviewRequest,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """Reject a voice profile (admin only)."""
-    try:
-        return persona_service.admin_reject_voice_profile(
-            db,
-            voice_profile_id,
-            admin_user.id,
-            review_note=request_data.review_note,
-        )
-    except RemoryException as e:
-        raise to_http_exception(e)
-
-
-@router.patch("/voice-profiles/{voice_profile_id}/revoke", response_model=PersonaVoiceProfileResponse)
-async def revoke_voice_profile_admin(
-    voice_profile_id: int,
-    request_data: VoiceProfileReviewRequest,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """Revoke voice profile usage (admin only)."""
-    try:
-        return persona_service.admin_revoke_voice_profile(
-            db,
-            voice_profile_id,
-            admin_user.id,
-            review_note=request_data.review_note,
-        )
-    except RemoryException as e:
-        raise to_http_exception(e)

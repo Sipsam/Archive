@@ -41,7 +41,7 @@ def _cleanup_uploads() -> None:
     if not uploads_root.exists():
         return
 
-    for relative_dir in ("images", "voices", "photo_memories", "verifications", "chat_audio", "chat_tts"):
+    for relative_dir in ("images", "voices", "photo_memories", "verifications"):
         target_dir = uploads_root / relative_dir
         if not target_dir.exists():
             continue
@@ -130,16 +130,6 @@ def admin_user(client):
     """관리자 사용자 생성"""
     from app.models.user import User, UserRole
     from app.core.security import hash_password
-    from app.core.security import create_access_token
-    from app.core.settings import settings
-    from datetime import timedelta
-
-    class AttrDict(dict):
-        def __getattr__(self, item):
-            try:
-                return self[item]
-            except KeyError as exc:
-                raise AttributeError(item) from exc
 
     db = TestingSessionLocal()
     try:
@@ -152,20 +142,7 @@ def admin_user(client):
         db.add(admin)
         db.commit()
         db.refresh(admin)
-
-        token = create_access_token(
-            data={"sub": str(admin.id)},
-            expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
-        )
-
-        return AttrDict({
-            "id": admin.id,
-            "user_id": admin.id,
-            "access_token": token,
-            "email": admin.email,
-            "nickname": admin.nickname,
-            "role": admin.role,
-        })
+        return admin
     finally:
         db.close()
 
@@ -178,7 +155,7 @@ def admin_token(client, admin_user):
     from datetime import timedelta
 
     token = create_access_token(
-        data={"sub": str(admin_user['id'])},
+        data={"sub": str(admin_user.id)},
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
     return token
@@ -208,14 +185,14 @@ def target_media_consents(client, auth_headers, created_target):
             client,
             auth_headers,
             target_id,
-            "photo_upload_consent",
+            "photo_collection",
             details="photo upload consent",
         ),
         "voice": _create_consent(
             client,
             auth_headers,
             target_id,
-            "voice_upload_consent",
+            "voice_collection",
             details="voice upload consent",
         ),
     }
@@ -235,7 +212,7 @@ def uploaded_media(client, auth_headers, created_target, target_media_consents):
     voice = client.post(
         f"/api/v1/targets/{target_id}/media",
         data={"media_type": "voice"},
-        files={"file": ("voice.mp3", b"a" * 100000, "audio/mpeg")},
+        files={"file": ("voice.mp3", b"fake audio content", "audio/mpeg")},
         headers=auth_headers,
     )
     assert voice.status_code == 201
@@ -244,30 +221,13 @@ def uploaded_media(client, auth_headers, created_target, target_media_consents):
 
 @pytest.fixture
 def target_persona_consent(client, auth_headers, created_target, target_media_consents):
-    target_id = created_target["id"]
-    return {
-        "persona": _create_consent(
-            client,
-            auth_headers,
-            target_id,
-            "ai_persona_creation_consent",
-            details="persona generation consent",
-        ),
-        "ai_notice": _create_consent(
-            client,
-            auth_headers,
-            target_id,
-            "ai_response_notice_consent",
-            details="AI response notice consent",
-        ),
-        "voice_cloning": _create_consent(
-            client,
-            auth_headers,
-            target_id,
-            "voice_cloning_consent",
-            details="voice cloning consent",
-        ),
-    }
+    return _create_consent(
+        client,
+        auth_headers,
+        created_target["id"],
+        "persona_creation",
+        details="persona generation consent",
+    )
 
 
 @pytest.fixture
@@ -344,7 +304,7 @@ def storybook_share_consent(client, auth_headers, created_storybook):
         client,
         auth_headers,
         None,
-        "storybook_share_consent",
+        "storybook_share",
         details="storybook share consent",
     )
 
@@ -366,8 +326,9 @@ def target_verification(client, auth_headers, created_target):
             target_id=created_target["id"],
             verification_type=VerificationType.SELF_DECLARATION,
             status=VerificationStatus.APPROVED,
-            submitted_file_path="uploads/verifications/test/verification.pdf",
+            document_file_path="test/verification.pdf",
             original_filename="verification.pdf",
+            stored_filename="test_verification.pdf",
             mime_type="application/pdf",
             file_size=1024,
             submitted_at=datetime.now(UTC).replace(tzinfo=None),
@@ -382,121 +343,4 @@ def target_verification(client, auth_headers, created_target):
         db.close()
 
 
-@pytest.fixture
-def authorized_user(client):
-    """Create a user with access token."""
-    data = {
-        "email": "authorized@example.com",
-        "nickname": "authorized",
-        "password": "securepassword123",
-    }
-    response = client.post("/api/v1/auth/register", json=data)
-    assert response.status_code == 201
-    user_data = response.json()
-    user_data['user_id'] = user_data['user']['id']
-    return user_data
 
-
-@pytest.fixture
-def other_authorized_user(client):
-    """Create another user with access token."""
-    data = {
-        "email": "other@example.com",
-        "nickname": "other",
-        "password": "securepassword123",
-    }
-    response = client.post("/api/v1/auth/register", json=data)
-    assert response.status_code == 201
-    user_data = response.json()
-    user_data['user_id'] = user_data['user']['id']
-    return user_data
-
-
-@pytest.fixture
-def target_with_persona(client, authorized_user):
-    """Create a target with persona for testing."""
-    from app.models.target import Target
-    from app.models.persona import Persona
-    from app.models.target_verification import TargetVerificationRequest, VerificationStatus, VerificationType
-    from datetime import datetime, UTC
-
-    db = TestingSessionLocal()
-    try:
-        user_id = authorized_user['user_id']
-
-        # Create target
-        target = Target(
-            user_id=user_id,
-            name="Test Target",
-            description="A test target",
-            target_type="parent"
-        )
-        db.add(target)
-        db.flush()
-
-        # Create verification
-        verification = TargetVerificationRequest(
-            user_id=user_id,
-            target_id=target.id,
-            verification_type=VerificationType.SELF_DECLARATION,
-            status=VerificationStatus.APPROVED,
-            submitted_file_path="uploads/verifications/test/verification.pdf",
-            original_filename="verification.pdf",
-            mime_type="application/pdf",
-            file_size=1024,
-            submitted_at=datetime.now(UTC).replace(tzinfo=None),
-            reviewed_at=datetime.now(UTC).replace(tzinfo=None),
-            reviewed_by=user_id,
-        )
-        db.add(verification)
-        db.flush()
-
-        # Create persona
-        persona = Persona(
-            target_id=target.id,
-            persona_name="Test Persona",
-            personality_summary="Test summary"
-        )
-        db.add(persona)
-        db.commit()
-        db.refresh(target)
-        db.refresh(persona)
-
-        return target, persona
-    finally:
-        db.close()
-
-
-@pytest.fixture
-def storybook(client, authorized_user):
-    """Create a storybook for testing."""
-    from app.models.storybook import StoryBook, StoryBookSourceType, StoryBookStatus, StoryBookVisibility
-
-    db = TestingSessionLocal()
-    try:
-        user_id = authorized_user['user_id']
-
-        storybook = StoryBook(
-            user_id=user_id,
-            title="Test Storybook",
-            source_type=StoryBookSourceType.SELF_STORY,
-            status=StoryBookStatus.GENERATED,
-            visibility=StoryBookVisibility.PRIVATE
-        )
-        db.add(storybook)
-        db.commit()
-        db.refresh(storybook)
-
-        return storybook
-    finally:
-        db.close()
-
-
-@pytest.fixture(scope="function")
-def db():
-    """创建测试数据库会话"""
-    db_session = TestingSessionLocal()
-    try:
-        yield db_session
-    finally:
-        db_session.close()

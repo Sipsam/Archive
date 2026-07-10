@@ -4,7 +4,7 @@ from app.models.user import User, UserRole
 from app.models.auth import RefreshToken
 from app.models.target import Target, TargetType
 from app.models.media import TargetMedia, MediaType
-from app.models.persona import Persona, PersonaStatus, PersonaVoiceProfile, VoiceProfileStatus, VoiceProfileReviewStatus
+from app.models.persona import Persona, PersonaStatus, PersonaVoiceProfile
 from app.models.chat import PersonaChat, PersonaMessage, MessageType, SenderType
 from app.models.interview import (
     AIInterviewAnswer,
@@ -26,10 +26,6 @@ from app.models.sharing import GroupMember, GroupMemberRole, GroupStoryBook, Mem
 from app.models.consent import ConsentLog, ConsentType
 from app.models.deletion import DeletionItemType, DeletionRequest, DeletionStatus, DeletionTargetType
 from app.models.target_verification import TargetVerificationRequest, VerificationType, VerificationStatus
-from app.models.usage_limit import UsageLimit, PersonaUsageLimit, RateLimitEvent
-from app.models.audit_log import AuditLog
-from app.models.report import Report, ReportTargetType, ReportReasonType, ReportStatus
-from app.models.voice_call import VoiceCallSession, VoiceCallSessionStatus
 
 __all__ = [
     "Base",
@@ -44,8 +40,6 @@ __all__ = [
     "Persona",
     "PersonaStatus",
     "PersonaVoiceProfile",
-    "VoiceProfileStatus",
-    "VoiceProfileReviewStatus",
     "PersonaChat",
     "PersonaMessage",
     "MessageType",
@@ -77,16 +71,4 @@ __all__ = [
     "TargetVerificationRequest",
     "VerificationType",
     "VerificationStatus",
-    "UsageLimit",
-    "PersonaUsageLimit",
-    "RateLimitEvent",
-    "AuditLog",
-    "Report",
-    "ReportTargetType",
-    "ReportReasonType",
-    "ReportStatus",
-    "VoiceCallSession",
-    "VoiceCallSessionStatus",
 ]
-
-

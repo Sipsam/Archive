@@ -1,6 +1,6 @@
 """AI interview business logic."""
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload, with_loader_criteria
 
 from app.models.interview import (
@@ -17,7 +17,7 @@ from app.schemas.interview import (
     AIInterviewQuestionCreateRequest,
     AIInterviewSessionCreateRequest,
 )
-from app.services.ai import get_llm_service
+from app.services.ai_service import ai_service
 from app.utils.exceptions import ForbiddenException, NotFoundException, ValidationException
 
 
@@ -113,22 +113,22 @@ class InterviewService:
         question_data: AIInterviewQuestionCreateRequest,
     ) -> AIInterviewQuestion:
         session = InterviewService._get_owned_session(db, session_id, user_id)
-        previous_questions = (
+        next_order_index = (
             db.execute(
-                select(AIInterviewQuestion.question_text)
-                .where(
+                select(func.count(AIInterviewQuestion.id)).where(
                     AIInterviewQuestion.session_id == session_id,
                 )
-                .order_by(AIInterviewQuestion.order_index.asc(), AIInterviewQuestion.id.asc())
-            )
-            .scalars()
-            .all()
-        )
-        next_order_index = len(previous_questions) + 1
+            ).scalar()
+            or 0
+        ) + 1
 
-        question_text = await get_llm_service().generate_interview_question(
+        question_text = await ai_service.generate_mock_interview_question(
             session_type=session.session_type.value,
-            previous_questions=previous_questions,
+            order_index=next_order_index,
+            context={
+                "target_id": session.target_id,
+                "photo_memory_id": session.photo_memory_id,
+            },
         )
         question = AIInterviewQuestion(
             session_id=session_id,

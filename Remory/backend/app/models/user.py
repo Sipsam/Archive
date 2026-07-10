@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Enum, ForeignKey
+from sqlalchemy import Column, Integer, String, Enum
 from sqlalchemy.orm import relationship
 import enum
 from app.models.base import BaseModel
@@ -30,10 +30,10 @@ class User(BaseModel):
     storybooks = relationship("StoryBook", back_populates="user", cascade="all, delete-orphan")
     memory_groups = relationship("MemoryGroup", back_populates="owner", cascade="all, delete-orphan")
     consent_logs = relationship("ConsentLog", back_populates="user", cascade="all, delete-orphan")
+    deletion_requests = relationship("DeletionRequest", back_populates="user", cascade="all, delete-orphan")
     verification_requests = relationship(
         "TargetVerificationRequest",
         back_populates="user",
         foreign_keys="TargetVerificationRequest.user_id",
         cascade="all, delete-orphan",
     )
-    reports = relationship("Report", back_populates="reporter", foreign_keys="Report.reporter_user_id", cascade="all, delete-orphan")
