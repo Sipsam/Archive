@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: final-test
+
+  datasource:
+    url: jdbc:h2:mem:finalstudytest;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  sql:
+    init:
+      mode: never
+
+  jackson:
+    serialization: { }
+
+jwt:
+  secret-key: test-secret-key-test-secret-key-test-secret-key-test-secret-key
+  access-token:
+    header: Authorization
+    expiration: 3600000
+  refresh-token:
+    expiration: 1209600000
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+logging:
+  level:
+    root: INFO
+    com.likelion.finalstudy: DEBUG
+
+

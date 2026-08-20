@@ -1,0 +1,51 @@
+name: Deploy to Vultr (Docker Compose)
+
+on:
+  push:
+    branches:
+      - 'week8/#6-jangsungwon'
+
+jobs:
+  deploy:
+    name: SSH Deploy to Vultr Ubuntu
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Execute Remote Deployment Commands
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            set -e
+
+            cd "${{ secrets.APP_DIR }}"
+            git fetch origin
+            git checkout "${{ secrets.DEPLOY_BRANCH }}"
+            git reset --hard
+            git clean -fd
+            git pull --ff-only origin "${{ secrets.DEPLOY_BRANCH }}"
+
+            docker compose down
+            docker compose up -d --build
+
+            docker ps
+
+            echo "Waiting for Spring Boot application to be ready..."
+
+            for i in {1..30}; do
+              if curl -fsS http://localhost:8080/actuator/health > /dev/null; then
+                echo "Application is ready."
+                exit 0
+              fi
+
+              echo "Application is not ready yet. Retry $i/30"
+              sleep 3
+            done
+
+            echo "Application failed to become ready."
+            docker compose logs --tail=200 app
+            exit 1
+            fi
