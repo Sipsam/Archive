@@ -1,9 +1,8 @@
 """Persistence for registered (owned) products (Backend A)."""
 
 import uuid
-from datetime import datetime
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.enums import RegisteredProductSource
@@ -14,27 +13,12 @@ class RegisteredProductRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def list_for_user(
-        self,
-        user_id: uuid.UUID,
-        *,
-        limit: int,
-        cursor_created_at: datetime | None = None,
-        cursor_id: uuid.UUID | None = None,
-    ) -> list[RegisteredProduct]:
-        stmt = select(RegisteredProduct).where(RegisteredProduct.user_id == user_id)
-        if cursor_created_at is not None and cursor_id is not None:
-            stmt = stmt.where(
-                or_(
-                    RegisteredProduct.created_at < cursor_created_at,
-                    and_(
-                        RegisteredProduct.created_at == cursor_created_at,
-                        RegisteredProduct.id < cursor_id,
-                    ),
-                )
-            )
-        stmt = stmt.order_by(RegisteredProduct.created_at.desc(), RegisteredProduct.id.desc()).limit(limit)
-        result = await self.session.scalars(stmt)
+    async def list_for_user(self, user_id: uuid.UUID) -> list[RegisteredProduct]:
+        result = await self.session.scalars(
+            select(RegisteredProduct)
+            .where(RegisteredProduct.user_id == user_id)
+            .order_by(RegisteredProduct.created_at.desc())
+        )
         return list(result)
 
     async def get_for_user(

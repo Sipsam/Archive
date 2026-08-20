@@ -11,12 +11,12 @@ from app.modules.guests.repository import GuestRepository
 
 class AvatarAlreadyExistsError(ConflictError):
     code = "AVATAR_ALREADY_EXISTS"
-    message = "이미 아바타가 등록되어 있습니다."
+    message = "Avatar already exists for this member."
 
 
 class AvatarNotFoundError(NotFoundError):
     code = "AVATAR_NOT_FOUND"
-    message = "아바타를 찾을 수 없습니다."
+    message = "Avatar not found."
 
 
 class AvatarService:
@@ -89,7 +89,7 @@ class AvatarService:
     ) -> GuestAvatarParametersSchema:
         guest = await self.guest_repository.get_by_id(guest_session_id)
         if guest is None:
-            raise AvatarNotFoundError("게스트 세션을 찾을 수 없습니다.")
+            raise AvatarNotFoundError("Guest session not found.")
         guest.height_cm = payload.height_cm
         guest.weight_kg = payload.weight_kg
         guest.gender = payload.gender

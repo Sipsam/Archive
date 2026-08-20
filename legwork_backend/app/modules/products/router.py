@@ -79,13 +79,11 @@ async def get_recent_products(
     request: Request,
     recent: RecentServiceDep,
     principal: CurrentPrincipal,
-    cursor: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=50),
 ) -> ApiResponse[list[RecentProductItem]]:
-    data, pagination = await recent.list_recent(
+    data = await recent.list_recent(
         user_id=principal.user_id,
         guest_session_id=principal.guest_session_id,
-        cursor=cursor,
         limit=limit,
     )
-    return success_response(data=data, request=request, pagination=pagination)
+    return success_response(data=data, request=request)
