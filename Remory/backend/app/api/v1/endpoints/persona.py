@@ -6,12 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.deps import get_current_user
 from app.models.user import User
-from app.schemas.persona import (
-    PersonaDetailResponse,
-    PersonaStatusResponse,
-    PersonaVoiceProfileResponse,
-    VoiceProfileReviewRequest,
-)
+from app.schemas.persona import PersonaDetailResponse, PersonaStatusResponse
 from app.services.persona_service import persona_service
 from app.utils.exceptions import RemoryException, to_http_exception
 
@@ -64,75 +59,3 @@ async def get_persona_status(
         )
     except RemoryException as e:
         raise to_http_exception(e)
-
-
-@router.post(
-    "/personas/{persona_id}/voice-profile",
-    response_model=PersonaVoiceProfileResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def create_persona_voice_profile(
-    persona_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Create or refresh a voice cloning profile for a persona."""
-    try:
-        return await persona_service.create_voice_profile(db, persona_id, current_user.id)
-    except RemoryException as e:
-        raise to_http_exception(e)
-
-
-@router.get(
-    "/personas/{persona_id}/voice-profile",
-    response_model=PersonaVoiceProfileResponse,
-)
-async def get_persona_voice_profile(
-    persona_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Get a persona voice profile owned by the current user."""
-    try:
-        return persona_service.get_voice_profile(db, persona_id, current_user.id)
-    except RemoryException as e:
-        raise to_http_exception(e)
-
-
-@router.post(
-    "/personas/{persona_id}/voice-profile/evaluate",
-    response_model=PersonaVoiceProfileResponse,
-)
-async def evaluate_persona_voice_profile(
-    persona_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Evaluate target voice samples and generate a sample output."""
-    try:
-        return await persona_service.evaluate_voice_profile(db, persona_id, current_user.id)
-    except RemoryException as e:
-        raise to_http_exception(e)
-
-
-@router.patch(
-    "/personas/{persona_id}/voice-profile/user-confirm",
-    response_model=PersonaVoiceProfileResponse,
-)
-async def confirm_persona_voice_profile(
-    persona_id: int,
-    request_data: VoiceProfileReviewRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Confirm evaluated voice profile by user."""
-    try:
-        return persona_service.user_confirm_voice_profile(
-            db,
-            persona_id,
-            current_user.id,
-            review_note=request_data.review_note,
-        )
-    except RemoryException as e:
-        raise to_http_exception(e)
-

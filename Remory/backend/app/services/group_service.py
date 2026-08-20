@@ -159,7 +159,7 @@ class GroupService:
         if storybook.user_id != user_id:
             raise ForbiddenException("You can only share your own storybooks")
 
-        consent_service.check_consent(db, user_id, None, ConsentType.GROUP_SHARE_CONSENT)
+        consent_service.check_consent(db, user_id, None, ConsentType.STORYBOOK_SHARE)
 
         existing_share = db.execute(
             select(GroupStoryBook).where(

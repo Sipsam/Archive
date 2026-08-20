@@ -1,22 +1,22 @@
-"""Target verification request service."""
-
-from datetime import UTC, datetime
-from pathlib import Path
+"""입증 요청 서비스"""
+import os
 import uuid
+from datetime import datetime, UTC
+from pathlib import Path
 from typing import Optional
 
 from fastapi import UploadFile
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
-from app.models.audit_log import AuditAction, AuditTargetType
-from app.models.target import Target
 from app.models.target_verification import TargetVerificationRequest, VerificationStatus, VerificationType
-from app.utils.constants import MAX_UPLOAD_SIZE, UPLOAD_DIR
-from app.utils.exceptions import FileUploadException, NotFoundException, ValidationException
-
+from app.models.target import Target
+from app.utils.exceptions import NotFoundException, ValidationException, FileUploadException
+from app.utils.constants import UPLOAD_DIR, MAX_UPLOAD_SIZE
 
 class VerificationService:
+    """입증 요청 관리 서비스"""
+
     @staticmethod
     def _utcnow_naive() -> datetime:
         return datetime.now(UTC).replace(tzinfo=None)
@@ -33,29 +33,26 @@ class VerificationService:
         return base
 
     @staticmethod
-    def _parse_status(value: str) -> VerificationStatus:
-        normalized = value.strip().upper()
-        return VerificationStatus[normalized]
-
-    @staticmethod
-    def _parse_verification_type(value: str) -> VerificationType:
-        normalized = value.strip().upper()
-        return VerificationType[normalized]
-
-    @staticmethod
-    def ensure_verification_upload_dir(user_id: int) -> Path:
+    def ensure_verification_upload_dir(user_id: int):
+        """사용자별 업로드 디렉토리 생성"""
         user_dir = VerificationService._upload_root() / "verifications" / str(user_id)
         user_dir.mkdir(parents=True, exist_ok=True)
         return user_dir
 
     @staticmethod
-    async def save_verification_file(upload_file: UploadFile, user_id: int) -> dict:
+    async def save_verification_file(
+        upload_file: UploadFile,
+        user_id: int,
+    ) -> dict:
+        """입증 파일 저장"""
         user_dir = VerificationService.ensure_verification_upload_dir(user_id)
+
+        # 파일 크기 확인
         contents = await upload_file.read()
-
         if len(contents) > MAX_UPLOAD_SIZE:
-            raise FileUploadException(f"File size exceeds limit ({MAX_UPLOAD_SIZE} bytes)")
+            raise FileUploadException(f"파일 크기가 제한을 초과했습니다 ({MAX_UPLOAD_SIZE} bytes)")
 
+        # 파일 MIME 타입 제한 (문서 파일만 허용)
         allowed_mimes = {
             "application/pdf",
             "image/jpeg",
@@ -65,33 +62,26 @@ class VerificationService:
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         }
         if upload_file.content_type not in allowed_mimes:
-            raise FileUploadException("Unsupported file type. Allowed: PDF, image, document")
+            raise FileUploadException(f"지원하지 않는 파일 형식입니다. 허용: PDF, 이미지, 문서")
 
-        file_ext = Path(upload_file.filename or "").suffix.lower()
+        # UUID 기반 파일명 생성
+        file_ext = Path(upload_file.filename).suffix.lower()
         stored_filename = f"{uuid.uuid4()}{file_ext}"
         file_path = user_dir / stored_filename
-        file_path.write_bytes(contents)
 
-        submitted_file_path = file_path.resolve().relative_to(VerificationService._backend_root()).as_posix()
+        # 파일 저장
+        with open(file_path, "wb") as f:
+            f.write(contents)
+
+        document_file_path = file_path.resolve().relative_to(VerificationService._backend_root()).as_posix()
+
         return {
-            "submitted_file_path": submitted_file_path,
-            "original_filename": upload_file.filename or stored_filename,
+            "document_file_path": document_file_path,
+            "original_filename": upload_file.filename,
+            "stored_filename": stored_filename,
             "mime_type": upload_file.content_type,
             "file_size": len(contents),
         }
-
-    @staticmethod
-    def _get_owned_target(db: Session, target_id: int, user_id: int) -> Target:
-        target = db.execute(
-            select(Target).where(
-                Target.id == target_id,
-                Target.user_id == user_id,
-                Target.is_deleted == False,
-            )
-        ).scalar_one_or_none()
-        if target is None:
-            raise NotFoundException("Target", target_id)
-        return target
 
     @staticmethod
     def create_verification_request(
@@ -100,49 +90,69 @@ class VerificationService:
         target_id: int,
         verification_type: VerificationType,
         file_info: dict,
-        applicant_note: Optional[str] = None,
     ) -> TargetVerificationRequest:
-        VerificationService._get_owned_target(db, target_id, user_id)
-
-        existing = db.execute(
-            select(TargetVerificationRequest).where(
-                TargetVerificationRequest.target_id == target_id,
-                TargetVerificationRequest.status.in_(
-                    [VerificationStatus.PENDING, VerificationStatus.NEED_MORE_INFO]
-                ),
-                TargetVerificationRequest.deleted_at.is_(None),
+        """입증 요청 생성"""
+        # Target 존재 확인
+        target = db.execute(
+            select(Target).where(
+                and_(
+                    Target.id == target_id,
+                    Target.user_id == user_id,
+                )
             )
         ).scalar_one_or_none()
+
+        if not target:
+            raise NotFoundException("Target을 찾을 수 없거나 권한이 없습니다")
+
+        # 이미 미결정 상태의 요청이 있으면 거절
+        existing = db.execute(
+            select(TargetVerificationRequest).where(
+                and_(
+                    TargetVerificationRequest.target_id == target_id,
+                    TargetVerificationRequest.status == VerificationStatus.PENDING,
+                    TargetVerificationRequest.deleted_at.is_(None),
+                )
+            )
+        ).scalar_one_or_none()
+
         if existing:
-            raise ValidationException("A verification request is already pending for this target")
+            raise ValidationException("이미 검토 대기 중인 입증 요청이 있습니다")
 
         request = TargetVerificationRequest(
             user_id=user_id,
             target_id=target_id,
             verification_type=verification_type,
             status=VerificationStatus.PENDING,
-            submitted_file_path=file_info["submitted_file_path"],
+            document_file_path=file_info["document_file_path"],
             original_filename=file_info["original_filename"],
+            stored_filename=file_info["stored_filename"],
             mime_type=file_info["mime_type"],
             file_size=file_info["file_size"],
-            applicant_note=applicant_note,
             submitted_at=VerificationService._utcnow_naive(),
         )
+
         db.add(request)
         db.commit()
         db.refresh(request)
         return request
 
     @staticmethod
-    def get_verification_request(db: Session, request_id: int) -> TargetVerificationRequest:
+    def get_verification_request(
+        db: Session,
+        request_id: int,
+    ) -> TargetVerificationRequest:
+        """입증 요청 조회"""
         request = db.execute(
             select(TargetVerificationRequest).where(
                 TargetVerificationRequest.id == request_id,
                 TargetVerificationRequest.deleted_at.is_(None),
             )
         ).scalar_one_or_none()
-        if request is None:
-            raise NotFoundException("TargetVerificationRequest", request_id)
+
+        if not request:
+            raise NotFoundException("입증 요청을 찾을 수 없습니다")
+
         return request
 
     @staticmethod
@@ -153,24 +163,45 @@ class VerificationService:
         skip: int = 0,
         limit: int = 20,
     ) -> dict:
-        VerificationService._get_owned_target(db, target_id, user_id)
+        """사용자의 특정 Target에 대한 입증 요청 목록 조회"""
+        # Target 권한 확인
+        target = db.execute(
+            select(Target).where(
+                and_(
+                    Target.id == target_id,
+                    Target.user_id == user_id,
+                )
+            )
+        ).scalar_one_or_none()
 
-        query = (
-            select(TargetVerificationRequest)
-            .where(
+        if not target:
+            raise NotFoundException("Target을 찾을 수 없거나 권한이 없습니다")
+
+        # 요청 목록 조회
+        query = select(TargetVerificationRequest).where(
+            and_(
                 TargetVerificationRequest.target_id == target_id,
                 TargetVerificationRequest.deleted_at.is_(None),
             )
-            .order_by(TargetVerificationRequest.created_at.desc(), TargetVerificationRequest.id.desc())
-        )
-        count_query = select(func.count(TargetVerificationRequest.id)).where(
-            TargetVerificationRequest.target_id == target_id,
-            TargetVerificationRequest.deleted_at.is_(None),
         )
 
+        total = db.execute(
+            select(TargetVerificationRequest).where(
+                and_(
+                    TargetVerificationRequest.target_id == target_id,
+                    TargetVerificationRequest.deleted_at.is_(None),
+                )
+            )
+        ).scalars().all()
+        total_count = len(total)
+
+        items = db.execute(
+            query.offset(skip).limit(limit)
+        ).scalars().all()
+
         return {
-            "total": db.execute(count_query).scalar_one() or 0,
-            "items": db.execute(query.offset(skip).limit(limit)).scalars().all(),
+            "total": total_count,
+            "items": items,
         }
 
     @staticmethod
@@ -180,7 +211,11 @@ class VerificationService:
         page: int = 1,
         size: int = 20,
     ) -> dict:
-        query = select(TargetVerificationRequest).where(TargetVerificationRequest.deleted_at.is_(None))
+        """관리자용 입증 요청 목록 조회"""
+        query = select(TargetVerificationRequest).where(
+            TargetVerificationRequest.deleted_at.is_(None)
+        )
+
         count_query = select(func.count(TargetVerificationRequest.id)).where(
             TargetVerificationRequest.deleted_at.is_(None)
         )
@@ -189,74 +224,54 @@ class VerificationService:
             query = query.where(TargetVerificationRequest.status == status)
             count_query = count_query.where(TargetVerificationRequest.status == status)
 
-        query = query.order_by(TargetVerificationRequest.created_at.desc(), TargetVerificationRequest.id.desc())
+        order_column = func.coalesce(
+            TargetVerificationRequest.submitted_at,
+            TargetVerificationRequest.created_at,
+        )
+        query = query.order_by(order_column.desc(), TargetVerificationRequest.id.desc())
+
         offset = (page - 1) * size
+        total_count = db.execute(count_query).scalar_one() or 0
+        items = db.execute(query.offset(offset).limit(size)).scalars().all()
+
         return {
-            "total": db.execute(count_query).scalar_one() or 0,
-            "items": db.execute(query.offset(offset).limit(size)).scalars().all(),
+            "total": total_count,
+            "items": items,
             "page": page,
             "size": size,
         }
 
     @staticmethod
-    def _record_admin_decision_audit(
+    def get_pending_verification_requests(
         db: Session,
-        request: TargetVerificationRequest,
-        admin_user_id: int,
-        action: str,
-    ) -> None:
-        """Record an audit log for verification admin decision.
-
-        Args:
-            db: Database session
-            request: The verification request
-            admin_user_id: Admin user ID
-            action: The action taken (approve, reject, need_more_info, revoke)
-        """
-        try:
-            from app.services.audit_log_service import AuditLogService
-
-            action_map = {
-                "approve": AuditAction.VERIFICATION_APPROVED,
-                "reject": AuditAction.VERIFICATION_REJECTED,
-                "need_more_info": AuditAction.VERIFICATION_NEED_MORE_INFO,
-                "revoke": AuditAction.VERIFICATION_REVOKED,
-            }
-
-            audit_action = action_map.get(action, AuditAction.VERIFICATION_APPROVED)
-
-            AuditLogService.create_audit_log(
-                db=db,
-                action=audit_action,
-                actor_user_id=admin_user_id,
-                target_type=AuditTargetType.VERIFICATION_REQUEST,
-                target_id=request.id,
-                description=f"Verification request {action} - Target: {request.target_id}",
-                metadata={"verification_type": request.verification_type.value, "request_id": request.id},
-            )
-        except Exception:
-            # Don't let audit log creation failures break the main flow
-            pass
+        skip: int = 0,
+        limit: int = 20,
+    ) -> dict:
+        """미검토 입증 요청 목록 조회 (호환성 유지용)"""
+        page = (skip // limit) + 1 if limit > 0 else 1
+        return VerificationService.get_admin_verification_requests(
+            db,
+            status=VerificationStatus.PENDING,
+            page=page,
+            size=limit,
+        )
 
     @staticmethod
     def approve_verification_request(
         db: Session,
         request_id: int,
         admin_user_id: int,
-        admin_note: Optional[str] = None,
-        expires_at: Optional[datetime] = None,
     ) -> TargetVerificationRequest:
+        """입증 요청 승인"""
         request = VerificationService.get_verification_request(db, request_id)
-        if request.status not in (VerificationStatus.PENDING, VerificationStatus.NEED_MORE_INFO):
-            raise ValidationException("Only pending requests can be approved")
+
+        if request.status != VerificationStatus.PENDING:
+            raise ValidationException("대기 중인 요청만 승인할 수 있습니다")
 
         request.status = VerificationStatus.APPROVED
         request.reviewed_at = VerificationService._utcnow_naive()
         request.reviewed_by = admin_user_id
-        request.admin_note = admin_note
         request.rejection_reason = None
-        request.expires_at = expires_at
-        VerificationService._record_admin_decision_audit(db, request, admin_user_id, "approve")
 
         db.commit()
         db.refresh(request)
@@ -268,60 +283,17 @@ class VerificationService:
         request_id: int,
         admin_user_id: int,
         rejection_reason: str,
-        admin_note: Optional[str] = None,
     ) -> TargetVerificationRequest:
+        """입증 요청 거절"""
         request = VerificationService.get_verification_request(db, request_id)
-        if request.status not in (VerificationStatus.PENDING, VerificationStatus.NEED_MORE_INFO):
-            raise ValidationException("Only pending requests can be rejected")
+
+        if request.status != VerificationStatus.PENDING:
+            raise ValidationException("대기 중인 요청만 거절할 수 있습니다")
 
         request.status = VerificationStatus.REJECTED
         request.reviewed_at = VerificationService._utcnow_naive()
         request.reviewed_by = admin_user_id
         request.rejection_reason = rejection_reason
-        request.admin_note = admin_note
-        VerificationService._record_admin_decision_audit(db, request, admin_user_id, "reject")
-
-        db.commit()
-        db.refresh(request)
-        return request
-
-    @staticmethod
-    def need_more_info_verification_request(
-        db: Session,
-        request_id: int,
-        admin_user_id: int,
-        admin_note: str,
-    ) -> TargetVerificationRequest:
-        request = VerificationService.get_verification_request(db, request_id)
-        if request.status != VerificationStatus.PENDING:
-            raise ValidationException("Only pending requests can be marked as needing more info")
-
-        request.status = VerificationStatus.NEED_MORE_INFO
-        request.reviewed_at = VerificationService._utcnow_naive()
-        request.reviewed_by = admin_user_id
-        request.admin_note = admin_note
-        VerificationService._record_admin_decision_audit(db, request, admin_user_id, "need_more_info")
-
-        db.commit()
-        db.refresh(request)
-        return request
-
-    @staticmethod
-    def revoke_verification_request(
-        db: Session,
-        request_id: int,
-        admin_user_id: int,
-        admin_note: Optional[str] = None,
-    ) -> TargetVerificationRequest:
-        request = VerificationService.get_verification_request(db, request_id)
-        if request.status != VerificationStatus.APPROVED:
-            raise ValidationException("Only approved requests can be revoked")
-
-        request.status = VerificationStatus.REVOKED
-        request.reviewed_at = VerificationService._utcnow_naive()
-        request.reviewed_by = admin_user_id
-        request.admin_note = admin_note
-        VerificationService._record_admin_decision_audit(db, request, admin_user_id, "revoke")
 
         db.commit()
         db.refresh(request)
@@ -331,35 +303,32 @@ class VerificationService:
     def get_approved_verification_for_target(
         db: Session,
         target_id: int,
-    ) -> TargetVerificationRequest | None:
-        now = VerificationService._utcnow_naive()
-        return db.execute(
+    ) -> TargetVerificationRequest:
+        """Target의 승인된 입증 요청 조회"""
+        request = db.execute(
             select(TargetVerificationRequest).where(
                 and_(
                     TargetVerificationRequest.target_id == target_id,
                     TargetVerificationRequest.status == VerificationStatus.APPROVED,
                     TargetVerificationRequest.deleted_at.is_(None),
-                    or_(
-                        TargetVerificationRequest.expires_at.is_(None),
-                        TargetVerificationRequest.expires_at > now,
-                    ),
                 )
             )
-        ).scalars().first()
+        ).scalar_one_or_none()
+
+        return request
 
     @staticmethod
-    def resolve_submitted_file_path(request: TargetVerificationRequest) -> Path:
-        path = Path(request.submitted_file_path)
-        if not path.is_absolute():
-            path = VerificationService._backend_root() / path
-
-        resolved = path.resolve()
-        upload_root = VerificationService._upload_root().resolve()
-        if upload_root not in resolved.parents:
-            raise ValidationException("Invalid verification file path")
-        if not resolved.exists() or not resolved.is_file():
-            raise NotFoundException("Verification file", request.id)
-        return resolved
+    def delete_verification_file(file_path: str):
+        """입증 파일 삭제"""
+        try:
+            full_path = os.path.join(UPLOAD_DIR, file_path)
+            if os.path.exists(full_path):
+                os.remove(full_path)
+        except Exception as e:
+            # 파일 삭제 실패는 무시
+            pass
 
 
 verification_service = VerificationService()
+
+
