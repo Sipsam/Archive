@@ -1,6 +1,6 @@
 """Persona chat API."""
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -14,7 +14,6 @@ from app.schemas.chat import (
     PersonaMessageResponse,
 )
 from app.services.chat_service import chat_service
-from app.services.protected_file_service import ProtectedFileService
 from app.utils.exceptions import RemoryException, to_http_exception
 
 router = APIRouter(tags=["chat"])
@@ -34,25 +33,6 @@ async def create_persona_chat(
     """Create a chat for a persona owned by the current user."""
     try:
         return chat_service.create_chat(db, current_user.id, persona_id, chat_data)
-    except RemoryException as e:
-        raise to_http_exception(e)
-
-
-@router.get("/chats/{chat_id}/messages/{message_id}/audio")
-async def get_chat_message_audio(
-    chat_id: int,
-    message_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Return a chat message audio file after chat ownership checks."""
-    try:
-        message = chat_service.get_message_audio(db, current_user.id, chat_id, message_id)
-        return ProtectedFileService.response(
-            message.audio_file_path,
-            "PersonaMessage audio",
-            message.id,
-        )
     except RemoryException as e:
         raise to_http_exception(e)
 
@@ -88,35 +68,6 @@ async def create_chat_message(
             user_id=current_user.id,
             chat_id=chat_id,
             message_data=message_data,
-        )
-        return PersonaMessagePairResponse(
-            user_message=user_message,
-            persona_message=persona_message,
-        )
-    except RemoryException as e:
-        raise to_http_exception(e)
-
-
-@router.post(
-    "/chats/{chat_id}/audio",
-    response_model=PersonaMessagePairResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def create_chat_audio_message(
-    chat_id: int,
-    file: UploadFile = File(...),
-    generate_audio: bool = Form(False),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Create a user audio message, transcribe it, and create a persona reply."""
-    try:
-        user_message, persona_message = await chat_service.create_audio_message_pair(
-            db=db,
-            user_id=current_user.id,
-            chat_id=chat_id,
-            upload_file=file,
-            generate_audio=generate_audio,
         )
         return PersonaMessagePairResponse(
             user_message=user_message,

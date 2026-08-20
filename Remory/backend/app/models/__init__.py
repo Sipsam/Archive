@@ -1,10 +1,10 @@
 """SQLAlchemy 모델 모듈"""
 from app.models.base import Base, BaseModel
-from app.models.user import User, UserRole
+from app.models.user import User
 from app.models.auth import RefreshToken
 from app.models.target import Target, TargetType
 from app.models.media import TargetMedia, MediaType
-from app.models.persona import Persona, PersonaStatus, PersonaVoiceProfile, VoiceProfileStatus, VoiceProfileReviewStatus
+from app.models.persona import Persona, PersonaStatus, PersonaVoiceProfile
 from app.models.chat import PersonaChat, PersonaMessage, MessageType, SenderType
 from app.models.interview import (
     AIInterviewAnswer,
@@ -25,17 +25,11 @@ from app.models.storybook import (
 from app.models.sharing import GroupMember, GroupMemberRole, GroupStoryBook, MemoryGroup, ShareLink, SharePermission
 from app.models.consent import ConsentLog, ConsentType
 from app.models.deletion import DeletionItemType, DeletionRequest, DeletionStatus, DeletionTargetType
-from app.models.target_verification import TargetVerificationRequest, VerificationType, VerificationStatus
-from app.models.usage_limit import UsageLimit, PersonaUsageLimit, RateLimitEvent
-from app.models.audit_log import AuditLog
-from app.models.report import Report, ReportTargetType, ReportReasonType, ReportStatus
-from app.models.voice_call import VoiceCallSession, VoiceCallSessionStatus
 
 __all__ = [
     "Base",
     "BaseModel",
     "User",
-    "UserRole",
     "RefreshToken",
     "Target",
     "TargetType",
@@ -44,8 +38,6 @@ __all__ = [
     "Persona",
     "PersonaStatus",
     "PersonaVoiceProfile",
-    "VoiceProfileStatus",
-    "VoiceProfileReviewStatus",
     "PersonaChat",
     "PersonaMessage",
     "MessageType",
@@ -74,19 +66,4 @@ __all__ = [
     "DeletionItemType",
     "DeletionTargetType",
     "DeletionStatus",
-    "TargetVerificationRequest",
-    "VerificationType",
-    "VerificationStatus",
-    "UsageLimit",
-    "PersonaUsageLimit",
-    "RateLimitEvent",
-    "AuditLog",
-    "Report",
-    "ReportTargetType",
-    "ReportReasonType",
-    "ReportStatus",
-    "VoiceCallSession",
-    "VoiceCallSessionStatus",
 ]
-
-
