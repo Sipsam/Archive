@@ -1,0 +1,142 @@
+/* 모집글 목록 스타일 */
+.page-title {
+    margin-bottom: 30px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #4a90e2;
+}
+
+.recruitment-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.recruitment-item {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    cursor: pointer;
+    transition: all 0.3s;
+    /* [NEW] 가로 배치를 위한 Flex 설정 */
+    display: flex;
+    gap: 20px;
+    align-items: center; /* 세로 중앙 정렬 */
+}
+
+.recruitment-item:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    transform: translateY(-2px);
+}
+
+/* [NEW] 왼쪽 이미지 영역 스타일 */
+.recruitment-image-box {
+    width: 150px;        /* 너비 고정 */
+    height: 150px;       /* 높이 고정 */
+    flex-shrink: 0;      /* 공간 부족해도 줄어들지 않음 */
+    background-color: #f0f0f0;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #eee;
+}
+
+.recruitment-image-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* 꽉 차게 */
+}
+
+/* [NEW] 오른쪽 정보 영역 (기존 내용 감싸기용) */
+.recruitment-info-box {
+    flex: 1; /* 남은 공간 다 차지 */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 150px; /* 이미지 높이와 맞춤 (선택사항) */
+}
+
+/* 기존 스타일 유지하되 일부 여백 조정 */
+.recruitment-header {
+    margin-bottom: 10px;
+}
+
+.recruiter-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.recruiter-avatar {
+    width: 40px;  /* 약간 축소 */
+    height: 40px;
+    background-color: #e0e0e0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+}
+
+.recruiter-details {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.recruiter-name {
+    font-weight: bold;
+    color: #333;
+    font-size: 15px;
+}
+
+.recruiter-date {
+    font-size: 13px;
+    color: #666;
+}
+
+.recruitment-content h3 {
+    margin-bottom: 5px;
+    color: #333;
+    font-size: 18px;
+    white-space: nowrap;      /* 말줄임표 처리 */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.recruitment-content p {
+    color: #666;
+    line-height: 1.5;
+    font-size: 14px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;    /* 2줄까지만 표시 */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.recruitment-meta {
+    display: flex;
+    gap: 15px;
+    font-size: 13px;
+    color: #888;
+    margin-top: auto; /* 하단 고정 */
+}
+
+/* 모바일 반응형: 세로 배치로 변경 */
+@media (max-width: 768px) {
+    .recruitment-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .recruitment-image-box {
+        width: 100%;
+        height: 200px;
+    }
+    .recruitment-info-box {
+        width: 100%;
+        height: auto;
+    }
+}
