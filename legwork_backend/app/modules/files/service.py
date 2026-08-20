@@ -6,9 +6,9 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies.auth import Principal
-from app.core.enums import FileOwnerType, FileVisibility
-from app.core.exceptions import ForbiddenError, NotFoundError
+from app.api.dependencies.ownership import Principal, ensure_file_access
+from app.core.enums import FileOwnerType, FileVisibility, PrincipalType
+from app.core.exceptions import NotFoundError
 from app.modules.files.models import FileMetadata
 from app.modules.files.repository import FileRepository
 from app.modules.files.schemas import FileMetadataSchema
@@ -46,48 +46,6 @@ class FileService:
         content: bytes,
         expires_at: datetime | None = None,
     ) -> FileMetadataSchema:
-        return await self._create_file(
-            owner_type=owner_type,
-            owner_id=owner_id,
-            filename=filename,
-            content_type=content_type,
-            content=content,
-            visibility=FileVisibility.PRIVATE,
-            expires_at=expires_at,
-        )
-
-    async def create_public_file(
-        self,
-        *,
-        owner_type: FileOwnerType,
-        owner_id: UUID,
-        filename: str,
-        content_type: str,
-        content: bytes,
-    ) -> FileMetadataSchema:
-        """Public file (e.g. product images): fetchable by any principal, no
-        owner-match check, never TTL-expired."""
-        return await self._create_file(
-            owner_type=owner_type,
-            owner_id=owner_id,
-            filename=filename,
-            content_type=content_type,
-            content=content,
-            visibility=FileVisibility.PUBLIC,
-            expires_at=None,
-        )
-
-    async def _create_file(
-        self,
-        *,
-        owner_type: FileOwnerType,
-        owner_id: UUID,
-        filename: str,
-        content_type: str,
-        content: bytes,
-        visibility: FileVisibility,
-        expires_at: datetime | None,
-    ) -> FileMetadataSchema:
         file_id = new_uuid()
         relative_path = build_private_upload_path(
             owner_type=owner_type,
@@ -104,7 +62,7 @@ class FileService:
             original_name=filename,
             content_type=content_type,
             size=write_result.size,
-            visibility=visibility,
+            visibility=FileVisibility.PRIVATE,
             expires_at=expires_at,
         )
         try:
@@ -118,27 +76,18 @@ class FileService:
     async def get_owned_file(self, *, file_id: UUID, principal: Principal) -> StoredPrivateFile:
         metadata = await self.repository.get_by_id(file_id)
         if metadata is None:
-            raise NotFoundError("파일을 찾을 수 없습니다.")
+            raise NotFoundError("File not found.")
 
-        # Public files (e.g. product images) are fetchable by any principal;
-        # visibility governs access here, not ownership.
-        if metadata.visibility is FileVisibility.PUBLIC:
-            content = await self.storage.open(relative_path=metadata.path)
-            return StoredPrivateFile(metadata=metadata, content=content)
-
-        if metadata.owner_id is None:
-            raise ForbiddenError("이 파일에 소유자가 지정되어 있지 않습니다.")
-
-        if principal.kind == "member":
-            if metadata.owner_type is not FileOwnerType.USER or metadata.owner_id != principal.user_id:
-                raise ForbiddenError("이 파일에 대한 접근 권한이 없습니다.")
-        else:
-            if metadata.owner_type is not FileOwnerType.GUEST or metadata.owner_id != principal.guest_session_id:
-                raise ForbiddenError("이 파일에 대한 접근 권한이 없습니다.")
-
+        ensure_file_access(
+            principal,
+            owner_type=metadata.owner_type.value,
+            owner_id=metadata.owner_id,
+        )
         content = await self.storage.open(relative_path=metadata.path)
         return StoredPrivateFile(metadata=metadata, content=content)
 
     @staticmethod
     def owner_type_for_principal(principal: Principal) -> FileOwnerType:
-        return FileOwnerType.USER if principal.kind == "member" else FileOwnerType.GUEST
+        if principal.type is PrincipalType.USER:
+            return FileOwnerType.USER
+        return FileOwnerType.GUEST

@@ -1,54 +1,6 @@
-"""Shared enums exposed across domains.
-
-Values are the exact strings used in API JSON (camelCase where relevant),
-so DB enum values and API responses stay in sync. `core` is owned by
-Backend A; extend with agreement per the collaboration rules.
-"""
-
 from enum import StrEnum
 
-from sqlalchemy import Enum as SAEnum
 
-
-def pg_enum(enum_cls: type[StrEnum], name: str) -> SAEnum:
-    """SQLAlchemy Enum that persists the member *value* (camelCase), not name."""
-    return SAEnum(enum_cls, name=name, values_callable=lambda e: [m.value for m in e])
-
-
-# --- Backend A (Core & Commerce) --------------------------------------------
-class AuthProvider(StrEnum):
-    LOCAL = "local"
-    GOOGLE = "google"
-    KAKAO = "kakao"
-
-
-class Gender(StrEnum):
-    FEMALE = "female"
-    MALE = "male"
-    NEUTRAL = "neutral"
-
-
-class OrderStatus(StrEnum):
-    PENDING = "pending"
-    PAID = "paid"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-
-
-class PaymentStatus(StrEnum):
-    READY = "ready"
-    SUCCESS = "success"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-    REFUNDED = "refunded"
-
-
-class RegisteredProductSource(StrEnum):
-    PURCHASE = "purchase"
-    MANUAL = "manual"
-
-
-# --- Backend B (Experience & AI) --------------------------------------------
 class FileOwnerType(StrEnum):
     GUEST = "guest"
     USER = "user"
@@ -77,28 +29,3 @@ class JobStatus(StrEnum):
 class PrincipalType(StrEnum):
     USER = "user"
     GUEST = "guest"
-
-
-class TryOnScope(StrEnum):
-    PRODUCT_ONLY = "productOnly"
-    FULL_COORDI = "fullCoordi"
-
-
-class TryOnProviderKind(StrEnum):
-    MOCK = "mock"
-
-
-class DiagnosisProviderKind(StrEnum):
-    MOCK = "mock"
-
-
-class DamageSeverity(StrEnum):
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-
-
-class RepairReservationStatus(StrEnum):
-    CONFIRMED = "confirmed"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"

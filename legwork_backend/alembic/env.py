@@ -11,22 +11,6 @@ from app.core.database import Base
 from app.modules.files import models as file_models  # noqa: F401
 from app.modules.jobs import models as job_models  # noqa: F401
 
-# Import model modules so their tables register on Base.metadata for autogenerate.
-# Backend B appends its own model modules here via a small PR.
-from app.modules.users import models as _users_models  # noqa: E402,F401
-from app.modules.auth import models as _auth_models  # noqa: E402,F401
-from app.modules.guests import models as _guests_models  # noqa: E402,F401
-from app.modules.stores import models as _stores_models  # noqa: E402,F401
-from app.modules.products import models as _products_models  # noqa: E402,F401
-from app.modules.cart import models as _cart_models  # noqa: E402,F401
-from app.modules.orders import models as _orders_models  # noqa: E402,F401
-from app.modules.owned_products import models as _owned_models  # noqa: E402,F401
-from app.modules.avatars import models as _avatars_models  # noqa: E402,F401
-from app.modules.try_on import models as _try_on_models  # noqa: E402,F401
-from app.modules.coordis import models as _coordis_models  # noqa: E402,F401
-from app.modules.diagnoses import models as _diagnoses_models  # noqa: E402,F401
-from app.modules.repairs import models as _repairs_models  # noqa: E402,F401
-
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)
 
