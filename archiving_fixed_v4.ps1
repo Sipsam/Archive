@@ -854,7 +854,7 @@ if ($AutoPush) {
     Write-Section "GitHub Push"
 
     git push origin $MainBranch
-    Assert-GitSuccess "main push 실패"ㅇ:
+    Assert-GitSuccess "main push 실패":
     # 재실행으로 기존 아카이브 브랜치를 다시 만든 경우를 고려하여
     # force-with-lease를 사용합니다.
     git push origin --all --force-with-lease

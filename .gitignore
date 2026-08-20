@@ -4,4 +4,4 @@ data/lol_assignment_dataset/
 # Missing historical Git LFS model checkpoints
 kobert-finetuned-fold*/
 2025-01-OpenSWBasicProject/backend/kobert-finetuned-fold*/
-.idea\
+.idea/
