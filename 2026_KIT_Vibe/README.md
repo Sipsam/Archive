@@ -1,151 +1,109 @@
-# AI Pitch Master / AI Pitch-Perfect
+# AI Pitch-Perfect Backend
 
-발표 영상을 분석하고, AI Q&A 실전 훈련을 거쳐, 최종 코칭 리포트까지 제공하는 통합 프로젝트입니다.
-
-- 프론트엔드 브랜치: https://github.com/tronve/2026_KIT_Vibe/tree/frontend
-- 백엔드 브랜치: https://github.com/tronve/2026_KIT_Vibe/tree/backend
-- 테스트 비디오 파일: test_vid.zip
----
-
-# 목차 (Table of Contents)
-
-- [1. 프로젝트 개요](#1-프로젝트-개요)
-- [2. 최신 구현 사항](#2-최신-구현-사항)
-- [3. 아키텍처](#3-아키텍처)
-- [4. 기술 스택](#4-기술-스택)
-- [5. 문서 가이드](#5-문서-가이드)
-- [6. 실행 방법](#6-실행-방법)
-- [7. 트러블슈팅](#7-트러블슈팅)
-- [8. 검증 체크리스트](#8-검증-체크리스트)
+발표 분석, Q&A 질문 생성/턴 처리, 최종 리포트 생성, 세션 정리를 담당하는 FastAPI 서버입니다.
 
 ---
 
-## 1) 프로젝트 개요
+## 프로젝트 목적
 
-이 프로젝트는 발표 연습을 단순 녹화 확인으로 끝내지 않고, 분석과 실전 훈련, 결과 정리까지 연결하는 제품입니다.
-
-### 핵심 가치
-
-- **분석**: 업로드 영상에서 발표 지표(WPM, 군더더기, 시선, 논리 요약) 생성
-- **훈련**: AI 질문 생성 + 사용자 음성 답변 + 다음 질문 반복
-- **정리**: 분석 + Q&A 이력을 합친 최종 리포트 제공
-
-### 문제 정의
-
-- 발표 연습 결과가 행동 변화로 이어지기 어렵다.
-- 단일 분석만으로는 실전 질의응답 대응력이 늘기 어렵다.
-- 연습 데이터가 분산되면 개선 추적이 어려워진다.
-
-### 핵심 사용자 흐름
-
-1. 업로드 (`/upload-training`)
-2. 분석 (`/analysis?sessionId=...`)
-3. Q&A (`/ai-qa-session?sessionId=...`)
-4. 리포트 (`/reports?sessionId=...`)
-
-### 세션 중심 설계
-
-모든 단계는 `sessionId`를 중심으로 연결됩니다.
-
-- 분석/QA/리포트를 같은 세션 문맥으로 유지
-- 세션 종료 시 임시 파일과 로컬 상태 정리
-- 필요 시 세션 기반 복구 또는 재진입 제어
+- 프론트의 업로드 → 분석 → Q&A → 리포트 흐름을 API 단에서 안정적으로 완성합니다.
+- 멀티모달 입력(영상/음성)을 처리해 발표 분석과 실전형 질문 생성을 연결합니다.
+- 세션 기반 임시 파일 관리로 서버 리소스 누수를 방지합니다.
 
 ---
 
-## 2) 최신 구현 반영
+## 역할 요약
 
-### Q&A 세션
-
-- 최대 **3회 라운드** 제한
-- 질문당 **30초 타이머**
-- 타이머 bar는 `requestAnimationFrame` 기반 **연속 감소 애니메이션**
-- 남은 시간 **5초 미만**이면 경고색(빨강 계열) 전환
-- 시간 만료 시 답변 자동 제출 후 다음 질문으로 전환
-- Q&A 종료 또는 페이지 이탈 시 카메라 스트림 강제 종료
-
-### 리포트
-
-- `qna_history`를 `POST /api/v1/report/generate`에 실제 포함
-- 리포트 화면에서 QA 질문/답변 요약 카드 표시
-
-### 세션 정책
-
-- 대시보드 진입 시 세션 강제 정리
-- 앱 초기 진입 시 세션 페이지가 아니면 세션 정리
-- 세션 페이지 새로고침은 예외(흐름 유지)
-- 세션 정리 성공 로그는 콘솔에 출력하지 않음
-
----
-
-## 3) 아키텍처 요약
-
-### Frontend 책임
-
-- 라우팅/상태 전이/UX 흐름 제어
-- 타이머/카메라/진행도 시각화
-- 분석/QA/리포트 API 호출 및 결과 렌더링
-- 세션 정리 정책(`App.tsx`, `useAppStore.ts`) 실행
-
-### Backend 책임
-
-- 멀티모달 입력 분석
-- Q&A 질문 생성 및 답변 해석(STT/피드백)
-- 종합 리포트 생성
+- 발표 영상/PPT 녹화 영상 분석
+- 첫 질문 생성 + 질문 음성(Base64) 제공
+- 사용자 음성 답변 분석(STT) + 피드백 + 다음 질문 생성
+- 분석 + Q&A 히스토리(`qna_history`) 기반 최종 리포트 생성
 - 세션 임시 파일 정리(`cleanup`)
 
-### 경계와 계약
+### 운영 관점 핵심
 
-- 프론트는 사용자 경험과 상태 오케스트레이션 담당
-- 백엔드는 AI 처리와 데이터 생성 책임
-- API 계약은 `frontend/api-spec.md` 기준으로 동기화
+- API 계약 필드명 일관성 유지 (`session_id`, `qna_history`, `history_context`)
+- 예외 상황에서도 JSON 응답 스키마를 최대한 유지
+- 세션 정리 API를 통한 파일 누적 방지
 
 ---
 
-## 4) 기술 스택
+## API 요약
 
-### Frontend
+### `POST /api/v1/presentation/analyze`
 
-- React, Vite, TypeScript
-- Zustand, React Query
-- React Router, TailwindCSS, Axios
+- 입력: `video_file?`, `ppt_recording_video_file?`
+- 출력: `session_id`, `script`, `analysis_result`
+- 규칙: `script`, `logic_summary`는 한국어 작성 유도
 
-### Backend
+운영 메모:
+
+- 분석 입력이 없는 경우 명확한 4xx 응답으로 처리
+- 분석 단계에서 생성된 세션 ID를 이후 API 전 구간에서 재사용
+
+### `POST /api/v1/roleplay/start`
+
+- 입력: `session_id`, `script`
+- 출력: `ai_question_text`, `ai_question_audio`
+
+운영 메모:
+
+- 첫 질문 생성 실패 시 세션은 유지하되 재시도 가능 상태 보장
+
+### `POST /api/v1/roleplay/turn`
+
+- 입력: `session_id`, `user_audio`, `history_context`(기본값 `[]`)
+- 출력: `user_answer_stt`, `answer_feedback`, `next_ai_question_text`, `next_ai_question_audio`
+
+운영 메모:
+
+- `history_context` 누락에 대비한 기본값 처리로 422 방지
+- STT/피드백/다음 질문을 한 턴에서 일관되게 생성
+
+### `POST /api/v1/report/generate`
+
+- 입력: `session_id`, `presentation_analysis`, `qna_history`
+- 출력: `overall_score`, `strengths`, `weaknesses`, `action_items`
+- 주의: 프론트에서 전달한 `qna_history`가 리포트 품질에 직접 영향
+
+운영 메모:
+
+- `qna_history`가 비어 있으면 리포트 품질 저하 가능
+- 프론트와 함께 라운드 데이터 전달 여부를 반드시 점검
+
+### `DELETE /api/v1/session/cleanup`
+
+- 입력: `session_id`
+- 출력: 정리 결과 메시지
+- 목적: `temp_sessions/<session_id>` 삭제
+
+운영 메모:
+
+- 동일 세션 정리 요청이 반복돼도 안전하게 동작하도록 멱등성 유지
+
+---
+
+## 기술 스택
 
 - FastAPI, Uvicorn
 - Google Gemini 2.5 Flash
-- gTTS, Pydantic
+- gTTS
+- Pydantic
+- Python 3.12
 
 ---
 
-## 5) 문서 가이드
+## 실행 방법
 
-- 프론트엔드 상세: `frontend/README.md`
-- 백엔드 상세: `backend/README.md`
-- API 계약: `frontend/api-spec.md`
+### 환경 변수
 
-권장 읽기 순서:
-
-1. 이 문서(전체 흐름)
-2. `frontend/README.md` (UX/상태/라우팅)
-3. `backend/README.md` (API/운영/정리 정책)
-
----
-
-## 6) 실행 방법
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
+```env
+GEMINI_API_KEY=본인의_구글_제미나이_API_키
 ```
 
-### Backend
+### 로컬 실행
 
 ```bash
-cd backend
 pip install -r requirements.txt
 uvicorn main:app --reload
 ```
@@ -156,54 +114,44 @@ Swagger UI:
 http://localhost:8000/docs
 ```
 
-필수 환경 변수:
+---
 
-```env
-GEMINI_API_KEY=본인의_구글_제미나이_API_키
-```
+## 운영 규칙
+
+- 업로드 파일은 세션 폴더에 저장 후 처리 완료 시 즉시 정리
+- Gemini 임시 업로드 파일도 처리 후 삭제
+- 세션 종료/이탈 시 프론트에서 `cleanup` 호출
+- 정리 API는 여러 번 호출되어도 안전(멱등성)
+
+### 권장 점검 루틴
+
+- `temp_sessions/` 하위 폴더 주기 점검
+- 비정상 종료 세션 누적 여부 점검
+- 리포트 품질 이슈 발생 시 `qna_history` payload 점검
 
 ---
 
-## 7) 트러블슈팅
+## 트러블슈팅 포인트
 
-### 1. QA 타이머가 멈추거나 숫자가 안 줄어드는 경우
+- Gemini 응답 JSON 파싱 실패 대비 `_safe_parse_json` 사용
+- `history_context` 기본값으로 422 방지
+- 파일 처리 지연 시 ACTIVE 상태 폴링
+- `temp_sessions/` 누적 여부 주기 점검
+- 프론트 리포트 품질 저하 시 `qna_history` 전달 여부 우선 확인
+- `logic_summary` 언어 이슈가 있으면 분석 프롬프트의 한국어 강제 규칙 확인
+- 세션 정리 누락 시 `/api/v1/session/cleanup` 호출 성공 여부와 세션 ID 일치 여부 확인
 
-- 확인: `AiQaSessionPage`에서 `phase === 'user-answering'`인지
-- 확인: `useAiQaSessionStore.ts`의 `tickQuestionTimer()`가 호출되는지
-- 확인: 콘솔에서 `[QA][timer]` 로그가 연속 출력되는지
+### 증상별 빠른 점검
 
-### 2. 카메라 UI는 꺼졌는데 기기 LED가 남는 경우
+1. 리포트가 빈약하게 생성됨
+   - `qna_history` 전달 여부 확인
+   - 프론트 세션 ID와 리포트 요청 세션 ID 일치 여부 확인
 
-- 확인: 라우트 이탈 시 `VideoWindow` cleanup 실행 여부
-- 확인: 동일 브라우저의 다른 탭/앱 카메라 사용 여부
-- 확인: `streamRef.getTracks().forEach(track.stop())` 호출 시점
+2. 세션 폴더가 계속 남음
+   - `cleanup` 호출 유무 확인
+   - 권한 문제로 파일 삭제 실패 로그가 있는지 확인
 
-### 3. 리포트에 QA 내용이 반영되지 않는 경우
-
-- 확인: `frontend/src/api/report.ts`에서 `qna_history`를 비우지 않는지
-- 확인: `frontend/src/pages/ReportsPage.tsx`의 QA 요약 카드 렌더링 조건
-- 확인: 백엔드 `/api/v1/report/generate` 요청 body
-
-### 4. 세션이 예상보다 자주 초기화되는 경우
-
-- 확인: `App.tsx` 라우팅 정책(대시보드/초기 진입 시 정리)
-- 확인: 세션 페이지 새로고침 예외 경로인지
-- 확인: `clearSessionFromStorage()` 호출 시점
-
-### 5. 분석 요약이 영어로 보이는 경우
-
-- 확인: 백엔드 분석 프롬프트의 한국어 작성 규칙
-- 확인: 프론트 `AnalysisPage`의 로컬라이즈 보정 함수 적용 여부
-
----
-
-## 8) 검증 체크리스트
-
-- 업로드 → 분석 → Q&A → 리포트 흐름 정상 동작
-- Q&A 타이머 숫자/바가 함께 감소
-- 5초 미만 경고색 전환 확인
-- Q&A 종료 또는 페이지 이탈 시 카메라 OFF
-- 리포트에 QA 요약 카드 표시
-- 세션 정리 정책이 의도대로 동작
-- 빌드 통과 (`frontend`, `backend`)
+3. 분석 요약이 영어로 내려옴
+   - 프롬프트에 한국어 작성 규칙이 반영되어 있는지 확인
+   - 모델 응답 원문과 파싱 결과를 함께 확인
 
