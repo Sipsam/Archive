@@ -1,531 +1,99 @@
-import { useEffect, useState } from 'react'
-import { normalizeAssetUrl } from '../lib/mediaUrl'
-import { getKoreanSafeText, getPersonaDisplayNameText, getTargetTypeLabel } from '../lib/personaDisplayText'
-import { authApi } from '../services/authApi'
-import { getStoredInterviewSessionId } from '../services/interviewApi'
-import {
-  clearActivePersonaSession,
-  ensureMomPersonaId,
-  resolveTargetPersonas,
-  storeActivePersonaSession,
-  targetMayHavePersona,
-  type ResolvedTargetPersona,
-} from '../services/personaSession'
-import { storybookApi } from '../services/storybookApi'
-import { targetApi } from '../services/targetApi'
-import type { StoryBook } from '../types/api'
+import { AppShell } from '../components/layout/AppShell'
+import { useAuth } from '../hooks/useAuth'
 import './MyPage.css'
 
-type IconName =
-  | 'bell'
-  | 'camera'
-  | 'people'
-  | 'book'
-  | 'mic'
-  | 'editUser'
-  | 'card'
-  | 'settings'
-  | 'shield'
-  | 'headset'
-  | 'home'
-  | 'chat'
-  | 'my'
-
-type MenuItem = {
-  id: string
-  title: string
-  description: string
-  icon: IconName
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat('ko-KR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value))
 }
 
-type MyPersona = {
-  id: string
-  targetId?: string
-  name: string
-  description: string
-  image: string
-  personaId?: string
-}
+function getRoleLabel(role: string) {
+  const normalized = String(role).toUpperCase()
 
-const mockPersonas: MyPersona[] = [
-  {
-    id: 'mom',
-    name: '엄마',
-    description: '따뜻한 조언을 해주시는 분',
-    image: '/images/my-page/persona-mom.png',
-  },
-  {
-    id: 'grandma',
-    name: '할머니',
-    description: '지혜롭고 따뜻하신 분',
-    image: '/images/my-page/persona-grandma.png',
-  },
-  {
-    id: 'me',
-    name: '나',
-    description: '기록하고 있는 나',
-    image: '/images/my-page/persona-me.png',
-  },
-]
-
-const menuItems: MenuItem[] = [
-  { id: 'edit-profile', title: '내 정보 수정', description: '프로필과 기본 정보를 관리해요', icon: 'editUser' },
-  { id: 'voice-profile', title: '음성 프로필', description: '페르소나 목소리 생성과 검수를 관리해요', icon: 'mic' },
-  { id: 'groups', title: '그룹 공유', description: '가족 그룹과 공유 스토리북을 관리해요', icon: 'people' },
-  { id: 'storybook-archive', title: '스토리북 보관함', description: '완성된 스토리북을 확인하고 관리해요', icon: 'book' },
-  { id: 'deletion', title: '삭제 요청', description: '내 데이터 삭제 요청을 제출해요', icon: 'shield' },
-  { id: 'report', title: '신고', description: '문제 리소스를 신고하고 상태를 확인해요', icon: 'headset' },
-]
-
-const wideMenuItems: MenuItem[] = [
-  { id: 'privacy-security', title: '개인정보 및 보안', description: '개인정보 관리와 보안 설정을 확인해요', icon: 'shield' },
-  { id: 'admin', title: '관리자 대시보드', description: '검증 승인, 삭제 요청, 신고를 검수해요', icon: 'settings' },
-]
-
-function mapResolvedTargetsToPersonas(resolvedTargetPersonas: ResolvedTargetPersona[]): MyPersona[] {
-  const personas: MyPersona[] = []
-
-  for (const { target, personaId } of resolvedTargetPersonas) {
-    const index = personas.length
-
-    personas.push({
-      id: String(target.id),
-      targetId: String(target.id),
-      personaId,
-      name: getPersonaDisplayNameText(target.persona, target, `페르소나 ${index + 1}`),
-      description:
-        getKoreanSafeText(target.description) ??
-        getKoreanSafeText(target.relationship) ??
-        getKoreanSafeText(target.persona?.description) ??
-        getTargetTypeLabel(target) ??
-        '소중한 기억을 담고 있는 분',
-      image: normalizeAssetUrl(
-        target.image_url ?? target.profile_image_path ?? target.persona?.image_url ?? mockPersonas[index]?.image,
-      ) || '/images/my-page/persona-mom.png',
-    })
-
-    if (personas.length >= 3) {
-      break
-    }
+  if (normalized === 'ADMIN') {
+    return '관리자'
   }
 
-  return personas
-}
-
-function clearStoredPersonaSession() {
-  clearActivePersonaSession()
-}
-
-function countKnownInterviewSessions(storybooks: StoryBook[]) {
-  const interviewSessionIds = new Set<string>()
-  const activeInterviewSessionId = getStoredInterviewSessionId()
-
-  if (activeInterviewSessionId) {
-    interviewSessionIds.add(activeInterviewSessionId)
+  if (normalized === 'USER') {
+    return '일반 사용자'
   }
 
-  storybooks.forEach((storybook) => {
-    if (storybook.interview_session_id !== null && storybook.interview_session_id !== undefined) {
-      interviewSessionIds.add(String(storybook.interview_session_id))
-    }
-  })
-
-  return interviewSessionIds.size
-}
-
-function AppIcon({ name }: { name: IconName }) {
-  switch (name) {
-    case 'bell':
-      return (
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M18 9.8c0-3.4-2.3-5.8-6-5.8S6 6.4 6 9.8c0 4.4-1.7 5.5-2.4 6.4h16.8c-.7-.9-2.4-2-2.4-6.4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-          <path d="M9.6 19a2.5 2.5 0 0 0 4.8 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
-      )
-    case 'camera':
-      return (
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M8.4 7.4 9.8 5h4.4l1.4 2.4H19a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9.4a2 2 0 0 1 2-2h3.4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-          <circle cx="12" cy="13.6" r="3.2" stroke="currentColor" strokeWidth="1.8" />
-        </svg>
-      )
-    case 'people':
-      return (
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <circle cx="9" cy="8" r="3" stroke="currentColor" strokeWidth="1.8" />
-          <path d="M3.5 19c.6-3.7 2.6-5.5 5.5-5.5s4.9 1.8 5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          <path d="M15 6.2a2.7 2.7 0 0 1 0 5.1M16.2 14c2.3.5 3.7 2.1 4.3 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
-      )
-    case 'book':
-      return (
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M5 4.5h5.2c1 0 1.8.8 1.8 1.8V21c0-1.2-1-2.2-2.2-2.2H5V4.5ZM19 4.5h-5.2c-1 0-1.8.8-1.8 1.8V21c0-1.2 1-2.2 2.2-2.2H19V4.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-        </svg>
-      )
-    case 'mic':
-      return (
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <rect x="9" y="3.5" width="6" height="11" rx="3" stroke="currentColor" strokeWidth="1.8" />
-          <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M8.5 21h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
-      )
-    case 'editUser':
-      return (
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <circle cx="10" cy="7.5" r="3" stroke="currentColor" strokeWidth="1.8" />
-          <path d="M4.5 19c.6-3.7 2.6-5.5 5.5-5.5 1.4 0 2.5.4 3.4 1.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          <path d="m15 18.7 4.7-4.7 1.8 1.8-4.7 4.7H15v-1.8Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-        </svg>
-      )
-    case 'card':
-      return (
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <rect x="3.5" y="6" width="17" height="12" rx="2" stroke="currentColor" strokeWidth="1.8" />
-          <path d="M3.5 10h17M7 15h4M16.5 14v4M14.5 16h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
-      )
-    case 'settings':
-      return (
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="m9.7 3.8-.5 2.1a7.6 7.6 0 0 0-1.5.9l-2-.7-1.6 2.8 1.5 1.4a7.5 7.5 0 0 0 0 1.8l-1.5 1.4 1.6 2.8 2-.7c.5.4 1 .7 1.5.9l.5 2.1h3.2l.5-2.1c.6-.2 1.1-.5 1.5-.9l2 .7 1.6-2.8-1.5-1.4a7.5 7.5 0 0 0 0-1.8l1.5-1.4-1.6-2.8-2 .7a7.6 7.6 0 0 0-1.5-.9l-.5-2.1H9.7Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-          <circle cx="11.3" cy="11.2" r="2.5" stroke="currentColor" strokeWidth="1.8" />
-        </svg>
-      )
-    case 'shield':
-      return (
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M12 3.5 19 6v5.4c0 4.4-2.7 7.6-7 9.1-4.3-1.5-7-4.7-7-9.1V6l7-2.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-          <path d="m9.2 12.1 1.9 1.9 3.8-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      )
-    case 'headset':
-      return (
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M4.5 13v-1a7.5 7.5 0 0 1 15 0v1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          <path d="M7 12.5H5.8c-.8 0-1.3.6-1.3 1.4v2.2c0 .8.5 1.4 1.3 1.4H7v-5ZM17 12.5h1.2c.8 0 1.3.6 1.3 1.4v2.2c0 .8-.5 1.4-1.3 1.4H17v-5ZM17 17.5c-.3 2-1.7 3-4.1 3H12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
-      )
-    case 'home':
-      return (
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M4 10.7 12 4l8 6.7V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1v-9.3Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-        </svg>
-      )
-    case 'chat':
-      return (
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M5 18.5 3.7 22l4-1.1a9.8 9.8 0 0 0 4.3.9c5 0 9-3.6 9-8.1s-4-8.1-9-8.1-9 3.6-9 8.1c0 1.8.7 3.5 2 4.8Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-          <path d="M8 13h.01M12 13h.01M16 13h.01" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-        </svg>
-      )
-    case 'my':
-      return (
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <circle cx="12" cy="8" r="3.4" stroke="currentColor" strokeWidth="1.8" />
-          <path d="M5 20c.8-4.1 3.3-6.3 7-6.3s6.2 2.2 7 6.3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
-      )
-  }
-}
-
-function ChevronIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="m9 5 7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
+  return role
 }
 
 function MyPage() {
-  const [displayName, setDisplayName] = useState('현규')
-  const [personaItems, setPersonaItems] = useState<MyPersona[]>([])
-  const [isLoadingPersonas, setIsLoadingPersonas] = useState(true)
-  const [hasLoadedRealTargets, setHasLoadedRealTargets] = useState(false)
-  const [personaLoadError, setPersonaLoadError] = useState('')
-  const [storybookCount, setStorybookCount] = useState(0)
-  const [interviewCount, setInterviewCount] = useState(() => countKnownInterviewSessions([]))
-  const hasNoPersonas = hasLoadedRealTargets && personaItems.length === 0
-  const shouldShowPersonaEmpty = hasNoPersonas || Boolean(personaLoadError)
+  const { user, isAdmin, logout } = useAuth()
 
-  useEffect(() => {
-    let ignore = false
-
-    async function loadMyData() {
-      try {
-        const user = await authApi.me()
-
-        if (!ignore && user.nickname) {
-          setDisplayName(user.nickname)
-        }
-      } catch {
-        // Keep mock profile data when auth lookup fails.
-      }
-
-      try {
-        const response = await targetApi.listTargets()
-        const targets = response.items
-
-        if (!ignore) {
-          setHasLoadedRealTargets(true)
-        }
-
-        if (targets.length === 0) {
-          if (!ignore) {
-            clearStoredPersonaSession()
-            setPersonaItems([])
-            setPersonaLoadError('')
-          }
-        } else if (!ignore) {
-          const resolvedTargetPersonas = await resolveTargetPersonas(targets)
-          const nextPersonas = mapResolvedTargetsToPersonas(resolvedTargetPersonas)
-          const hasPersonaCandidate = targets.some(targetMayHavePersona)
-          setPersonaItems(nextPersonas)
-          setPersonaLoadError(
-            nextPersonas.length === 0 && hasPersonaCandidate
-              ? '페르소나 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'
-              : '',
-          )
-
-          if (nextPersonas[0].personaId) {
-            storeActivePersonaSession(nextPersonas[0].personaId, nextPersonas[0].targetId)
-          } else {
-            clearStoredPersonaSession()
-          }
-        }
-      } catch {
-        if (!ignore) {
-          setHasLoadedRealTargets(false)
-          setPersonaItems([])
-          setPersonaLoadError('페르소나 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.')
-        }
-      } finally {
-        if (!ignore) {
-          setIsLoadingPersonas(false)
-        }
-      }
-
-      try {
-        const storybooks = await storybookApi.listStorybooks()
-
-        if (!ignore) {
-          setStorybookCount(storybooks.length)
-          setInterviewCount(countKnownInterviewSessions(storybooks))
-        }
-      } catch {
-        if (!ignore) {
-          setInterviewCount(countKnownInterviewSessions([]))
-        }
-      }
-    }
-
-    loadMyData()
-
-    return () => {
-      ignore = true
-    }
-  }, [])
-
-  const handleChatNavigation = async () => {
-    if (!isLoadingPersonas && personaItems.length === 0) {
-      window.location.href = '/setup'
-      return
-    }
-
-    try {
-      await ensureMomPersonaId()
-      window.location.href = '/chat'
-    } catch {
-      window.location.href = '/setup'
-    }
+  async function handleLogout() {
+    await logout()
+    window.location.href = '/login'
   }
 
-  const handleMenuNavigation = (itemId: string) => {
-    const routeByItem: Record<string, string> = {
-      'edit-profile': '/profile',
-      'voice-profile': '/voice-profile',
-      groups: '/groups',
-      'storybook-archive': '/storybook',
-      deletion: '/deletion',
-      report: '/report',
-      'privacy-security': '/privacy-security',
-      admin: '/admin',
-    }
-
-    window.location.assign(routeByItem[itemId] ?? '/my')
-  }
+  const userRole = user?.role
 
   return (
-    <main className="my-page">
-      <section className="my-page__container" aria-label="Remory my page">
-        <header className="my-page__header">
-          <div>
-            <h1>마이</h1>
-            <p>나의 추억 기록과 설정을 관리해요.</p>
+    <AppShell title="내 계정" subtitle="현재 로그인된 계정 정보를 확인할 수 있어요." badge="로그인됨">
+      <main className="account-page" aria-label="내 계정">
+        <section className="account-page__profile">
+          <div className="account-page__avatar" aria-hidden="true">
+            {user?.nickname?.slice(0, 1) || user?.email?.slice(0, 1) || 'R'}
           </div>
-          <button className="my-page__notification" type="button" aria-label="알림 보기">
-            <AppIcon name="bell" />
-            <span />
-          </button>
-        </header>
+          <div>
+            <p className="account-page__eyebrow">로그인된 계정</p>
+            <h1>{user?.nickname ?? '이름 없음'}</h1>
+            <p>{user?.email ?? '이메일 없음'}</p>
+          </div>
+        </section>
 
-        <section className="my-page__profile-card">
-          <div className="my-page__profile-top">
-            <div className="my-page__avatar-wrap">
-              <div className="my-page__avatar">
-                <img src="/images/my-page/persona-mom.png" alt="현규님 프로필 사진" />
+        <section className="account-page__section" aria-label="계정 정보">
+          <div className="account-page__section-heading">
+            <h2>계정 정보</h2>
+            <span>기본 정보</span>
+          </div>
+
+          <dl className="account-page__details">
+            <div>
+              <dt>이메일</dt>
+              <dd>{user?.email ?? '정보 없음'}</dd>
+            </div>
+            <div>
+              <dt>이름</dt>
+              <dd>{user?.nickname ?? '정보 없음'}</dd>
+            </div>
+            {userRole && (
+              <div>
+                <dt>권한</dt>
+                <dd>{getRoleLabel(userRole)}</dd>
               </div>
-              <button className="my-page__camera-button" type="button" aria-label="프로필 사진 변경">
-                <AppIcon name="camera" />
-              </button>
-            </div>
-            <div className="my-page__profile-copy">
-              <h2>{displayName}님</h2>
-              <p>
-                소중한 사람들과의 추억을
-                <br />
-                AI로 기록하고 있어요.
-              </p>
-            </div>
-            <button className="my-page__profile-link" type="button" onClick={() => { window.location.href = '/profile' }}>
-              프로필 보기 <ChevronIcon />
-            </button>
-          </div>
-
-          <div className="my-page__stats">
-            <div>
-              <AppIcon name="people" />
-              <span>페르소나</span>
-              <strong>{personaItems.length}명</strong>
-            </div>
-            <div>
-              <AppIcon name="book" />
-              <span>스토리북</span>
-              <strong>{storybookCount}권</strong>
-            </div>
-            <div>
-              <AppIcon name="mic" />
-              <span>인터뷰</span>
-              <strong>{interviewCount}건</strong>
-            </div>
-          </div>
-        </section>
-
-        <section className="my-page__persona-section">
-          <div className="my-page__section-heading">
-            <h2>내 페르소나 관리</h2>
-            {!hasNoPersonas && personaItems.length > 0 && (
-              <button type="button" onClick={() => { window.location.href = '/my' }}>
-                전체 보기 <ChevronIcon />
-              </button>
             )}
-          </div>
-          {isLoadingPersonas && <p className="my-page__persona-loading">페르소나를 불러오는 중입니다.</p>}
-          {!isLoadingPersonas && shouldShowPersonaEmpty ? (
-            <div className="my-page__persona-empty" role="status">
-              <strong>{personaLoadError ? '페르소나 정보를 불러오지 못했습니다' : '내 페르소나가 없습니다'}</strong>
-              <p>{personaLoadError || '소중한 사람의 사진과 목소리를 등록해 페르소나를 만들어보세요.'}</p>
+            <div>
+              <dt>가입일</dt>
+              <dd>{user?.created_at ? formatDateTime(user.created_at) : '정보 없음'}</dd>
             </div>
-          ) : !isLoadingPersonas && (
-            <div className="my-page__persona-list">
-              {personaItems.map((persona) => (
-                <button
-                  className="my-page__persona-card"
-                  type="button"
-                  key={persona.id}
-                  onClick={() => {
-                    if (persona.personaId) {
-                      storeActivePersonaSession(persona.personaId, persona.targetId)
-                    }
-                  }}
-                >
-                  <span className="my-page__persona-avatar">
-                    <img src={persona.image} alt={`${persona.name} 페르소나`} />
-                  </span>
-                  <span>
-                    <strong>{persona.name}</strong>
-                    <small>{persona.description}</small>
-                  </span>
-                  <ChevronIcon />
-                </button>
-              ))}
+            <div>
+              <dt>최근 수정</dt>
+              <dd>{user?.updated_at ? formatDateTime(user.updated_at) : '정보 없음'}</dd>
             </div>
-          )}
-          <button className="my-page__create-persona" type="button" onClick={() => { window.location.href = '/setup' }}>
-            + 새 페르소나 만들기
-          </button>
+          </dl>
         </section>
 
-        <section className="my-page__menu-grid" aria-label="설정 메뉴">
-          {menuItems.map((item) => (
-            <button className="my-page__menu-card" type="button" key={item.id} onClick={() => handleMenuNavigation(item.id)}>
-              <span className={`my-page__menu-icon my-page__menu-icon--${item.icon}`} aria-hidden="true">
-                <AppIcon name={item.icon} />
-              </span>
-              <span className="my-page__menu-text">
-                <strong>{item.title}</strong>
-                <small>{item.description}</small>
-              </span>
-              <ChevronIcon />
-            </button>
-          ))}
-        </section>
-
-        <section className="my-page__wide-menu" aria-label="지원 및 보안 메뉴">
-          {wideMenuItems.map((item) => (
-            <button className="my-page__wide-card" type="button" key={item.id} onClick={() => handleMenuNavigation(item.id)}>
-              <span className={`my-page__menu-icon my-page__menu-icon--${item.icon}`} aria-hidden="true">
-                <AppIcon name={item.icon} />
-              </span>
-              <span className="my-page__menu-text">
-                <strong>{item.title}</strong>
-                <small>{item.description}</small>
-              </span>
-              <ChevronIcon />
-            </button>
-          ))}
-        </section>
-
-        <section className="my-page__monthly-banner">
-          <div>
-            <h2>이번 달의 추억 기록</h2>
-            <p>
-              4월에 남긴 추억이 3개 있어요.
-              <br />
-              계속 기록하며 소중한 기억을 모아보세요.
-            </p>
+        <section className="account-page__section" aria-label="계정 작업">
+          <div className="account-page__section-heading">
+            <h2>계정에서 할 수 있는 일</h2>
           </div>
-          <button type="button" onClick={() => { window.location.href = '/storybook' }}>
-            기록 보러 가기 <ChevronIcon />
-          </button>
-          <img
-            className="my-page__banner-image"
-            src="/images/my-page/monthly-memory-banner.png"
-            alt=""
-            aria-hidden="true"
-          />
+          <div className="account-page__actions">
+            <a href="/safety/deletion-requests">데이터 삭제 요청 관리</a>
+            {isAdmin && <a href="/admin">관리자 페이지</a>}
+            <button type="button" onClick={() => void handleLogout()}>
+              로그아웃
+            </button>
+          </div>
+          <p className="account-page__note">지원하지 않는 기능은 화면에 노출하지 않았어요.</p>
         </section>
-
-        <nav className="my-page__bottom-nav" aria-label="하단 네비게이션">
-          <button className="my-page__nav-button" type="button" onClick={() => { window.location.href = '/home' }}>
-            <AppIcon name="home" />
-            <span>홈</span>
-          </button>
-          <button className="my-page__nav-button" type="button" onClick={handleChatNavigation}>
-            <AppIcon name="chat" />
-            <span>대화</span>
-          </button>
-          <button className="my-page__nav-button" type="button" onClick={() => { window.location.href = '/storybook' }}>
-            <AppIcon name="book" />
-            <span>스토리북</span>
-          </button>
-          <button className="my-page__nav-button is-active" type="button" aria-current="page">
-            <AppIcon name="my" />
-            <span>마이</span>
-          </button>
-        </nav>
-      </section>
-    </main>
+      </main>
+    </AppShell>
   )
 }
 

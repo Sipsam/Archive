@@ -1,100 +1,48 @@
-import AuthPage from './pages/AuthPage'
-import CampaignsPage from './pages/CampaignsPage'
-import ChatPage from './pages/ChatPage'
-import AdminPage from './pages/AdminPage'
-import DeletionRequestPage from './pages/DeletionRequestPage'
-import GroupPage from './pages/GroupPage'
-import HomePage from './pages/HomePage'
-import InterviewPage from './pages/InterviewPage'
-import LandingPage from './pages/LandingPage'
-import MyPage from './pages/MyPage'
-import PrivacySecurityPage from './pages/PrivacySecurityPage'
-import ProfilePage from './pages/ProfilePage'
-import PublicSharePage from './pages/PublicSharePage'
-import ReportPage from './pages/ReportPage'
-import SetupPage from './pages/SetupPage'
-import StorybookDetailPage from './pages/StorybookDetailPage'
-import StorybookPage from './pages/StorybookPage'
-import TargetPhotoPage from './pages/TargetPhotoPage'
-import VoiceProfilePage from './pages/VoiceProfilePage'
+import { useAuth } from './hooks/useAuth'
+import { matchRoute } from './routes'
 import './App.css'
+
+function AdminAccessDenied() {
+  return (
+    <main className="app-loading" role="alert">
+      관리자 권한이 필요해요.
+      <br />
+      <a href="/dashboard">홈으로 이동</a>
+    </main>
+  )
+}
 
 function App() {
   const { pathname } = window.location
+  const { isAuthenticated, isLoading, isAdmin } = useAuth()
+  const route = matchRoute(pathname)
 
-  if (pathname.startsWith('/campaigns')) {
-    return <CampaignsPage />
+  if (isLoading) {
+    return <main className="app-loading">불러오는 중...</main>
   }
 
-  if (pathname.startsWith('/admin')) {
-    return <AdminPage />
+  if ((pathname.startsWith('/auth') || pathname === '/login' || pathname === '/signup') && isAuthenticated) {
+    window.location.replace('/dashboard')
+    return <main className="app-loading">이동하는 중...</main>
   }
 
-  if (pathname.startsWith('/groups')) {
-    return <GroupPage />
+  if (route?.protected && !isAuthenticated) {
+    window.location.replace('/login')
+    return <main className="app-loading">로그인 화면으로 이동하는 중...</main>
   }
 
-  if (pathname.startsWith('/deletion')) {
-    return <DeletionRequestPage />
+  if (route?.group === 'admin' && !isAdmin) {
+    return <AdminAccessDenied />
   }
 
-  if (pathname.startsWith('/report')) {
-    return <ReportPage />
+  const Page = route?.component
+
+  if (Page) {
+    return <Page />
   }
 
-  if (pathname.startsWith('/voice-profile')) {
-    return <VoiceProfilePage />
-  }
-
-  if (pathname.startsWith('/privacy-security')) {
-    return <PrivacySecurityPage />
-  }
-
-  if (pathname.startsWith('/profile')) {
-    return <ProfilePage />
-  }
-
-  if (pathname.startsWith('/target-photo')) {
-    return <TargetPhotoPage />
-  }
-
-  if (pathname.startsWith('/auth')) {
-    return <AuthPage />
-  }
-
-  if (pathname.startsWith('/setup')) {
-    return <SetupPage />
-  }
-
-  if (pathname.startsWith('/home')) {
-    return <HomePage />
-  }
-
-  if (pathname.startsWith('/chat')) {
-    return <ChatPage />
-  }
-
-  if (pathname.startsWith('/interview')) {
-    return <InterviewPage />
-  }
-
-  if (pathname.startsWith('/share/')) {
-    return <PublicSharePage />
-  }
-
-  if (pathname.startsWith('/storybook/')) {
-    return <StorybookDetailPage />
-  }
-
-  if (pathname.startsWith('/storybook')) {
-    return <StorybookPage />
-  }
-
-  if (pathname.startsWith('/my')) {
-    return <MyPage />
-  }
-
-  return <LandingPage />
+  window.location.replace(isAuthenticated ? '/dashboard' : '/')
+  return <main className="app-loading">이동하는 중...</main>
 }
 
 export default App

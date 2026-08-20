@@ -1,4 +1,4 @@
-import { apiClient } from '../lib/apiClient'
+import { apiClient } from './apiClient'
 import type { ApiId, Chat, ChatMessage, SendMessageResponse } from '../types/api'
 
 export const chatApi = {
@@ -18,13 +18,7 @@ export const chatApi = {
     return apiClient.post<SendMessageResponse>(`/chats/${chatId}/messages`, {
       message_type: 'TEXT',
       content,
+      audio_file_path: null,
     })
-  },
-
-  sendAudioMessage(chatId: ApiId, file: File) {
-    const formData = new FormData()
-    formData.append('file', file)
-
-    return apiClient.post<SendMessageResponse>(`/chats/${chatId}/audio`, formData)
   },
 }
