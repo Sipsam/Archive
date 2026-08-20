@@ -77,28 +77,3 @@ class JobStatus(StrEnum):
 class PrincipalType(StrEnum):
     USER = "user"
     GUEST = "guest"
-
-
-class TryOnScope(StrEnum):
-    PRODUCT_ONLY = "productOnly"
-    FULL_COORDI = "fullCoordi"
-
-
-class TryOnProviderKind(StrEnum):
-    MOCK = "mock"
-
-
-class DiagnosisProviderKind(StrEnum):
-    MOCK = "mock"
-
-
-class DamageSeverity(StrEnum):
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-
-
-class RepairReservationStatus(StrEnum):
-    CONFIRMED = "confirmed"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"

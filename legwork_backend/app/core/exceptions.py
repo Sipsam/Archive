@@ -7,10 +7,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.core.logging import get_logger
 from app.core.responses import error_response
-
-_logger = get_logger("exceptions")
 
 
 class ErrorCode:
@@ -24,8 +21,6 @@ class ErrorCode:
     GUEST_LIMIT_EXCEEDED = "GUEST_LIMIT_EXCEEDED"
     FILE_TOO_LARGE = "FILE_TOO_LARGE"
     UNSUPPORTED_FILE_TYPE = "UNSUPPORTED_FILE_TYPE"
-    INVALID_IMAGE = "INVALID_IMAGE"
-    PERSON_NOT_DETECTED = "PERSON_NOT_DETECTED"
     AI_TIMEOUT = "AI_TIMEOUT"
     AI_UNAVAILABLE = "AI_UNAVAILABLE"
     GENERATION_FAILED = "GENERATION_FAILED"
@@ -35,7 +30,7 @@ class ErrorCode:
 class AppException(Exception):
     status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
     code = ErrorCode.INTERNAL_ERROR
-    message = "서버 오류가 발생했습니다."
+    message = "서버 내부 오류가 발생했습니다."
 
     def __init__(
         self,
@@ -86,7 +81,7 @@ class NotFoundError(AppException):
 class ConflictError(AppException):
     status_code = status.HTTP_409_CONFLICT
     code = ErrorCode.CONFLICT
-    message = "요청이 현재 상태와 충돌합니다."
+    message = "요청 상태가 충돌했습니다."
 
 
 class ProviderError(AppException):
@@ -97,54 +92,22 @@ class ProviderError(AppException):
 
 class ProductCodeNotDetectedError(ValidationError):
     code = "PRODUCT_CODE_NOT_DETECTED"
-    message = "품번을 인식하지 못했습니다."
+    message = "제품 품번 후보를 인식하지 못했습니다."
 
 
 class ProductCodeAmbiguousError(ValidationError):
     code = "PRODUCT_CODE_AMBIGUOUS"
-    message = "품번 후보가 여러 개 일치합니다."
+    message = "여러 품번 후보가 감지되어 하나로 확정할 수 없습니다."
 
 
 class FileTooLargeError(ValidationError):
     code = ErrorCode.FILE_TOO_LARGE
-    message = "파일 용량이 너무 큽니다."
+    message = "파일 크기가 허용 범위를 초과했습니다."
 
 
 class UnsupportedFileTypeError(ValidationError):
     code = ErrorCode.UNSUPPORTED_FILE_TYPE
     message = "지원하지 않는 파일 형식입니다."
-
-
-class GuestLimitExceededError(AppException):
-    status_code = status.HTTP_429_TOO_MANY_REQUESTS
-    code = ErrorCode.GUEST_LIMIT_EXCEEDED
-    message = "게스트 체험 가능 횟수를 초과했습니다."
-
-
-class InvalidImageError(ValidationError):
-    code = ErrorCode.INVALID_IMAGE
-    message = "유효하지 않은 이미지입니다."
-
-
-class PersonNotDetectedError(ValidationError):
-    code = ErrorCode.PERSON_NOT_DETECTED
-    message = "사진에서 인물을 인식하지 못했습니다."
-
-
-class GenerationFailedError(AppException):
-    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-    code = ErrorCode.GENERATION_FAILED
-    message = "가상 피팅 생성에 실패했습니다."
-
-
-class RepairNotNeededError(ValidationError):
-    code = "REPAIR_NOT_NEEDED"
-    message = "이 진단 결과는 수리가 필요하지 않습니다."
-
-
-class ReservationSlotUnavailableError(ConflictError):
-    code = "REPAIR_SLOT_UNAVAILABLE"
-    message = "선택한 수리 예약 슬롯을 사용할 수 없습니다."
 
 
 def register_exception_handlers(app: FastAPI) -> None:
@@ -181,11 +144,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         exc: StarletteHTTPException,
     ) -> JSONResponse:
         code = ErrorCode.NOT_FOUND if exc.status_code == status.HTTP_404_NOT_FOUND else ErrorCode.INTERNAL_ERROR
-        message = (
-            "리소스를 찾을 수 없습니다."
-            if exc.status_code == status.HTTP_404_NOT_FOUND
-            else HTTPStatus(exc.status_code).phrase
-        )
+        message = "리소스를 찾을 수 없습니다." if exc.status_code == status.HTTP_404_NOT_FOUND else HTTPStatus(exc.status_code).phrase
         return JSONResponse(
             status_code=exc.status_code,
             content=error_response(
@@ -197,19 +156,11 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-        request_id = getattr(request.state, "request_id", "req_unknown")
-        _logger.exception(
-            "Unhandled exception on %s %s (requestId=%s)",
-            request.method,
-            request.url.path,
-            request_id,
-            exc_info=exc,
-        )
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=error_response(
                 code=ErrorCode.INTERNAL_ERROR,
-                message="서버 오류가 발생했습니다.",
+                message="서버 내부 오류가 발생했습니다.",
                 request=request,
             ),
         )

@@ -1,9 +1,8 @@
 """Persistence for the product catalog (Backend A)."""
 
 import uuid
-from datetime import datetime
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.products.models import (
@@ -32,23 +31,6 @@ class ProductRepository:
         return await self.session.scalar(
             select(Product).where(Product.id == product_id, Product.active.is_(True))
         )
-
-    async def list_active_products(
-        self,
-        *,
-        exclude_product_id: uuid.UUID,
-        limit: int = 50,
-    ) -> list[Product]:
-        result = await self.session.scalars(
-            select(Product)
-            .where(
-                Product.active.is_(True),
-                Product.id != exclude_product_id,
-            )
-            .order_by(Product.name.asc(), Product.id.asc())
-            .limit(limit)
-        )
-        return list(result)
 
     async def list_images(self, product_id: uuid.UUID) -> list[ProductImage]:
         result = await self.session.scalars(
@@ -183,12 +165,10 @@ class RecentProductRepository:
         user_id: uuid.UUID | None,
         guest_session_id: uuid.UUID | None,
         limit: int,
-        cursor_viewed_at: datetime | None = None,
-        cursor_id: uuid.UUID | None = None,
-    ) -> list[tuple[Product, datetime, uuid.UUID]]:
-        """Return (Product, viewedAt, recentProductId) rows, most-recent first, active products only."""
+    ) -> list[tuple[Product, object]]:
+        """Return (Product, viewedAt) rows, most-recent first, active products only."""
         stmt = (
-            select(Product, RecentProduct.viewed_at, RecentProduct.id)
+            select(Product, RecentProduct.viewed_at)
             .join(RecentProduct, RecentProduct.product_id == Product.id)
             .where(Product.active.is_(True))
         )
@@ -196,16 +176,6 @@ class RecentProductRepository:
             stmt = stmt.where(RecentProduct.user_id == user_id)
         else:
             stmt = stmt.where(RecentProduct.guest_session_id == guest_session_id)
-        if cursor_viewed_at is not None and cursor_id is not None:
-            stmt = stmt.where(
-                or_(
-                    RecentProduct.viewed_at < cursor_viewed_at,
-                    and_(
-                        RecentProduct.viewed_at == cursor_viewed_at,
-                        RecentProduct.id < cursor_id,
-                    ),
-                )
-            )
-        stmt = stmt.order_by(RecentProduct.viewed_at.desc(), RecentProduct.id.desc()).limit(limit)
+        stmt = stmt.order_by(RecentProduct.viewed_at.desc()).limit(limit)
         result = await self.session.execute(stmt)
-        return [(row[0], row[1], row[2]) for row in result.all()]
+        return [(row[0], row[1]) for row in result.all()]
