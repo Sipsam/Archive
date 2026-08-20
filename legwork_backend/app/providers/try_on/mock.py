@@ -7,18 +7,12 @@ import numpy as np
 
 from app.core.exceptions import GenerationFailedError
 from app.providers.try_on.base import TryOnProvider, TryOnProviderRequest, TryOnProviderResult
-from app.providers.try_on.silhouette import render_avatar_silhouette
 
 
 class MockTryOnProvider(TryOnProvider):
     provider_name = "mock"
 
     async def generate(self, payload: TryOnProviderRequest) -> TryOnProviderResult:
-        if not payload.source_image_path:
-            # Avatar scope: real (non-AI) body-silhouette rendering, not a
-            # placeholder -- no photo exists to fall back to, so this is the
-            # actual feature, regardless of which provider is configured.
-            return await asyncio.to_thread(render_avatar_silhouette, payload)
         return await asyncio.to_thread(self._render, payload)
 
     def _render(self, payload: TryOnProviderRequest) -> TryOnProviderResult:
@@ -48,10 +42,6 @@ class MockTryOnProvider(TryOnProvider):
             lines.append(f"product: {payload.product.product_code}")
         if payload.variant_id is not None:
             lines.append(f"variant: {payload.variant_id}")
-        if payload.coordi_items:
-            lines.append(f"coordi items: {len(payload.coordi_items)}")
-            for item in payload.coordi_items[:2]:
-                lines.append(f"- {item.product.product_code}")
         if payload.source_image_path:
             lines.append("source: uploaded photo")
         else:

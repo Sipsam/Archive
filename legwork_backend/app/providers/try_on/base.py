@@ -5,7 +5,7 @@ from typing import Protocol
 from uuid import UUID
 
 from app.core.enums import Gender, TryOnScope
-from app.modules.products.schemas import ProductDetail, VariantInfo
+from app.modules.products.schemas import ProductDetail
 
 
 @dataclass(frozen=True)
@@ -16,23 +16,12 @@ class TryOnAvatarParameters:
 
 
 @dataclass(frozen=True)
-class TryOnCoordiItem:
-    product: ProductDetail
-    variant: VariantInfo | None = None
-
-
-@dataclass(frozen=True)
 class TryOnProviderRequest:
     scope: TryOnScope
     avatar: TryOnAvatarParameters
     product: ProductDetail | None = None
     variant_id: UUID | None = None
-    coordi_items: list[TryOnCoordiItem] = field(default_factory=list)
     source_image_path: str | None = None
-    # Absolute paths to garment/product reference images (product's thumbnail,
-    # or one per coordi item), resolved by the service layer. Empty when none
-    # of the relevant products have a thumbnail on file.
-    garment_image_paths: list[str] = field(default_factory=list)
     simulate_failure: bool = False
     metadata: dict[str, str] = field(default_factory=dict)
 

@@ -6,9 +6,7 @@ touching Product models/repository directly. Returns DTOs, never ORM objects.
 
 import uuid
 
-from app.api.dependencies.pagination import decode_cursor, encode_cursor, normalize_limit
 from app.core.exceptions import NotFoundError
-from app.core.responses import PaginationMeta
 from app.modules.products.models import Product, ProductImage
 from app.modules.products.repository import ProductRepository, RecentProductRepository
 from app.modules.products.schemas import (
@@ -90,18 +88,6 @@ class ProductService:
         variants = await self.repository.list_variants(product_id, active_only=True)
         return [_to_variant_info(v) for v in variants]
 
-    async def list_recommendation_candidates(
-        self,
-        *,
-        exclude_product_id: uuid.UUID,
-        limit: int = 50,
-    ) -> list[ProductDetail]:
-        products = await self.repository.list_active_products(
-            exclude_product_id=exclude_product_id,
-            limit=limit,
-        )
-        return [await self._to_detail(product) for product in products]
-
     @staticmethod
     def _to_summary(
         product: Product, thumbnail_file_id: uuid.UUID | None
@@ -113,28 +99,6 @@ class ProductService:
             thumbnailFileId=thumbnail_file_id,
             basePrice=product.base_price,
             currency=product.currency,
-        )
-
-    async def _to_detail(self, product: Product) -> ProductDetail:
-        images = await self.repository.list_images(product.id)
-        tags = await self.repository.list_tags(product.id)
-        variants = await self.repository.list_variants(product.id, active_only=True)
-
-        return ProductDetail(
-            productId=product.id,
-            productCode=product.product_code,
-            name=product.name,
-            description=product.description,
-            category=product.category,
-            basePrice=product.base_price,
-            currency=product.currency,
-            thumbnailFileId=_thumbnail_file_id(images),
-            images=[
-                ProductImageInfo(fileId=i.file_id, type=i.type, sortOrder=i.sort_order)
-                for i in images
-            ],
-            tags=[ProductTagInfo(tagType=t.tag_type, tagValue=t.tag_value) for t in tags],
-            variants=[_to_variant_info(v) for v in variants],
         )
 
 
@@ -171,23 +135,14 @@ class RecentProductService:
         *,
         user_id: uuid.UUID | None,
         guest_session_id: uuid.UUID | None,
-        cursor: str | None = None,
         limit: int = DEFAULT_RECENT_LIMIT,
-    ) -> tuple[list[RecentProductItem], PaginationMeta]:
-        normalized_limit = normalize_limit(limit)
-        cursor_viewed_at, cursor_id = decode_cursor(cursor)
+    ) -> list[RecentProductItem]:
+        limit = max(1, min(limit, MAX_RECENT_LIMIT))
         rows = await self.recent.list_recent(
-            user_id=user_id,
-            guest_session_id=guest_session_id,
-            limit=normalized_limit + 1,
-            cursor_viewed_at=cursor_viewed_at,
-            cursor_id=cursor_id,
+            user_id=user_id, guest_session_id=guest_session_id, limit=limit
         )
-        has_next = len(rows) > normalized_limit
-        page = rows[:normalized_limit]
-
-        thumbs = await self.products.thumbnail_map([p.id for p, _, _ in page])
-        items = [
+        thumbs = await self.products.thumbnail_map([p.id for p, _ in rows])
+        return [
             RecentProductItem(
                 productId=p.id,
                 productCode=p.product_code,
@@ -197,11 +152,6 @@ class RecentProductService:
                 currency=p.currency,
                 viewedAt=viewed_at,
             )
-            for p, viewed_at, _ in page
+            for p, viewed_at in rows
         ]
-        next_cursor = None
-        if has_next and page:
-            _, last_viewed_at, last_id = page[-1]
-            next_cursor = encode_cursor(last_viewed_at, last_id)
-        return items, PaginationMeta(nextCursor=next_cursor, hasNext=has_next, limit=normalized_limit)
 
