@@ -1,0 +1,58 @@
+HELP.md
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+/.apt_generated_tests/
+
+mysql-data/
+# Docker 설정 (로컬/서버 환경별로 다름)
+Dockerfile
+docker-compose.yml
+
+# Gradle 설정 (로컬/서버 환경별로 다름)
+build.gradle
+settings.gradle
+gradlew
+gradlew.bat
+gradle/
+
+# 빌드 결과물
+build/
+.gradle/
+
+# python 관련 파일들
+crawler/
+requirements.txt
