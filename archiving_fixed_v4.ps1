@@ -542,6 +542,10 @@ Add-RemoteRepository `
     -RemoteName "repo-remory-be" `
     -RepositoryUrl "https://github.com/Sipsam/remoryBE.git"
 
+Add-RemoteRepository `
+    -RemoteName "repo-legwork-backend" `
+    -RepositoryUrl "https://github.com/legworkteam/legwork_backend.git"
+
 $QAgentEnabled = Test-Path -LiteralPath $QAgentPath
 
 if ($QAgentEnabled) {
@@ -615,6 +619,11 @@ Add-SubtreeToMain `
     -SourceBranch "main" `
     -Prefix "Remory/backend"
 
+Add-SubtreeToMain `
+    -RemoteName "repo-legwork-backend" `
+    -SourceBranch "main" `
+    -Prefix "legwork_backend"
+
 if ($QAgentEnabled) {
     Add-SubtreeToMain `
         -RemoteName "repo-qagent" `
@@ -647,6 +656,8 @@ New-MainSnapshotBranch "2026_01_OpenSWWebProject/main"
 New-MainSnapshotBranch "2026_14th_final_study_BE/main"
 
 New-MainSnapshotBranch "Remory/main"
+
+New-MainSnapshotBranch "legwork_backend/main"
 
 if ($QAgentEnabled) {
     New-MainSnapshotBranch "QAgent/main"
@@ -779,6 +790,18 @@ New-ArchiveBranch `
     -Prefix "Remory/backend"
 
 # --------------------------------------------------------------------
+# legwork_backend 추가 브랜치
+# --------------------------------------------------------------------
+
+Write-Section "legwork_backend 브랜치"
+
+Import-AllAdditionalBranches `
+    -RemoteName "repo-legwork-backend" `
+    -DefaultBranch "main" `
+    -ArchiveNamespace "legwork_backend" `
+    -Prefix "legwork_backend"
+
+# --------------------------------------------------------------------
 # QAgent의 모든 추가 로컬 브랜치 자동 통합
 # --------------------------------------------------------------------
 
@@ -831,8 +854,7 @@ if ($AutoPush) {
     Write-Section "GitHub Push"
 
     git push origin $MainBranch
-    Assert-GitSuccess "main push 실패"
-
+    Assert-GitSuccess "main push 실패"ㅇ:
     # 재실행으로 기존 아카이브 브랜치를 다시 만든 경우를 고려하여
     # force-with-lease를 사용합니다.
     git push origin --all --force-with-lease
