@@ -9,8 +9,6 @@ from app.models.media import TargetMedia, MediaType
 from app.models.target import Target
 from app.services.target_service import target_service
 from app.utils.exceptions import NotFoundException, ForbiddenException, ValidationException, FileUploadException
-from app.models.consent import ConsentType
-from app.services.consent_service import consent_service
 
 
 class MediaService:
@@ -77,11 +75,6 @@ class MediaService:
         """타겟 미디어 업로드"""
         target_service.get_target_by_id(db, target_id, user_id)
 
-        if media_type == MediaType.IMAGE:
-            consent_service.check_consent(db, user_id, target_id, ConsentType.PHOTO_UPLOAD_CONSENT)
-        elif media_type == MediaType.VOICE:
-            consent_service.check_consent(db, user_id, target_id, ConsentType.VOICE_UPLOAD_CONSENT)
-
         stored_filename, file_size, file_path = MediaService._save_file(target_id, media_type, upload_file)
         media = TargetMedia(
             target_id=target_id,
@@ -123,20 +116,6 @@ class MediaService:
             raise NotFoundException("Target", media.target_id)
         if target.user_id != user_id:
             raise ForbiddenException("You don't have permission to access this media")
-        return media
-
-    @staticmethod
-    def get_target_media_file(db: Session, user_id: int, target_id: int, media_id: int) -> TargetMedia:
-        target_service.get_target_by_id(db, target_id, user_id)
-        media = db.execute(
-            select(TargetMedia).where(
-                TargetMedia.id == media_id,
-                TargetMedia.target_id == target_id,
-                TargetMedia.is_deleted == False,
-            )
-        ).scalar_one_or_none()
-        if not media:
-            raise NotFoundException("TargetMedia", media_id)
         return media
 
     @staticmethod

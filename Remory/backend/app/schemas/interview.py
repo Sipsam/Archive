@@ -1,64 +1,34 @@
-from datetime import datetime
 from typing import Optional
-
-from pydantic import BaseModel, ConfigDict, Field
-
-from app.models.interview import InterviewStatus, InterviewType
+from pydantic import BaseModel
 from app.schemas.common import TimestampMixin
+from app.models.interview import InterviewType
 
 
 class AIInterviewSessionCreateRequest(BaseModel):
-    session_type: InterviewType
-    title: Optional[str] = Field(default=None, max_length=255)
+    """AI Interview Session 생성 요청"""
     target_id: Optional[int] = None
     photo_memory_id: Optional[int] = None
+    interview_type: InterviewType
 
 
-class AIInterviewQuestionCreateRequest(BaseModel):
-    question_type: Optional[str] = Field(default=None, max_length=100)
-
-
-class AIInterviewAnswerCreateRequest(BaseModel):
-    question_id: int
-    answer_text: Optional[str] = None
-    answer_audio_path: Optional[str] = None
-
-
-class AIInterviewAnswerResponse(TimestampMixin):
-    id: int
-    session_id: int
-    question_id: int
-    answer_text: Optional[str]
-    answer_audio_path: Optional[str]
-    deleted_at: Optional[datetime]
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class AIInterviewQuestionResponse(BaseModel):
-    id: int
-    session_id: int
-    question_text: str
-    question_type: Optional[str]
-    order_index: int
-    created_at: datetime
-    answers: list[AIInterviewAnswerResponse] = Field(default_factory=list)
-
-    model_config = ConfigDict(from_attributes=True)
+class AIInterviewSessionSubmitRequest(BaseModel):
+    """답변 제출 요청"""
+    user_answer: str
+    follow_up_question: Optional[str] = None
 
 
 class AIInterviewSessionResponse(TimestampMixin):
+    """AI Interview Session 응답"""
     id: int
     user_id: int
     target_id: Optional[int]
     photo_memory_id: Optional[int]
-    session_type: InterviewType
-    title: Optional[str]
-    status: InterviewStatus
-    deleted_at: Optional[datetime]
+    interview_type: InterviewType
+    current_question: Optional[str]
+    user_answer: Optional[str]
+    follow_up_question: Optional[str]
+    is_completed: bool
 
-    model_config = ConfigDict(from_attributes=True)
+    class Config:
+        from_attributes = True
 
-
-class AIInterviewSessionDetailResponse(AIInterviewSessionResponse):
-    questions: list[AIInterviewQuestionResponse] = Field(default_factory=list)
