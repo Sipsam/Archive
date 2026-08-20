@@ -5,9 +5,8 @@ checks live in Backend B's repair flow; here A just surfaces candidate slots
 from business hours so the frontend can render availability.
 """
 
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time
 
-from app.core.exceptions import NotFoundError
 from app.modules.stores.repository import StoreRepository
 from app.modules.stores.schemas import StoreItem, StoreListResponse
 from app.utils.datetime import KST, now_kst
@@ -32,13 +31,6 @@ class StoreService:
         target = target_date or now_kst().date()
         slots = _slots_for(target)
         stores = await self.repository.list_active(limit)
-
-        range_start = datetime.combine(target, time.min, tzinfo=KST)
-        range_end = range_start + timedelta(days=1)
-        booked = await self.repository.list_confirmed_slots(
-            [s.id for s in stores], range_start=range_start, range_end=range_end
-        )
-
         return StoreListResponse(
             stores=[
                 StoreItem(
@@ -46,15 +38,8 @@ class StoreService:
                     name=s.name,
                     address=s.address,
                     phone=s.phone,
-                    availableSlots=[
-                        slot for slot in slots if slot not in booked.get(s.id, set())
-                    ],
+                    availableSlots=slots,
                 )
                 for s in stores
             ]
         )
-
-    async def ensure_active_store(self, store_id) -> None:
-        store = await self.repository.get_active_by_id(store_id)
-        if store is None:
-            raise NotFoundError("매장을 찾을 수 없습니다.")

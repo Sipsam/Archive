@@ -28,12 +28,6 @@ class GuestRepository:
     async def get_by_id(self, guest_session_id: uuid.UUID) -> GuestSession | None:
         return await self.session.get(GuestSession, guest_session_id)
 
-    async def list_expired(self, *, now: datetime) -> list[GuestSession]:
-        result = await self.session.scalars(
-            select(GuestSession).where(GuestSession.expires_at <= now)
-        )
-        return list(result.all())
-
     async def create_session(
         self,
         *,
@@ -44,6 +38,3 @@ class GuestRepository:
         self.session.add(session)
         await self.session.flush()
         return session
-
-    async def delete(self, guest_session: GuestSession) -> None:
-        await self.session.delete(guest_session)
