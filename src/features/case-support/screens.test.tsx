@@ -49,9 +49,9 @@ it("loads document pages beyond 100 and enforces the contract selection limit",a
  await screen.findByRole('checkbox',{name:'file-1.pdf'});
  expect(pages).toEqual([1,2]);
  fireEvent.click(screen.getByRole('button',{name:'전체 선택'}));
- expect(screen.getByText('선택한 원본 100개')).toBeVisible();
+ expect(screen.getByText('선택한 원본 100개',{selector:'summary'})).toBeVisible();
  fireEvent.click(screen.getByRole('button',{name:'선택 해제'}));
- expect(screen.getByText('선택한 원본 0개')).toBeVisible();
+ expect(screen.getByText('선택한 원본 0개',{selector:'summary'})).toBeVisible();
 });
 it("shows real preparation counts for each selected case and a creation link when empty",async()=>{
  const mock=createDevelopmentScenario(testApiUrl);server.use(...mock.handlers);await services.auth.login({email:'worker@example.com',password:'password1234'});
@@ -108,12 +108,12 @@ it("preserves selected originals across local pages without a mutation",async()=
  expect(screen.getByRole('checkbox',{name:'original-1.pdf'})).toBeChecked();
  fireEvent.click(screen.getByRole('button',{name:'다음 원본'}));
  expect(screen.getByRole('checkbox',{name:'original-6.pdf'})).toBeChecked();
- expect(screen.getByText('선택한 원본 2개')).toBeVisible();expect(posts).toBe(0);
+ expect(screen.getByText('선택한 원본 2개',{selector:'summary'})).toBeVisible();expect(posts).toBe(0);
 });
 it("navigates report history past twenty records and back",async()=>{
  const mock=createDevelopmentScenario(testApiUrl);server.use(...mock.handlers);await services.auth.login({email:"worker@example.com",password:"password1234"});
  const api=supportApi(services.api);for(let i=0;i<21;i++)await api.create(15,[],`audit-${i}`);
- mount(<ReportsScreen caseId={15}/>);await screen.findByRole("heading",{name:/보고서 #110/});
+ mount(<ReportsScreen caseId={15}/>);fireEvent.click(screen.getByText("보고서 이력",{selector:"summary"}));await screen.findByRole("heading",{name:/보고서 #110/});
  await waitFor(()=>expect(screen.getByRole("button",{name:"다음 보고서"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"다음 보고서"}));expect(await screen.findByRole("heading",{name:/보고서 #90/})).toBeVisible();
  expect(screen.getByRole("button",{name:"다음 보고서"})).toBeDisabled();fireEvent.click(screen.getByRole("button",{name:"이전 보고서"}));expect(await screen.findByRole("heading",{name:/보고서 #110/})).toBeVisible();
 });
@@ -173,7 +173,7 @@ it("uses supported server filters and removes local name search",async()=>{
  mount(<CentersScreen/>);expect(await screen.findByText("예시 기관")).toBeVisible();expect(screen.getByText("지역 대신 전국 단위 대안을 표시합니다.")).toBeVisible();expect(screen.getByText(/개발용 예시 데이터/)).toBeVisible();expect(screen.getByRole("link",{name:"https://example.org/source"})).toHaveAttribute("rel","noopener noreferrer");expect(screen.getByText("검증일: 2026-11-10")).toBeVisible();expect(document.querySelector('a[href^="javascript:"]')).toBeNull();
  fireEvent.change(screen.getByLabelText("지역"),{target:{value:"청주시"}});fireEvent.change(screen.getByLabelText("상담 분야"),{target:{value:"WAGE"}});fireEvent.click(screen.getByRole("button",{name:"기관 조회"}));await waitFor(()=>expect(urls.at(-1)).toContain("category=WAGE"));expect(urls.at(-1)).toContain("region=");
  expect(screen.getAllByRole("textbox")).toHaveLength(1);
- expect(document.querySelector("details")).toBeNull();
+ expect(document.querySelector('input[type="search"]')).toBeNull();
  expect(screen.queryByText("현재 전국 단위 상담기관 정보만 제공됩니다.")).toBeNull();
  expect(screen.queryByText("이 페이지에서 기관명 찾기")).toBeNull();
  expect(urls.every(u=>!u.includes("search="))).toBe(true);
