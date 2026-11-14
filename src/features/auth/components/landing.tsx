@@ -2,16 +2,16 @@
 import {useMessageState} from '@/i18n/use-message-state';
 import {message as describeMessage} from '@/i18n/message';
 
-import {useLocalized} from '@/i18n/use-translation';
+import {useLocalized, useTranslation} from '@/i18n/use-translation';
 import type {Translation} from '@/i18n/translate';
-
-import { useTranslation } from '@/i18n/use-translation';
 
 import Link from 'next/link';
 import { BrandLink } from '@/components/layout/brand-link';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { ArrowUpRight, ArrowRight, ArrowDown, Check, CheckCheck, FileText, Files, Clock3, Calculator, CircleHelp, Link2, ScanLine, Wallet, FolderOpen, Plus, ShieldCheck, Copy, CheckCircle2, Menu, X, Building2, Download, MessageCircle, MoveRight } from 'lucide-react';
+import { ArrowUpRight, ArrowRight, Check, CheckCheck, FileText, Clock3, Calculator, CircleHelp, Link2, ScanLine, Wallet, FolderOpen, Plus, Copy, CheckCircle2, Menu, X, Building2, Download, MessageCircle, MoveRight } from 'lucide-react';
 import styles from './landing.module.css';
+import { LandingEvidence } from './landing-evidence';
+import { LandingHero } from './landing-hero';
 import { LanguageSelector } from '@/i18n/language-selector';
 function classes(names: string) {
     return names.split(/\s+/).filter(Boolean).map(name => styles[name]).join(' ');
@@ -55,21 +55,21 @@ function Counter({ value }: {
     }, [value]);
     return <span ref={ref}><span aria-hidden="true">{number.toLocaleString(defaultLocale)}</span><span className={classes("sr-only")}>{value.toLocaleString(defaultLocale)}</span></span>;
 }
-function DocumentRows({ compact = false }) {
+function DocumentRows() {
 const {documents} = useLocalized(createPresentation);
 
-    return <div className={classes(compact ? 'document-rows compact' : 'document-rows')}>
+    return <div>
     {documents.map(({ icon: Icon, name, file, status, color }, i) => <div className={classes("document-row")} style={{ '--i': i } as MotionStyle} key={name}>
       <span className={classes('file-icon ' + color)}><Icon aria-hidden="true" size={23}/></span><div><strong>{name}</strong><span>{file}</span></div><span className={classes("file-status")}>{status}<Check aria-hidden="true" size={13}/></span>
     </div>)}
   </div>;
 }
-function PayBreakdown({ count = false }) {
+function PayBreakdown() {
  const {translate} = useTranslation();
 
     return <div className={classes("pay-breakdown")}>
     <span className={classes("mini-label")}>{translate("auth.landing_deduction_wage_example")}</span>
-    <div className={classes("pay-total")}>{count ? <Counter value={2200000}/> : '2,200,000'}<small>{translate("common.won")}</small></div>
+    <div className={classes("pay-total")}><Counter value={2200000}/><small>{translate("common.won")}</small></div>
     <div className={classes("pay-stack")} aria-hidden="true"><span /><span /><span /><span /></div>
     <dl>{[[translate("auth.landing_basePay"), '1,600,000'], [translate("auth.landing_allowance"), '320,000'], [translate("auth.landing_work_allowance"), '180,000'], [translate("auth.landing_payment_item"), '100,000']].map(([label, value], i) => <div key={label}><dt><span className={classes('pay-dot dot-' + i)}/>{label}</dt><dd>{value}<span>{translate("common.won")}</span></dd></div>)}</dl>
     <p className={classes("visual-note")}>{translate("auth.landing_confirm_included_item_calculation")}</p>
@@ -89,29 +89,11 @@ function ComparePreview() {
 
     return <div className={classes("compare-preview")}><div className={classes("compare-pair")}><div><FileText aria-hidden="true" size={24}/><span>{translate("auth.landing_payslip_netPay")}</span><strong>2,100,000<small>{translate("common.won")}</small></strong></div><div><Wallet aria-hidden="true" size={24}/><span>{translate("auth.landing_link_deposit_sum")}</span><strong>2,000,000<small>{translate("common.won")}</small></strong></div></div><div className={classes("difference-line")}><span>{translate("auth.landing_current_record_confirm_difference")}</span><strong>{translate("auth.landing_div13")}</strong></div><div className={classes("linked-transfers")}><span><Check aria-hidden="true" size={14}/> {translate("auth.landing_span3")}</span><span><Check aria-hidden="true" size={14}/> {translate("auth.landing_span4")}</span></div><p className={classes("visual-note")}>{translate("auth.landing_difference_unpaid")}</p></div>;
 }
-function HeroPreview({ active }: {
-    active: number;
-}) {
- const {translate} = useTranslation();
-
-    return <div className={classes("product-preview")} aria-label={translate("auth.landing_example")}>
-    <div className={classes("preview-toolbar")}><span className={classes("preview-dots")} aria-hidden="true"><i /><i /><i /></span><span>{translate("common.brand")}</span><span className={classes("example-label")}>{translate("auth.landing_example_2")}</span></div>
-    <div className={classes("preview-content")} id="landing-preview" aria-live="polite" aria-atomic="true" key={active}>
-      <div className={classes("preview-context")}><span><Building2 aria-hidden="true" size={13}/> {translate("auth.landing_span5")}</span><span>{translate("auth.landing_div16")}</span></div>
-      <h3>{[translate("auth.landing_monthlyWage_2"), translate("auth.landing_original_confirm_3"), translate("auth.landing_wage"), translate("auth.landing_deposit_continue_confirm")][active]}</h3>
-      {active === 0 && <><DocumentRows compact/><div className={classes("preview-bottom")}><span>{translate("auth.landing_file_none_input")}</span><Plus aria-hidden="true" size={18}/></div></>}
-      {active === 1 && <VerifyPreview />}
-      {active === 2 && <PayBreakdown />}
-      {active === 3 && <ComparePreview />}
-    </div>
-  </div>;
-}
 export function Landing() {
-const {features, inquiry} = useLocalized(createPresentation);
+const {inquiry} = useLocalized(createPresentation);
 
  const {translate} = useTranslation();
 
-    const [active, setActive] = useState(0);
     const [menuOpen, setMenuOpen] = useState(false);
     const [copyStatus, setCopyStatus] = useMessageState('');
     const copyRef = useRef<HTMLParagraphElement>(null);
@@ -125,6 +107,19 @@ const {features, inquiry} = useLocalized(createPresentation);
         if (!window.IntersectionObserver)
             return;
         let observer: IntersectionObserver | undefined;
+        const reveal = (element: Element) => {
+            element.classList.add(styles.revealed);
+            element.setAttribute('data-entered', 'true');
+            observer?.unobserve(element);
+        };
+        const revealFocused = (event: FocusEvent) => {
+            if (!(event.target instanceof Element)) return;
+            let element = event.target.closest('[data-reveal]');
+            while (element && root.contains(element)) {
+                reveal(element);
+                element = element.parentElement?.closest('[data-reveal]') ?? null;
+            }
+        };
         const setup = () => {
             observer?.disconnect();
             root.classList.toggle(styles['motion-ready'], !media.matches);
@@ -132,15 +127,15 @@ const {features, inquiry} = useLocalized(createPresentation);
                 return;
             observer = new IntersectionObserver(entries => entries.forEach(entry => {
                 if (entry.isIntersecting) {
-                    entry.target.classList.add(styles.revealed);
-                    observer?.unobserve(entry.target);
+                    reveal(entry.target);
                 }
             }), { threshold: .12, rootMargin: '0px 0px -20px 0px' });
             root.querySelectorAll('[data-reveal]').forEach(el => observer?.observe(el));
         };
         setup();
+        root.addEventListener('focusin', revealFocused);
         media.addEventListener('change', setup);
-        return () => { observer?.disconnect(); media.removeEventListener('change', setup); root.classList.remove(styles['motion-ready']); };
+        return () => { observer?.disconnect(); root.removeEventListener('focusin', revealFocused); media.removeEventListener('change', setup); root.classList.remove(styles['motion-ready']); };
     }, []);
     useEffect(() => {
         if (!menuOpen)
@@ -163,24 +158,24 @@ const {features, inquiry} = useLocalized(createPresentation);
         }
     }
     return <div className={styles.landing} ref={rootRef}>
-    <header className={classes("site-header")}><div className={classes("header-inner")}><Logo /><nav className={classes(menuOpen ? 'main-nav open' : 'main-nav')} id="main-navigation" aria-label={translate("auth.landing_menu")}><a href="#features" onClick={() => setMenuOpen(false)}>{translate("auth.landing_nav")}</a><a href="#how-it-works" onClick={() => setMenuOpen(false)}>{translate("auth.landing_nav2")}</a><a href="#questions" onClick={() => setMenuOpen(false)}>{translate("auth.landing_question")}</a></nav><Link className={classes("header-cta")} href="/signup">{translate("auth.landing_start")}<ArrowUpRight aria-hidden="true" size={16}/></Link><button type="button" ref={menuRef} className={classes("menu-toggle")} aria-expanded={menuOpen} aria-controls="main-navigation" aria-label={menuOpen ? translate("auth.landing_menu_close") : translate("auth.landing_menu_2")} onClick={() => setMenuOpen(open => !open)}>{menuOpen ? <X aria-hidden="true"/> : <Menu aria-hidden="true"/>}</button><LanguageSelector /></div></header>
+    <header className={classes("site-header")}>
+      <div className={classes("header-inner")}>
+        <Logo />
+        <nav className={classes(menuOpen ? 'main-nav open' : 'main-nav')} id="main-navigation" aria-label={translate("auth.landing_menu")}>
+          <a href="#why" onClick={() => setMenuOpen(false)}>{translate("landingEvidence.navWhy")}</a>
+          <a href="#how-it-works" onClick={() => setMenuOpen(false)}>{translate("auth.landing_nav2")}</a>
+          <a href="#questions" onClick={() => setMenuOpen(false)}>{translate("auth.landing_question")}</a>
+          <Link href="/login" onClick={() => setMenuOpen(false)}>{translate("landingEvidence.loginLabel")}</Link>
+        </nav>
+        <LanguageSelector />
+        <Link className={classes("header-cta")} href="/signup">{translate("auth.landing_start")}<ArrowUpRight aria-hidden="true" size={16}/></Link>
+        <button type="button" ref={menuRef} className={classes("menu-toggle")} aria-expanded={menuOpen} aria-controls="main-navigation" aria-label={menuOpen ? translate("auth.landing_menu_close") : translate("auth.landing_menu_2")} onClick={() => setMenuOpen(open => !open)}>{menuOpen ? <X aria-hidden="true"/> : <Menu aria-hidden="true"/>}</button>
+      </div>
+    </header>
     <main id="main-content" tabIndex={-1}>
-      <section className={classes("hero")} aria-labelledby="hero-title">
-        <div className={classes("hero-inner")}>
-          <div className={classes("hero-copy")} data-reveal>
-            <span className={classes("eyebrow")}><span /> {translate("auth.landing_count")}</span>
-            <h1 id="hero-title">{translate("auth.landing_record_2")}<br />{translate("auth.landing_monthlyWage_3")}<em>{translate("auth.landing_h13")}</em></h1>
-            <p>{translate("auth.landing_contract_deposit")}<br />{translate("auth.landing_link")}<br className={classes("desktop-br")}/> {translate("auth.landing_monthlyWage_evidence_confirm")}</p>
-            <Link className={classes("button button-primary")} href="/login">{translate("auth.landing_monthlyWage_confirm")}<ArrowRight aria-hidden="true" size={19}/></Link>
-            <span className={classes("cta-caption")}>{translate("auth.landing_record_start_confirm_evidence")}</span>
-          </div>
-          <div className={classes("hero-product")} data-reveal style={{ '--delay': '140ms' } as MotionStyle}><div className={classes("preview-halo")} aria-hidden="true"/><HeroPreview active={active}/><span className={classes("product-caption")}><ShieldCheck aria-hidden="true" size={15}/> {translate("auth.landing_confirm_start_monthlyWage_evidence")}</span></div>
-        </div>
-        <div className={classes("feature-switcher")} role="group" aria-label={translate("auth.landing_ariaLabel_div2")}>
-          {features.map(({ number, label, detail, icon: Icon }, i) => <button type="button" key={number} aria-controls="landing-preview" aria-pressed={active === i} onClick={() => setActive(i)} className={classes('feature-switch ' + (active === i ? 'selected' : ''))}><span className={classes("feature-icon")}><Icon aria-hidden="true" size={24}/></span><span><span className={classes("feature-number")}>{number}</span><strong>{label}</strong><small>{detail}</small></span><ArrowUpRight aria-hidden="true" className={classes("feature-arrow")} size={17}/></button>)}
-        </div>
-        <a className={classes("scroll-cue")} href="#features">{translate("auth.landing_monthlyWage_confirm_2")}<ArrowDown aria-hidden="true" size={17}/></a>
-      </section>
+      <LandingHero />
+
+      <LandingEvidence />
 
       <div id="features" className={classes("feature-intro section-wrap")} data-reveal><p className={classes("section-label")}>{translate("auth.landing_monthlyWage_count")}</p><h2>{translate("auth.landing_monthlyWage_confirm_3")}<br />{translate("auth.landing_link_2")}</h2></div>
 
@@ -195,7 +190,7 @@ const {features, inquiry} = useLocalized(createPresentation);
 
       <section className={classes("feature-section section-wrap calculate-section")} id="calculate">
         <div className={classes("section-copy")} data-reveal><span className={classes("section-label")}>{translate("auth.landing_wage_calculation_2")}</span><h2>{translate("auth.landing_basePay_allowance")}<br /><em>{translate("auth.landing_basis")}</em></h2><p>{translate("auth.landing_hourlyWage_monthlyWage_work")}<br />{translate("auth.landing_confirm_deduction_wage_calculation")}<br />{translate("auth.landing_calculation_item")}</p><div className={classes("allowance-list")}><span>{translate("auth.landing_basePay")}</span><span>{translate("auth.landing_div32")}</span><span>{translate("auth.landing_div33")}</span><span>{translate("auth.landing_div34")}</span><span>{translate("auth.landing_div35")}</span></div><p className={classes("scope-note")}>{translate("auth.landing_calculation_result_applicable_evidence_update_status_confirm")}</p></div>
-        <div className={classes("calculation-scene")} data-reveal style={{ '--delay': '120ms' } as MotionStyle}><div className={classes("scene-heading")}><span><Calculator aria-hidden="true" size={19}/> {translate("auth.landing_wage_2")}</span><span className={classes("example-label")}>{translate("auth.landing_example_2")}</span></div><PayBreakdown count/><div className={classes("formula-footnote")}><CircleHelp aria-hidden="true" size={16}/><span>{translate("auth.landing_new_netPay")}</span></div></div>
+        <div className={classes("calculation-scene")} data-reveal style={{ '--delay': '120ms' } as MotionStyle}><div className={classes("scene-heading")}><span><Calculator aria-hidden="true" size={19}/> {translate("auth.landing_wage_2")}</span><span className={classes("example-label")}>{translate("auth.landing_example_2")}</span></div><PayBreakdown /><div className={classes("formula-footnote")}><CircleHelp aria-hidden="true" size={16}/><span>{translate("auth.landing_new_netPay")}</span></div></div>
       </section>
 
       <section className={classes("compare-section")}>
@@ -223,12 +218,6 @@ const {features, inquiry} = useLocalized(createPresentation);
 }
 
 function createPresentation({translate}: Translation) {
-const features = [
-    { id: 'gather', number: '01', label: translate("auth.landing_record"), detail: translate("auth.landing_features_detail"), icon: Files },
-    { id: 'verify', number: '02', label: translate("auth.landing_original_confirm"), detail: translate("auth.landing_confirm"), icon: ScanLine },
-    { id: 'calculate', number: '03', label: translate("auth.landing_wage_calculation"), detail: translate("auth.landing_workingConditions_basis"), icon: Calculator },
-    { id: 'compare', number: '04', label: translate("auth.landing_payslip_deposit_comparison"), detail: translate("auth.landing_difference_evidence"), icon: Wallet },
-];
 const documents = [
     { icon: FileText, name: translate("auth.landing_contract"), file: translate("auth.landing_contract_2"), status: translate("auth.landing_confirm_2"), color: 'violet' },
     { icon: Clock3, name: translate("auth.landing_attendance"), file: translate("auth.landing_attendance_2"), status: translate("auth.landing_time_confirm"), color: 'blue' },
@@ -236,5 +225,5 @@ const documents = [
     { icon: Wallet, name: translate("auth.landing_deposit"), file: translate("auth.landing_deposit_case"), status: translate("auth.landing_transaction_link"), color: 'pink' },
 ];
 const inquiry = translate("auth.landing_payslip_netPay_current_confirm_deposit_sum_difference");
-return {features, documents, inquiry};
+return {documents, inquiry};
 }

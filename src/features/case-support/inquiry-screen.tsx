@@ -5,12 +5,13 @@ import {message as describeMessage} from '@/i18n/message';
 import { useTranslation } from '@/i18n/use-translation';
 
 import { supportResultLabel } from "./result-label";
-import styles from "./preparation.module.css";
+import styles from "./inquiry-screen.module.css";
+import { FilePenLine } from "lucide-react";
 import consultationStyles from "./consultation-screen.module.css";
 import { SupportLinks } from "./support-navigation";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
-import { CaseStageHeader } from "@/features/cases/components/case-stage-header";
+
 import { useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useSessionScope } from "@/hooks/use-session-scope";
@@ -47,11 +48,11 @@ function InquiryEditor({ caseId }: { caseId: number }) {
   }
   const error = mutation.error;
   return <div className={styles.page}>
-    <CaseStageHeader stage="inquiry" title={translate("caseSupport.inquiryScreen_company_inquiry_review")} description={translate("caseSupport.inquiryScreen_company_confirm_content_draft_review")} />
+    <header className={styles.hero}><div><p className={styles.eyebrow}>{translate("caseSupport.screens_company_inquiry_draft")}</p><h1>{translate("caseSupport.inquiryScreen_company_inquiry_review")}</h1><p>{translate("caseSupport.inquiryScreen_company_confirm_content_draft_review")}</p></div><span className={styles.heroIcon} aria-hidden="true"><FilePenLine size={44}/></span></header>
 
     <div className={consultationStyles.supportNav}><SupportLinks caseId={caseId}/></div>
     <p data-case-notice>{translate("caseSupport.inquiryScreen_draft_review_edit_company")}</p>
-    <section className={`${cardStyle} space-y-4`} aria-label={translate("caseSupport.inquiryScreen_current")}>    <Textarea id="inquiry-text" label={origin} className="min-h-60" value={text} onChange={e => { setText(e.target.value); setMessage(""); }}/>
+    <section className={`${cardStyle} ${styles.editor}`} aria-label={translate("caseSupport.inquiryScreen_current")}>    <Textarea id="inquiry-text" label={origin} className="min-h-60" value={text} onChange={e => { setText(e.target.value); setMessage(""); }}/>
     <button className={primaryButton} disabled={!text.trim()} onClick={async () => { try { await navigator.clipboard.writeText(text); setMessage(describeMessage("caseSupport.inquiryScreen_onClick_button")); } catch { setMessage(describeMessage("caseSupport.inquiryScreen_failure_select")); } }}>{translate("caseSupport.inquiryScreen_section")}</button>
     </section>
     <button className={secondaryButton} disabled={mutation.isPending || !s.enabled || removal.pending || removal.removed} onClick={() => { if (text || mutation.data) setConfirm(true); else void generate(); }}>{mutation.isPending ? translate("caseSupport.inquiryScreen_draft") : mutation.data ? translate("caseSupport.inquiryScreen_draft_2") : translate("caseSupport.inquiryScreen_draft_3")}</button>
