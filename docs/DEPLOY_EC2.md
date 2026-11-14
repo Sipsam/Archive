@@ -56,6 +56,7 @@ OPENAI_CHAT_MODEL=팀에서_확인한_모델ID
 | `FRONTEND_BASE_URL` | 실제 프론트 페이지 주소. 80포트이면 `http://프론트IP`, 3000이면 `http://프론트IP:3000` |
 | `COOKIE_SECURE` | 이번 HTTP 시연은 `false` |
 | `OPENAI_API_KEY` | 서버에서만 입력. Git이나 프론트에 전달하지 않음 |
+| `AGENT_SCAN_TRANSCRIPTION` | 이미지 기본값 `true`: 스캔 페이지를 모델로 전사. 끄려면 `.env.production`에 `false` |
 | 모델 3개 | 팀이 해당 OpenAI 프로젝트에서 확인한 모델 ID. 예제 기본 모델의 접근권한은 검증하지 않았음 |
 
 아직 프론트 주소를 모르면 템플릿의 localhost origin으로 서버부터 확인하고, 주소가 나오면 추가한 뒤 컨테이너를 재생성한다. `API_DOMAIN`은 사용하지 않는다. `HOST/PORT/DATA_DIR/폰트/OCR` 경로는 Compose가 컨테이너용 값으로 고정한다. 서버에 Python·OCR·DB 서버를 따로 설치할 필요 없다.

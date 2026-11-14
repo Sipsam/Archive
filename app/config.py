@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     agent_font_path: Path = Path('assets/fonts/NotoSansKR-Regular.ttf')
     agent_ocr_command: str = ''
     agent_ocr_data_path: Path | None = None
+    agent_scan_transcription: bool = False
     worker_concurrency: int = Field(default=1, ge=1, le=4)
     workers_enabled: bool = True
     recompute_debounce_seconds: float = Field(default=0.3, ge=0)
@@ -41,4 +42,5 @@ class Settings(BaseSettings):
             extraction_model=self.openai_extraction_model, explanation_model=self.openai_explanation_model,
             model_config_version=self.model_config_version, font_path=self.agent_font_path,
             ocr_command=self.agent_ocr_command, ocr_data_path=self.agent_ocr_data_path,
+            scan_transcription=self.agent_scan_transcription,
             timeout_seconds=self.ai_timeout_seconds, max_file_bytes=self.upload_max_bytes)

@@ -1,4 +1,9 @@
-"""Read digital PDF text first, with local OCR fallback for each other page."""
+"""Read digital PDF text first; other pages use local OCR, optionally with a model transcript.
+
+With ``scan_transcription`` enabled, a scanned page's text comes from the model transcript
+and its word coordinates from local OCR. Without it, or when the transcript is unusable,
+the page keeps its local OCR text.
+"""
 
 import asyncio
 import inspect
@@ -31,30 +36,65 @@ async def recognize_document(data, settings, control=None):
     except Exception as exc:
         raise DocumentUnreadable("PDF 페이지를 읽을 수 없습니다.") from exc
 
+    from agent.services import scan_transcription
     from agent.services.local_ocr import recognize_pdf
 
-    ocr_pages, page_methods, layout_pages = [], [], []
+    natives = []
     for index in range(page_count):
         await check()
-        native = await asyncio.to_thread(read_pdf_text_page, reader.pages[index])
-        if native is not None:
-            ocr_pages.append(native)
-            page_methods.append("pdf_text")
-            layout_pages.append({"page": index + 1, "blocks": await asyncio.to_thread(native_layout, data, index + 1)})
+        natives.append(await asyncio.to_thread(read_pdf_text_page, reader.pages[index]))
+    scanned = [index for index, native in enumerate(natives) if native is None]
+    # Scanned pages are transcribed by the model while local OCR runs; OCR keeps supplying
+    # the word coordinates and remains the page text if the transcript is missing or unusable.
+    transcription = (
+        asyncio.create_task(scan_transcription.transcribe_pages(data, scanned, settings))
+        if scanned and scan_transcription.enabled(settings)
+        else None
+    )
+    ocr_pages, page_methods, layout_pages = [], [], []
+    try:
+        for index, native in enumerate(natives):
             await check()
-            continue
-        recognized = await asyncio.to_thread(recognize_pdf, data, settings, [index])
-        if (
-            not isinstance(recognized, list)
-            or len(recognized) != 1
-            or not isinstance(recognized[0], dict)
-            or not isinstance(recognized[0].get("text"), str)
-        ):
-            raise OCRFailed("OCR 페이지 결과를 읽을 수 없습니다. 문서와 OCR 설정을 확인해 주세요.")
-        ocr_pages.extend(recognized)
-        page_methods.append("python_ocr")
-        layout_pages.append({"page": index + 1, "blocks": word_layout(recognized[0].get("words"), index + 1)})
-        await check()
+            if native is not None:
+                ocr_pages.append(native)
+                page_methods.append("pdf_text")
+                layout_pages.append(
+                    {"page": index + 1, "blocks": await asyncio.to_thread(native_layout, data, index + 1)}
+                )
+                await check()
+                continue
+            recognized = await asyncio.to_thread(recognize_pdf, data, settings, [index])
+            if (
+                not isinstance(recognized, list)
+                or len(recognized) != 1
+                or not isinstance(recognized[0], dict)
+                or not isinstance(recognized[0].get("text"), str)
+            ):
+                raise OCRFailed("OCR 페이지 결과를 읽을 수 없습니다. 문서와 OCR 설정을 확인해 주세요.")
+            ocr_pages.extend(recognized)
+            page_methods.append("python_ocr")
+            layout_pages.append({"page": index + 1, "blocks": word_layout(recognized[0].get("words"), index + 1)})
+            await check()
+        transcripts = await transcription if transcription else {}
+    except BaseException:
+        if transcription:
+            transcription.cancel()
+        raise
+    text_sources = list(page_methods)
+    for index, transcript in transcripts.items():
+        page = ocr_pages[index]
+        if scan_transcription.usable(transcript, page["text"]):
+            transcript, repairs = scan_transcription.restore_digit_runs(transcript, page["text"])
+            # Line confidences describe the OCR text, not the transcript, so they are not carried over.
+            ocr_pages[index] = {
+                "text": transcript,
+                "lines": [],
+                "words": page.get("words", []),
+                "ocr_text": page["text"],
+                "transcript_repairs": repairs,
+            }
+            text_sources[index] = "model_transcription"
+    await check()
     pages = [page["text"] for page in ocr_pages]
     if not any(page.strip() for page in pages):
         raise OCRFailed("문자를 인식하지 못했습니다. 해상도와 문서 방향을 확인해 주세요.")
@@ -65,6 +105,9 @@ async def recognize_document(data, settings, control=None):
         "ocr_pages": ocr_pages,
         "page_methods": page_methods,
         "source_method": page_methods[0] if len(set(page_methods)) == 1 else "mixed",
+        # Where each page's text came from. A transcribed scan keeps the "python_ocr" method above
+        # (same extraction prompt and public schema); this records the actual text source.
+        "text_sources": text_sources,
         # Viewer-only word coordinates; extraction and its validation never read them.
         "layout_pages": layout_pages,
     }
