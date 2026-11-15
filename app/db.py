@@ -144,6 +144,9 @@ CREATE TABLE IF NOT EXISTS reports (
  id INTEGER PRIMARY KEY, case_id INTEGER NOT NULL REFERENCES cases(id), version INTEGER NOT NULL,
  input_version INTEGER NOT NULL, status TEXT NOT NULL, frozen_json TEXT NOT NULL,
  document_ids TEXT NOT NULL, created_at TEXT NOT NULL, error_code TEXT);
+CREATE TABLE IF NOT EXISTS consultation_drafts (
+ case_id INTEGER PRIMARY KEY REFERENCES cases(id), version INTEGER NOT NULL,
+ notes_json TEXT NOT NULL, document_ids TEXT NOT NULL, updated_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS consultation_centers (
  id INTEGER PRIMARY KEY, data_json TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS idempotency_responses (

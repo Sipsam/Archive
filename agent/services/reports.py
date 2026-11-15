@@ -2,6 +2,7 @@ import asyncio
 import io
 import json
 import zipfile
+from zoneinfo import ZoneInfo
 from html import escape
 
 from pypdf import PdfReader
@@ -10,7 +11,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import LongTable, Paragraph, SimpleDocTemplate, Spacer, TableStyle
+from reportlab.platypus import LongTable, Paragraph, SimpleDocTemplate, Spacer, TableStyle, PageBreak
 
 from agent.schemas.public.errors import IntegrityError
 from agent.schemas.public.results import ReportCandidate
@@ -47,10 +48,10 @@ def report_glossary(result):
 
 
 def validate_display_context(result, context, template_version):
-    if template_version not in {"report-v1", "report-v2"}:
+    if template_version not in {"report-v1", "report-v2", "report-v3"}:
         raise IntegrityError("Unsupported report template")
     if context is None:
-        if template_version == "report-v2":
+        if template_version in {"report-v2", "report-v3"}:
             raise IntegrityError("Report v2 requires a confirmed display context")
         return
     if context.snapshot_id != result.snapshot_id or context.snapshot_hash != result.snapshot_hash:
@@ -69,7 +70,7 @@ def validate_display_context(result, context, template_version):
         raise IntegrityError("Report condition refers to evidence outside this result")
 
 
-def render_pdf(result, explanation, settings, generated_at, display_context=None):
+def render_pdf(result, explanation, settings, generated_at, display_context=None, consultation=None):
     if not settings.font_path.is_file():
         raise IntegrityError("A licensed Hangul TrueType font must be configured")
     # Registering happens only when generating a PDF, never on import.
@@ -100,7 +101,8 @@ def render_pdf(result, explanation, settings, generated_at, display_context=None
         return Paragraph(escape(text), section)
 
     def table(rows, widths):
-        output = LongTable([[p(value) for value in row] for row in rows], colWidths=widths, repeatRows=1)
+        output = LongTable([[p(value) for value in row] for row in rows], colWidths=widths,
+                           repeatRows=1, splitInRow=1)
         output.setStyle(
             TableStyle(
                 [
@@ -128,21 +130,44 @@ def render_pdf(result, explanation, settings, generated_at, display_context=None
                     labels.append("사용자가 확인한 입력")
                     continue
                 label = source_names.get(ev.source_id, ev.source_id)
-                labels.append(f"{label} {ev.page}쪽" if ev.page else f"{label} (수기 확인)")
+                labels.append(f"{label} {ev.page}쪽" if ev.page else f"{label} ({ev.locator or '위치 미확인'})")
         return "; ".join(dict.fromkeys(labels)) or "연결된 출처 없음"
 
     story = [
-        Paragraph("월급잇다 상담 자료", heading),
+        Paragraph("근로·급여 상담 준비서" if consultation else "월급잇다 상담 자료", heading),
         Spacer(1, 12),
         p(
             f"결과 {result.result_id} / 버전 {result.result_version} / {'최신 결과' if result.freshness == 'current' else '이전 입력 결과'}"
         ),
-        p(f"생성 기준 시각 {generated_at.isoformat()}"),
+        p(f"생성 기준 시각 {generated_at.astimezone(ZoneInfo('Asia/Seoul')).strftime('%Y-%m-%d %H:%M')} (한국 시간)"),
         p(
             "사용자가 확인한 자료와 지원하는 표준 근로조건에 따른 계산·대조 자료입니다. 차이만으로 미지급이나 법 위반을 확정하지 않습니다."
         ),
         Spacer(1, 12),
     ]
+    if consultation is not None:
+        story.extend([title("상담 요약"), p("사용자 작성 정보 · 미기재 항목은 확인이 필요합니다.")])
+        summary = [
+            ("상담하려는 문제", consultation.purpose), ("원하는 도움", consultation.desiredHelp),
+            ("근로자 표시명", consultation.displayName), ("실제 근무 장소", consultation.workLocation),
+            ("입사일", consultation.startDate), ("퇴사일", consultation.endDate),
+        ]
+        if display_context:
+            summary.extend([("사업장", display_context.workplace_name),
+                            ("재직 상태", {"CURRENT":"재직 중", "FORMER":"퇴사"}.get(display_context.employment_status, "미확인")),
+                            ("상담 대상 기간", f"{display_context.period.start} ~ {display_context.period.end}")])
+        summary.extend([("핵심 사실", consultation.facts), ("미확인 사항", consultation.unknowns)])
+        for label, value in summary:
+            story.append(p(f"{label}: {value or '미확인'}"))
+        if display_context:
+            story.append(title("근로조건 요약"))
+            conditions = [c for c in display_context.conditions if condition_label(c.label) != c.label][:6]
+            for condition in conditions:
+                story.append(p(f"{condition_label(condition.label)}: "
+                               f"{condition.value if condition.state == 'known' else '미확인'}"))
+            story.append(p("업무·근무일·시간·휴게·임금 약정·지급 주기의 세부 내용과 미확인 상태는 다음 쪽의 확인한 입력과 조건을 함께 확인해 주세요."))
+        story.append(p("상담을 위한 정리자료입니다. 표시된 차이만으로 체불 또는 법 위반을 확정하지 않습니다."))
+        story.append(PageBreak())
     if display_context:
         story.extend(
             [
@@ -281,10 +306,43 @@ def render_pdf(result, explanation, settings, generated_at, display_context=None
         for dates in question.required_periods:
             story.append(p(f"필요한 기간: {dates.start} ~ {dates.end}"))
     story.append(title("6. 출처 파일과 원문 위치"))
+    file_order = list(dict.fromkeys(ev.source_id for ev in result.evidence_catalog))
+    if display_context:
+        file_order.extend(s.source_id for s in display_context.sources if s.source_id not in file_order)
+    source_numbers = {source: index for index, source in enumerate(file_order, 1)}
+    included = {s.source_id: s.included_in_zip for s in display_context.sources} if display_context else {}
+    for source, index in source_numbers.items():
+        manual = any(ev.source_id == source and ev.verification_method == "manual_confirmed"
+                     and ev.page is None for ev in result.evidence_catalog)
+        name = "사용자가 확인한 입력" if manual else source_names.get(source, "자료명 미확인")
+        refs = {ev.evidence_id for ev in result.evidence_catalog if ev.source_id == source}
+        periods = list(dict.fromkeys(c.period_label for c in display_context.conditions
+                       if c.period_label and refs.intersection(c.evidence_refs))) if display_context else []
+        facts = [WAGE_LABELS.get(item.rule_id, item.rule_id) for item in result.wage_section.items
+                 if refs.intersection(item.evidence_refs)]
+        facts.extend(RULE_LABELS.get(item.rule_id, item.rule_id) for item in result.comparisons
+                     if refs.intersection(item.evidence_refs))
+        story.append(p(f"증빙 {index}: {name} / "
+                       f"{'ZIP 포함' if included.get(source, False) else 'ZIP 미포함'}"))
+        story.append(p(f"대상 기간: {', '.join(periods) or '미확인'} / "
+                       f"관련 사실·확인 항목: {', '.join(dict.fromkeys(facts)) or '미확인'}"))
     for ev in result.evidence_catalog:
-        story.append(p(f"{sources([ev.evidence_id])} / {ev.evidence_id[:12]}"))
+        story.append(p(f"증빙 {source_numbers[ev.source_id]} · {sources([ev.evidence_id])} / {ev.evidence_id[:12]}"))
         if ev.quote:
             story.append(p(ev.quote))
+    if consultation is not None:
+        story.append(title("사용자가 작성한 경위와 상담 질문"))
+        events = sorted(enumerate(consultation.events), key=lambda pair: (
+            pair[1].date is None, pair[1].date.isoformat() if pair[1].date else "", pair[0]))
+        for _, event in events:
+            if event.text:
+                story.append(p(f"{event.date or '날짜 미확인'}: {event.text}"))
+        if not events:
+            story.append(p("작성한 경위 없음"))
+        for index, question in enumerate(filter(None, consultation.questions), 1):
+            story.append(p(f"질문 {index}: {question}"))
+        story.extend([title("추가로 준비할 자료"), p(consultation.materials or "미기재"),
+                      p("근로계약서, 임금명세서·급여 거래내역, 출퇴근 자료·근무표, 사업장 정보, 관련 대화 등 해당하는 자료가 있으면 준비해 주세요. 모든 자료가 있어야 상담할 수 있다는 의미는 아닙니다.")])
     story.append(title("7. 쉬운 용어"))
     story.append(p(f"용어 사전 {GLOSSARY_VERSION}. 아래 예시는 실제 사용자 금액이 아닙니다."))
     for entry in report_glossary(result):
@@ -358,7 +416,8 @@ async def build_report(runtime):
         })
     await runtime.control()
     pdf = await asyncio.to_thread(
-        render_pdf, result, explanation, runtime.settings, payload.generated_at, payload.display_context
+        render_pdf, result, explanation, runtime.settings, payload.generated_at, payload.display_context,
+        payload.consultation
     )
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
@@ -372,6 +431,7 @@ async def build_report(runtime):
                 {
                     "template_version": payload.template_version,
                     "generated_at": payload.generated_at.isoformat(),
+                    "consultation": payload.consultation.model_dump(mode="json") if payload.consultation else None,
                     "display_context": payload.display_context.model_dump(mode="json")
                     if payload.display_context
                     else None,

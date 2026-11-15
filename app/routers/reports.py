@@ -15,6 +15,9 @@ from app.idempotency import idempotency_header, replay, remember
 from app.routers.workspaces import page_data
 from app.schemas import Input
 from app.security import case, current_user
+from agent.schemas.public.consultation import ConsultationNotes
+from app.outputs import API, VersionRef
+from typing import Literal
 
 router = APIRouter(tags=["Reports"])
 
@@ -24,6 +27,79 @@ class ReportCreate(Input):
     documentIds: list[int] = Field(default_factory=list, max_length=100)
     useLatestAvailableResults: bool = True
     acknowledgeOutdatedResults: bool = False
+    draftVersion: int | None = Field(default=None, ge=0)
+
+
+class ConsultationDraftSave(Input):
+    expectedVersion: int = Field(ge=0)
+    notes: ConsultationNotes = Field(default_factory=ConsultationNotes)
+    documentIds: list[int] = Field(default_factory=list, max_length=100)
+
+
+class ConsultationDraftDTO(Input):
+    version: int
+    notes: ConsultationNotes
+    documentIds: list[int]
+    updatedAt: str | None
+
+
+class ReportDTO(Input):
+    reportId: int
+    caseId: int
+    version: int
+    status: Literal["PROCESSING", "READY", "FAILED"]
+    basedOnInputVersion: int
+    referencedSnapshots: dict[str, VersionRef]
+    selectedDocumentIds: list[int]
+    createdAt: str
+    isCurrent: bool
+    errorCode: str | None
+    draftVersion: int | None
+    templateVersion: str
+    pdfUrl: str | None
+    originalsUrl: str | None
+
+
+def draft_data(con, case_id):
+    row = con.execute("SELECT * FROM consultation_drafts WHERE case_id=?", (case_id,)).fetchone()
+    return {
+        "version": row["version"] if row else 0,
+        "notes": load(row["notes_json"]) if row else ConsultationNotes().model_dump(mode="json"),
+        "documentIds": load(row["document_ids"]) if row else [],
+        "updatedAt": row["updated_at"] if row else None,
+    }
+
+
+def validate_documents(con, case_id, ids):
+    linked = {r[0] for r in con.execute(
+        "SELECT l.document_id FROM document_links l JOIN documents d ON l.document_id=d.id "
+        "WHERE l.case_id=? AND d.deleted_at IS NULL", (case_id,))}
+    if len(ids) != len(set(ids)) or any(type(d) is not int or d <= 0 or d not in linked for d in ids):
+        raise ApiError(422, "REPORT_SOURCE_OUTSIDE_RESULT")
+
+
+@router.get("/cases/{case_id}/consultation-draft", response_model=API[ConsultationDraftDTO])
+def get_draft(case_id: int, request: Request, user=Depends(current_user)):
+    with request.app.state.db.connect() as con:
+        case(con, case_id, user["id"])
+        return ok(draft_data(con, case_id))
+
+
+@router.put("/cases/{case_id}/consultation-draft", response_model=API[ConsultationDraftDTO])
+def save_draft(case_id: int, body: ConsultationDraftSave, request: Request, user=Depends(current_user)):
+    with request.app.state.db.connect(write=True) as con:
+        case(con, case_id, user["id"])
+        previous = draft_data(con, case_id)
+        if previous["version"] != body.expectedVersion:
+            raise ApiError(409, "CONSULTATION_DRAFT_CONFLICT")
+        validate_documents(con, case_id, body.documentIds)
+        con.execute(
+            "INSERT INTO consultation_drafts VALUES(?,?,?,?,?) ON CONFLICT(case_id) DO UPDATE SET "
+            "version=excluded.version, notes_json=excluded.notes_json, "
+            "document_ids=excluded.document_ids, updated_at=excluded.updated_at",
+            (case_id, previous["version"] + 1, body.notes.model_dump_json(), dump(body.documentIds), now()),
+        )
+        return ok(draft_data(con, case_id))
 
 
 def owned_report(con, cid, rid, uid):
@@ -59,6 +135,8 @@ def report_dto(con, row):
         "createdAt": row["created_at"],
         "isCurrent": same,
         "errorCode": row["error_code"],
+        "draftVersion": frozen.get("draftVersion"),
+        "templateVersion": frozen.get("templateVersion", "report-v2"),
         "pdfUrl": f"/api/v1/cases/{row['case_id']}/reports/{row['id']}/pdf"
         if row["status"] == "READY"
         else None,
@@ -72,7 +150,7 @@ def report_dto(con, row):
     "/cases/{case_id}/reports",
     status_code=202,
     dependencies=[Depends(idempotency_header)],
-    response_model=Envelope,
+    response_model=API[ReportDTO],
 )
 def create_report(case_id: int, body: ReportCreate, request: Request, user=Depends(current_user)):
     with request.app.state.db.connect(write=True) as con:
@@ -80,6 +158,10 @@ def create_report(case_id: int, body: ReportCreate, request: Request, user=Depen
         cached = replay(con, request, user["id"], body)
         if cached is not None:
             return cached
+        draft = draft_data(con, case_id)
+        if body.draftVersion is not None and (body.draftVersion != draft["version"] or
+                draft["documentIds"] != (body.documentIds if body.includeOriginalDocuments else [])):
+            raise ApiError(409, "CONSULTATION_DRAFT_CONFLICT")
         source = results(con, case_id)
         if not body.useLatestAvailableResults or source["freshness"]["overall"] != "CURRENT":
             raise ApiError(409, "REPORT_SOURCE_STALE")
@@ -94,6 +176,11 @@ def create_report(case_id: int, body: ReportCreate, request: Request, user=Depen
         if len(docs) != len(set(docs)) or any(type(d) is not int or d <= 0 or d not in linked for d in docs):
             raise ApiError(422, "REPORT_SOURCE_OUTSIDE_RESULT")
         jid = enqueue_current(con, request.app.state.service, case_id, metadata={"legacyReport": True})
+        job = con.execute("SELECT snapshot_id FROM agent_jobs WHERE id=?", (jid,)).fetchone()
+        snapshot = load(con.execute("SELECT data_json FROM agent_snapshots WHERE id=?", (job[0],)).fetchone()[0])
+        source_ids = {int(s["document_id"]) for s in snapshot["authorized_sources"] if s["kind"] == "document"}
+        if not set(docs) <= source_ids:
+            raise ApiError(422, "REPORT_SOURCE_OUTSIDE_RESULT")
         version = con.execute(
             "SELECT COALESCE(MAX(version),0)+1 FROM reports WHERE case_id=?", (case_id,)
         ).fetchone()[0]
@@ -101,6 +188,11 @@ def create_report(case_id: int, body: ReportCreate, request: Request, user=Depen
             "analysisJobId": jid,
             "snapshotIds": [r["snapshotId"] for r in source["versions"].values()],
             "referencedSnapshots": source["versions"],
+            "draftVersion": body.draftVersion,
+            "consultation": draft["notes"] if body.draftVersion is not None else None,
+            "templateVersion": "report-v3" if body.draftVersion is not None else "report-v2",
+            "employmentStatus": con.execute("SELECT employment_status FROM workplaces WHERE id=?",
+                                            (c["workplace_id"],)).fetchone()[0],
         }
         rid = con.execute(
             "INSERT INTO reports(case_id,version,input_version,status,frozen_json,document_ids,created_at) VALUES(?,?,?,?,?,?,?)",
@@ -130,7 +222,7 @@ def list_reports(
         return ok(page_data(items, page, size))
 
 
-@router.get("/cases/{case_id}/reports/{report_id}", response_model=Envelope)
+@router.get("/cases/{case_id}/reports/{report_id}", response_model=API[ReportDTO])
 def get_report(case_id: int, report_id: int, request: Request, user=Depends(current_user)):
     with request.app.state.db.connect() as con:
         return ok(report_dto(con, owned_report(con, case_id, report_id, user["id"])))
@@ -187,6 +279,8 @@ def progress_reports(state):
                     frozen["explanationJobId"],
                     selected_document_ids=load(row["document_ids"]),
                     idempotency_key=f"case-report:{row['id']}:build",
+                    consultation=frozen.get("consultation"),
+                    employment_status=frozen.get("employmentStatus") if frozen.get("consultation") is not None else None,
                 )
                 status = "PROCESSING"
             else:

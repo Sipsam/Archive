@@ -17,7 +17,10 @@ from app.db import Database, load
 from app.errors import ApiError, ok
 from app.schemas import Envelope
 from app.outputs import API, ErrorData
-from app.routers import analysis, auth, chats, documents, payments, workspaces, integration, reviews, reports
+from app.routers import analysis, auth, chats, documents, payments, workspaces, integration, reviews, reports, safety_disclosures
+from app.safety_disclosures import (
+    SafetyDisclosureDatasetError, SafetyDisclosureDirectory, initialize_safety_disclosures,
+)
 from app.worker import document_worker, agent_worker
 from app.agent_service import AgentService
 from agent.schemas.public.errors import AgentError
@@ -35,6 +38,12 @@ def create_app(settings=None, ai_client=None, *, provider=None, recognizer=None,
         app.state.settings = settings
         app.state.db = Database(settings.db_path)
         app.state.db.initialize()
+        try:
+            initialize_safety_disclosures(app.state.db)
+            app.state.safety_disclosures = SafetyDisclosureDirectory(app.state.db)
+        except SafetyDisclosureDatasetError as exc:
+            logging.getLogger(__name__).error('safety_disclosure_dataset_unavailable code=%s', exc.code)
+            app.state.safety_disclosures = None
         app.state.agent_settings = settings.agent_settings()
         app.state.service = AgentService(app.state.db, settings, app.state.agent_settings,
             provider=provider, recognizer=recognizer)
@@ -131,7 +140,7 @@ def create_app(settings=None, ai_client=None, *, provider=None, recognizer=None,
                    'nationwideFallbackUsed': bool(region and not regional and nationwide),
                    'dataStatus': 'NATIONWIDE_ONLY' if not regional else 'AVAILABLE'})
 
-    for router in (auth.router, workspaces.router, documents.router, analysis.router, payments.router, chats.router, integration.router, reviews.router, reports.router):
+    for router in (auth.router, workspaces.router, documents.router, analysis.router, payments.router, chats.router, integration.router, reviews.router, reports.router, safety_disclosures.router):
         app.include_router(router, prefix='/api/v1', responses={
             code: {'model': API[ErrorData], 'description': description} for code, description in {
                 401: '인증 필요/토큰 만료', 404: '없는 자원/권한 없음/삭제',

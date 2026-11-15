@@ -7,6 +7,7 @@
 # Reproducible environments and tool caches.
 .venv/
 .uv-cache/
+/.test-deps/
 __pycache__/
 *.py[cod]
 /.pytest*/

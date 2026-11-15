@@ -235,7 +235,8 @@ class AgentService:
             )
 
     def enqueue_report(
-        self, owner_id, result_id, explanation_job_id, *, selected_document_ids=(), idempotency_key=None
+        self, owner_id, result_id, explanation_job_id, *, selected_document_ids=(), idempotency_key=None,
+        consultation=None, employment_status=None
     ):
         from agent.schemas.public.tasks import ReportDisplayContext
 
@@ -254,6 +255,8 @@ class AgentService:
                         or original.get("explanation_version") != explanation_job_id
                         or {s["document_id"] for s in original.get("selected_sources", [])}
                         != set(map(str, selected_document_ids))
+                        or original.get("consultation") != consultation
+                        or (original.get("display_context") or {}).get("employment_status") != employment_status
                     ):
                         raise ApiError(409, "IDEMPOTENCY_KEY_REUSED")
                     return old["id"]
@@ -288,6 +291,7 @@ class AgentService:
                 snapshot_id=result.snapshot_id,
                 snapshot_hash=result.snapshot_hash,
                 workplace_name=frozen.get("workplace_name", ""),
+                employment_status=employment_status,
                 period=snapshot["period"],
                 conditions=[
                     {
@@ -295,6 +299,7 @@ class AgentService:
                         "value": str(f["value"]) if f["value"] is not None else "",
                         "state": f["state"],
                         "evidence_refs": f["evidence_refs"],
+                        "period_label": f"{f['period']['start']} ~ {f['period']['end']}" if f.get("period") else "",
                     }
                     for f in snapshot["confirmed_fields"]
                 ],
@@ -302,8 +307,9 @@ class AgentService:
                     {
                         "source_id": s.source_id,
                         "filename": frozen.get("source_names", {}).get(s.document_id, s.document_id),
+                        "included_in_zip": s.document_id in set(map(str, selected_document_ids)),
                     }
-                    for s in selected
+                    for s in source_map.values()
                 ],
             )
             payload = ReportInput(
@@ -312,8 +318,9 @@ class AgentService:
                 explanation_version=explanation_job_id,
                 selected_sources=selected,
                 generated_at=datetime.now(timezone.utc),
-                template_version="report-v2",
+                template_version="report-v3" if consultation is not None else "report-v2",
                 display_context=display,
+                consultation=consultation,
             )
             return self.store.enqueue(
                 con,
