@@ -133,7 +133,6 @@
   "fieldEditor_message3": "បាទ/ចាស",
   "fieldEditor_div": "តម្លៃរចនាសម្ព័ន្ធ (JSON)",
   "fieldEditor_save": "រក្សាទុករចនាសម្ព័ន្ធអារេ/វត្ថុ និង nulls និង 0s ។",
-  "fieldEditor_valid_input": "សូមបញ្ចូលតម្លៃ JSON ត្រឹមត្រូវ។",
   "fieldEditor_edit": "តម្លៃកែតម្រូវ",
   "fieldEditor_select": "សូមជ្រើសរើស",
   "fieldEditor_current_draft_retry_load": "ផ្ទុកសេចក្តីព្រាងឡើងវិញជាមួយនឹងតម្លៃចុងក្រោយបំផុត។",

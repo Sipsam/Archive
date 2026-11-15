@@ -133,7 +133,6 @@
   "fieldEditor_message3": "Có/Không",
   "fieldEditor_div": "Giá trị có cấu trúc (JSON)",
   "fieldEditor_save": "Lưu trữ cấu trúc mảng/đối tượng và các giá trị null và 0.",
-  "fieldEditor_valid_input": "Vui lòng nhập giá trị JSON chính xác.",
   "fieldEditor_edit": "giá trị hiệu chỉnh",
   "fieldEditor_select": "Vui lòng chọn",
   "fieldEditor_current_draft_retry_load": "Tải lại bản nháp với các giá trị mới nhất",
