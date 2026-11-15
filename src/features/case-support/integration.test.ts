@@ -7,7 +7,6 @@ import { createApiClient } from "@/lib/api/client";
 import { createMemorySession } from "@/features/auth/session";
 import { supportApi } from "./api";
 import { reportSchema } from "./schemas";
-import { mkdirSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 let setup:ReturnType<typeof make>;
 function make() {
@@ -34,8 +33,7 @@ it("freezes selected originals, input and references; ZIP CRC and extraction mat
  setup.changeBytes();setup.management.getCases().find(c=>c.caseId===15)!.inputVersion++;
  const after=await setup.api.report(15,receipt.reportId);expect(after.isCurrent).toBe(false);expect(after.referencedSnapshots).toEqual(receipt.referencedSnapshots);expect(after.selectedDocumentIds).toEqual([101]);
  const again=await setup.client.requestDownload(`/cases/15/reports/${receipt.reportId}/originals`,"application/zip","fallback.zip");expect(await again.blob.arrayBuffer()).toEqual(await before.blob.arrayBuffer());expect(before.filename).toContain("상담 자료");
- mkdirSync("test-results",{recursive:true});writeFileSync("test-results/selected-originals.zip",new Uint8Array(await before.blob.arrayBuffer()));
- const result=execFileSync("python",["-c","import zipfile,json; z=zipfile.ZipFile('test-results/selected-originals.zip'); assert z.testzip() is None; assert len(z.namelist())==2; n=next(n for n in z.namelist() if n.startswith('originals/')); assert n.startswith('originals/101-'); assert z.read(n)==b'ORIGINAL CONTENT AT ACCEPTANCE'; assert json.loads(z.read('result-snapshot.json'))['selectedDocumentIds']==[101]; print('CRC and extraction OK')"],{encoding:"utf8"});expect(result).toContain("CRC and extraction OK");
+ const result=execFileSync("python",["-c","import zipfile,json,io,sys,base64; z=zipfile.ZipFile(io.BytesIO(base64.b64decode(sys.stdin.buffer.read()))); assert z.testzip() is None; assert len(z.namelist())==2; n=next(n for n in z.namelist() if n.startswith('originals/')); assert n.startswith('originals/101-'); assert z.read(n)==b'ORIGINAL CONTENT AT ACCEPTANCE'; assert json.loads(z.read('result-snapshot.json'))['selectedDocumentIds']==[101]; print('CRC and extraction OK')"],{encoding:"utf8",input:Buffer.from(await before.blob.arrayBuffer()).toString("base64")});expect(result).toContain("CRC and extraction OK");
 });
 it("rejects unlinked selections and cross-Case reports",async()=>{await expect(setup.api.create(16,[100],"invalid")).rejects.toMatchObject({status:422});const r=await setup.api.create(15,[101],"isolated");await expect(setup.api.report(16,r.reportId)).rejects.toMatchObject({status:404});await expect(setup.api.inquiry(999)).rejects.toMatchObject({status:404})});
 it("rechecks source access on historic downloads and handles deleted Case",async()=>{const r=await setup.api.create(15,[101],"deleted");await ready(15,r.reportId);setup.revoke();await expect(setup.client.requestDownload(`/cases/15/reports/${r.reportId}/pdf`,"application/pdf","report.pdf")).rejects.toMatchObject({status:404});setup.management.getCases().splice(0,1);await expect(setup.api.report(15,r.reportId)).rejects.toMatchObject({status:404})});

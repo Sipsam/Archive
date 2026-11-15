@@ -16,7 +16,7 @@ export default function PdfCanvas({url,page,pageCount,rotation,onRendered,onDocu
     void import("pdfjs-dist").then(pdfjs=>{
       if(disposed)return;
       pdfjs.GlobalWorkerOptions.workerSrc=new URL("pdfjs-dist/build/pdf.worker.min.mjs",import.meta.url).toString();
-      const task=pdfjs.getDocument({url,enableXfa:false});
+      const task=pdfjs.getDocument({url,enableXfa:false,cMapUrl:'/pdf-cmaps/',cMapPacked:true});
       destroy=()=>{void task.destroy();};
       return task.promise.then(pdf=>{if(!disposed){if(pageCount!==null&&pdf.numPages!==pageCount){setError(true);return;}setLoaded({url,pdf});onDocumentLoaded?.(pdf.numPages);}});
     }).catch(()=>{if(!disposed)setError(true);});

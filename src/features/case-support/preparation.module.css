@@ -14,6 +14,7 @@
 .page :global(.ui-button-secondary):hover:not(:disabled) { color: var(--blue); background: #edf3ff; }
 .page :where(button, a, textarea, input, summary):focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
 .page textarea { min-height: 260px; border-radius: 15px; background: #f8faff; line-height: 1.8; }
+.page [data-consultation-notes] textarea { min-height: 96px; }
 .page summary { cursor: pointer; padding-block: 8px; }
 .page [data-case-question] h2 { font-size: clamp(1.3rem, 3cqi, 1.75rem); line-height: 1.5; }
 .page [data-case-report-row] { gap: 20px; }

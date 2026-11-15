@@ -27,13 +27,14 @@ export function ReportPresentation({ report:r, busy, downloadDisabled, download,
   {r.status==='PROCESSING'&&<p className={styles.processing}><LoaderCircle size={22} aria-hidden="true"/>{translate("caseSupport.reportPresentation_status_automatic_confirm_complete_download_count_new")}</p>}
   {r.status==='FAILED'&&<p role="alert">{translate("caseSupport.reportPresentation_error_information_confirm_request_new_report_previous", { value1: translate("caseSupport.reportPresentation_error_notProvided") })}</p>}
   {ready?<ul aria-label={translate("caseSupport.reportPresentation_report_download")} className="divide-y divide-border rounded-panel border border-border">
-   {(['pdf','originals'] as const).map(kind=><li key={kind} className={styles.downloadRow}>
+   {(['pdf','originals'] as const).filter(kind=>kind==='pdf'||r.selectedDocumentIds.length>0).map(kind=><li key={kind} className={styles.downloadRow}>
     <span className={styles.fileIcon}>{kind==='pdf'?<FileCheck2 size={26} aria-hidden="true"/>:<FileArchive size={26} aria-hidden="true"/>}</span>
     <div className="min-w-0"><h4 className="font-bold">{kind==='pdf'?translate("caseSupport.reportPresentation_consultation_report"):translate("caseSupport.bundle_originalCount",{count:r.selectedDocumentIds.length})}</h4><p className="text-caption text-muted">{kind==='pdf'?'PDF':'ZIP'} · {r.createdAt}</p></div>
     <div className={styles.fileActions}>{kind==='pdf'&&preview&&<button className={secondaryButton} disabled={downloadDisabled} onClick={preview}><Eye size={18} aria-hidden="true"/>{translate('caseSupport.bundle_preview')}</button>}<button className={secondaryButton} disabled={downloadDisabled} onClick={()=>download(kind)}><Download size={18} aria-hidden="true"/>{kind==='pdf'?translate("caseSupport.reportPresentation_pdf_download"):translate("caseSupport.reportPresentation_original_download")}</button></div>
    </li>)}
   </ul>:<p>{translate("caseSupport.reportPresentation_download_count_empty")}</p>}
-  {ready&&<p className={styles.help}>{translate(r.selectedDocumentIds.length?'caseSupport.bundle_separateFiles':'caseSupport.reportPresentation_selected_original_none_file_provided_download_confirm')}</p>}
+  {ready&&<p className={styles.help}>{translate(r.selectedDocumentIds.length?'caseSupport.bundle_separateFiles':'caseSupport.prepNoOriginals')}</p>}
+  {ready&&r.selectedDocumentIds.length>0&&<p>{translate("caseSupport.prepOriginalPrivacy")}</p>}
   {busy&&<p role="status">{translate("caseSupport.reportPresentation_download_request")}</p>}
   <details><summary>{translate("caseSupport.reportPresentation_reference_detail")}</summary><p>{translate("caseSupport.reportPresentation_basis_input_report_version", { value1: r.basedOnInputVersion, value2: r.version })}</p><p>{translate("caseSupport.reportPresentation_included_original", { value1: r.selectedDocumentIds.join(', ')||translate("caseSupport.reportPresentation_none") })}</p><p>{translate("caseSupport.reportPresentation_version", { value1: r.ruleSetVersions?.join(', ')??translate("common.notProvided") })}</p><dl>{Object.entries(r.referencedSnapshots).map(([key,value])=><div key={key}><dt>{key}</dt><dd>{value.snapshotId??translate("caseSupport.reportPresentation_none")}</dd></div>)}</dl></details>
   {feedback}

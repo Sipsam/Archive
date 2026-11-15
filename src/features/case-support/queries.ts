@@ -54,18 +54,19 @@ export function useReport(caseId: number, initial: Report) {
   });
 }
 
-export function useCreateReport(caseId: number, availableDocumentIds: readonly number[], onSuccess: (report: Report) => void) {
+export function useCreateReport(caseId: number, availableDocumentIds: readonly number[], onSuccess: (report: Report) => void, source?:{save:()=>Promise<{version:number}>;fingerprint:string}) {
   const scope = useSupportScope(caseId);
   const retry = useRef<{ body: string; key: string } | null>(null);
   return useMutation({
     gcTime: 0,
-    mutationFn: (documentIds: number[]) => {
+    mutationFn: async (documentIds: number[]) => {
       if (documentIds.some(id => !availableDocumentIds.includes(id))) {
         throw new MessageError("caseSupport.screens_selected_original_retry_confirm");
       }
-      const body = JSON.stringify(documentIds);
+      const draft=await source?.save();
+      const body = JSON.stringify({documentIds,draftVersion:draft?.version,basis:source?.fingerprint});
       if (retry.current?.body !== body) retry.current = { body, key: crypto.randomUUID() };
-      return supportApi(scope.api).create(caseId, documentIds, retry.current.key);
+      return supportApi(scope.api).create(caseId, documentIds, retry.current.key,draft?.version);
     },
     onSuccess: async report => {
       if (scope.session.getSnapshot().generation !== scope.generation) return;
