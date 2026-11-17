@@ -1,11 +1,7 @@
 "use client";
-import { useTranslation } from '@/i18n/use-translation';
-
 import { useEffect, useRef, useState } from "react";
 import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
-export default function PdfCanvas({url,page,pageCount,rotation,onRendered,onDocumentLoaded}:{url:string;page:number;pageCount:number|null;rotation:number|null;onRendered:(page:number,rotation:number)=>void;onDocumentLoaded?:(pages:number)=>void}){
- const {translate} = useTranslation();
-
+export default function PdfCanvas({url,page,pageCount,rotation,onRendered}:{url:string;page:number;pageCount:number;rotation:number|null;onRendered:(page:number,rotation:number)=>void}){
   const canvas=useRef<HTMLCanvasElement>(null);
   const [loaded,setLoaded]=useState<{url:string;pdf:PDFDocumentProxy}>();
   const [rendered,setRendered]=useState<{page:number;url:string}>();
@@ -16,12 +12,12 @@ export default function PdfCanvas({url,page,pageCount,rotation,onRendered,onDocu
     void import("pdfjs-dist").then(pdfjs=>{
       if(disposed)return;
       pdfjs.GlobalWorkerOptions.workerSrc=new URL("pdfjs-dist/build/pdf.worker.min.mjs",import.meta.url).toString();
-      const task=pdfjs.getDocument({url,enableXfa:false,cMapUrl:'/pdf-cmaps/',cMapPacked:true});
+      const task=pdfjs.getDocument({url,enableXfa:false});
       destroy=()=>{void task.destroy();};
-      return task.promise.then(pdf=>{if(!disposed){if(pageCount!==null&&pdf.numPages!==pageCount){setError(true);return;}setLoaded({url,pdf});onDocumentLoaded?.(pdf.numPages);}});
+      return task.promise.then(pdf=>{if(!disposed){if(pdf.numPages!==pageCount){setError(true);return;}setLoaded({url,pdf});}});
     }).catch(()=>{if(!disposed)setError(true);});
     return()=>{disposed=true;destroy?.();};
-  },[url,pageCount,onDocumentLoaded]);
+  },[url,pageCount]);
   useEffect(()=>{
     if(!loaded||loaded.url!==url)return;
     let disposed=false;let task:RenderTask|undefined;
@@ -37,6 +33,6 @@ export default function PdfCanvas({url,page,pageCount,rotation,onRendered,onDocu
     previous.current=job;
     return()=>{disposed=true;task?.cancel();};
   },[loaded,url,page,rotation,onRendered]);
-  if(error)return <p role="alert">{translate("documents.pdfCanvas_pdf_count_empty_file_page_information_confirm")}</p>;
-  return <><canvas ref={canvas} role="img" aria-label={translate("documents.pdfCanvas_pdf_original_page", { value1: page })} className="block h-auto w-full" />{(rendered?.page!==page||rendered.url!==url)&&<p role="status">{translate("documents.pdfCanvas_pdf_page")}</p>}</>;
+  if(error)return <p role="alert">PDF를 표시할 수 없습니다. 파일 또는 페이지 정보를 확인하고 원문을 다시 불러와 주세요.</p>;
+  return <><canvas ref={canvas} role="img" aria-label={`PDF 원문 ${page}페이지`} className="block h-auto w-full" />{(rendered?.page!==page||rendered.url!==url)&&<p role="status">PDF 페이지를 그리는 중…</p>}</>;
 }

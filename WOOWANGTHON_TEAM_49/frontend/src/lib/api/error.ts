@@ -23,7 +23,6 @@ const httpKinds: Record<number, ErrorKind> = {
 
 export class ApiError extends Error {
   readonly status: number;
-  diagnostic?: { phase: string; endpointTemplate?: string; httpStatus?: number; issues?: { path: string; expectedType: string; actualType: string }[] };
   readonly kind: ErrorKind;
   readonly errorCode?: string;
   readonly details?: Record<string, unknown>;
@@ -32,7 +31,7 @@ export class ApiError extends Error {
 
   constructor(
     status: number,
-    options: Partial<ApiErrorData> & {
+    options: ApiErrorData & {
       kind?: ErrorKind;
       retryAfter?: string | null;
     } = {},
@@ -43,9 +42,7 @@ export class ApiError extends Error {
     this.status = status;
     this.kind = options.kind ?? httpKinds[status] ?? (status >= 500 ? "server" : "http");
     this.errorCode = options.errorCode;
-    // UI consumers inspect named properties only; free JSON belongs to the wire DTO.
-    this.details = options.details !== null && typeof options.details === "object" && !Array.isArray(options.details)
-      ? options.details : undefined;
+    this.details = options.details;
     this.fieldErrors = options.errors ?? [];
     this.retryAfter = options.retryAfter ?? null;
   }

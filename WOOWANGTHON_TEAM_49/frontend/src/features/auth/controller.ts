@@ -1,13 +1,9 @@
-import {MessageError} from '@/i18n/message-error';
-import { syncLocaleCookie, resolveLocale, defaultLocale } from '@/i18n/config';
-
 import type { QueryClient } from "@tanstack/react-query";
 
 import type { ApiClient } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/error";
 
 import type { AuthApi } from "./api/auth";
-import { requireUsableSession } from "./session-validation";
 import { authKeys } from "./query-keys";
 import type { MemorySession } from "./session";
 import type { AuthSnapshot, CurrentUser, LoginRequest } from "./types";
@@ -38,7 +34,6 @@ export function createAuthController({ api, authApi, session, queryClient }: {
   });
 
   function remember(user: CurrentUser) {
-    if (typeof document !== "undefined") syncLocaleCookie(resolveLocale(user.language));
     queryClient.setQueryData(authKeys.me(session.getSnapshot().generation), user);
     update({ status: "authenticated", notice: null });
   }
@@ -77,19 +72,18 @@ export function createAuthController({ api, authApi, session, queryClient }: {
           update({
             status: "anonymous",
             notice: error instanceof ApiError && error.status === 401
-              ? null : "auth.controller_previous_login_status_confirm_failure_retry",
+              ? null : "이전 로그인 상태를 확인하지 못했습니다. 다시 로그인해 주세요.",
           });
         }
       })().finally(() => { restoration = undefined; });
       return restoration;
     },
     async login(body: LoginRequest) {
-      if (snapshot.status === "signing-out") throw new MessageError("auth.controller_logout_processing");
+      if (snapshot.status === "signing-out") throw new Error("로그아웃 처리 중입니다.");
       const current = ++operation;
       initialized = true;
       const result = await authApi.login(body);
-      if (current !== operation) throw new DOMException("auth.controller_authentication_request_cancel", "AbortError");
-      try { requireUsableSession(result); } catch (error) { session.clear(); throw error; }
+      if (current !== operation) throw new DOMException("인증 요청이 취소되었습니다.", "AbortError");
       session.start(result.accessToken);
       remember(result.user);
     },
@@ -98,13 +92,12 @@ export function createAuthController({ api, authApi, session, queryClient }: {
       ++operation;
       initialized = true;
       const token = session.getSnapshot().accessToken;
-      if (typeof document !== "undefined") syncLocaleCookie(defaultLocale);
       update({ status: "signing-out", notice: null });
       // Cancels user requests, clears query/mutation caches, and hides protected content now.
       session.clear();
       logoutFlight = authApi.logout(token).then(
-        () => update({ status: "anonymous", signedOut: true, notice: "auth.controller_logout" }),
-        () => update({ status: "anonymous", signedOut: true, notice: "auth.controller_logout_confirm_failure_retry_login_count" }),
+        () => update({ status: "anonymous", notice: "로그아웃되었습니다." }),
+        () => update({ status: "anonymous", notice: "이 기기에서 로그아웃했습니다. 서버 세션 종료는 확인하지 못했으므로 다시 접속하면 로그인될 수 있습니다." }),
       ).finally(() => { logoutFlight = undefined; });
       return logoutFlight;
     },

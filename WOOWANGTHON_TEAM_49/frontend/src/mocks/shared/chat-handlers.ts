@@ -1,4 +1,3 @@
-import { chatCreateSchema, chatPatchSchema } from "@/features/chats/api";
 ﻿import { http,HttpResponse } from 'msw';
 import { apiResponse } from './response';
 import { scopeSchema,type Message } from '@/features/chats/api';
@@ -7,47 +6,31 @@ export function chatMocks(base:string,getCases:()=>Case[], references?:(caseId:n
  let seq=100;
  const inputVersions=new Map<number,number>();
  const chats=new Map<number,{chatId:number;workplaceId:number;title:string;defaultScope:Message['scope'];updatedAt:string;lastMessagePreview:string;messages:Message[]}>();
- const receipts=new Map<string,{signature:string;frames:string[];done:boolean}>();
  const active=new Map<number,{runId:string;message:Message;cancelled:boolean}>();
  const root=`${base}/workplaces/:w/chats`;
  const fail=(errorCode:string,status:number)=>apiResponse({errorCode},status);
  const find=(w:unknown,c:unknown)=>{const chat=chats.get(Number(c));return chat?.workplaceId===Number(w)?chat:undefined;};
  const page=(items:unknown[],request:Request)=>{const q=new URL(request.url).searchParams,p=Math.max(1,Number(q.get('page')??1)),size=20;return {items:items.slice((p-1)*size,p*size),page:p,size,total:items.length};};
- const summary=(c:NonNullable<ReturnType<typeof find>>)=>{for(const m of c.messages){if(m.scope.scopeType==='CASE'&&(m.resultRefs ?? []).length){const now=references?.(m.scope.caseId);m.sourceMayBeOutdated=!!now&&(inputVersions.get(m.messageId)!==now.inputVersion||!(m.resultRefs ?? []).every(r=>(now.resultRefs ?? []).some(n=>n.type===r.type&&n.snapshotId===r.snapshotId&&n.version===r.version)));}}const {messages,...rest}=c;return {...rest,messageCount:messages.length};};
+ const summary=(c:NonNullable<ReturnType<typeof find>>)=>{for(const m of c.messages){if(m.scope.scopeType==='CASE'&&m.resultRefs.length){const now=references?.(m.scope.caseId);m.sourceMayBeOutdated=!!now&&(inputVersions.get(m.messageId)!==now.inputVersion||!m.resultRefs.every(r=>now.resultRefs.some(n=>n.type===r.type&&n.snapshotId===r.snapshotId&&n.version===r.version)));}}const {messages,...rest}=c;return {...rest,messageCount:messages.length};};
  async function execute(w:unknown,c:unknown,request:Request,retry?:number){
   const chat=find(w,c);if(!chat)return fail('RESOURCE_NOT_FOUND',404);
   if(active.has(chat.chatId))return fail('CHAT_RUN_ALREADY_ACTIVE',409);
   const previous=retry?chat.messages.find(m=>m.messageId===retry&&m.role==='ASSISTANT'):undefined;
   if(retry&&(!previous||!['FAILED','CANCELLED'].includes(previous.status)))return fail('MESSAGE_NOT_RETRYABLE',409);
-  const body=retry?{content:chat.messages.slice(0,chat.messages.indexOf(previous!)).findLast(m=>m.role==='USER')?.content??'',scope:previous!.scope}:await request.json() as {content:string;scope?:unknown;clientMessageId?:string};
+  const body=retry?{content:chat.messages.slice(0,chat.messages.indexOf(previous!)).findLast(m=>m.role==='USER')?.content??'',scope:previous!.scope}:await request.json() as {content:string;scope?:unknown};
   if(!body.content?.trim())return fail('VALIDATION_ERROR',422);
   if(body.content==='JSON 오류')return fail('CHAT_RUN_ALREADY_ACTIVE',409);
   const scope=scopeSchema.safeParse(body.scope??chat.defaultScope);if(!scope.success)return fail('VALIDATION_ERROR',422);
   if(scope.data.scopeType==='CASE'&&!getCases().some(v=>v.caseId===(scope.data as {caseId:number}).caseId&&v.workplaceId===chat.workplaceId))return fail('RESOURCE_NOT_FOUND',404);
-  const key=retry?undefined:('clientMessageId' in body ? body.clientMessageId : undefined)??request.headers.get('Idempotency-Key');
-  if(key!==undefined&&key!==null&&(typeof key!=='string'||key.length<1||key.length>128))return fail('INVALID_IDEMPOTENCY_KEY',422);
-  const receiptKey=key?`${chat.chatId}:${key}`:undefined;
-  const signature=JSON.stringify([body.content,scope.data]);
-  const saved=receiptKey?receipts.get(receiptKey):undefined;
-  if(saved){
-   if(saved.signature!==signature)return fail('IDEMPOTENCY_KEY_REUSED',409);
-   if(!saved.done)return fail('CHAT_RUN_IN_PROGRESS',409);
-   return new HttpResponse(saved.frames.join(''),{headers:{'Content-Type':'text/event-stream'}});
-  }
-  const receipt={signature,frames:[] as string[],done:false};
-  if(receiptKey)receipts.set(receiptKey,receipt);
   const message=(role:Message['role']):Message=>({messageId:++seq,role,content:'',status:'COMPLETED',scope:scope.data,sources:[],resultRefs:[],sourceMayBeOutdated:false,runId:null,errorCode:null});
   if(!retry)chat.messages.push({...message('USER'),content:body.content});
   const answer=message('ASSISTANT');answer.status='STREAMING';answer.runId=`run-${++seq}`;chat.messages.push(answer);
   const caseRef=answer.scope.scopeType==='CASE'?references?.(answer.scope.caseId):undefined;
   const captured=caseRef?structuredClone(caseRef):undefined;if(captured)inputVersions.set(answer.messageId,captured.inputVersion);
   const run={runId:answer.runId,message:answer,cancelled:false};active.set(chat.chatId,run);
-  let connected=true;
   return new HttpResponse(new ReadableStream<Uint8Array>({async start(controller){
-   const enc=new TextEncoder();
-   // Persist generated events independently of the current transport. A disconnected
-   // reader must not leave a settled receipt without its terminal event.
-   const emit=(event:string,data:unknown)=>{const frame=`event: ${event}\r\ndata: ${JSON.stringify(data)}\r\n\r\n`;receipt.frames.push(frame);if(!connected)return;try{const bytes=enc.encode(frame);for(let i=0;i<bytes.length;i+=7)controller.enqueue(bytes.slice(i,i+7));}catch{connected=false;}};
+   const enc=new TextEncoder();let connected=true;
+   const emit=(event:string,data:unknown)=>{if(!connected)return;try{const bytes=enc.encode(`event: ${event}\r\ndata: ${JSON.stringify(data)}\r\n\r\n`);for(let i=0;i<bytes.length;i+=7)controller.enqueue(bytes.slice(i,i+7));}catch{connected=false;}};
    const identity={runId:run.runId,messageId:answer.messageId};
    try{
     emit('message_start',{...identity,role:'ASSISTANT',scope:answer.scope,aiMode:'mock'});
@@ -56,16 +39,16 @@ export function chatMocks(base:string,getCases:()=>Case[], references?:(caseId:n
      if(!retry&&body.content==='생성 실패'&&i>15){answer.status='FAILED';answer.errorCode='AI_GENERATION_FAILED';emit('error',{...identity,errorCode:answer.errorCode,retryable:true});return;}
      if(body.content==='연결 중단'&&i>15){answer.status='FAILED';answer.errorCode='STREAM_INTERRUPTED';return;}
     }
-    if(!run.cancelled){answer.sources=body.content==='삭제 출처'?[{documentId:99999,page:1,caseId:answer.scope.scopeType==='CASE'?answer.scope.caseId:15}]:captured?.sources??(answer.scope.scopeType==='CASE'?[{documentId:101,page:1,caseId:answer.scope.caseId}]:[]);answer.resultRefs=captured?.resultRefs??[];if(body.content==='없는 스냅샷')answer.resultRefs=[{type:'calculation',snapshotId:99999,version:1,...(answer.scope.scopeType==='CASE'?{caseId:answer.scope.caseId}:{})}];emit('sources',{sources:answer.sources,resultRefs:answer.resultRefs});}
+    if(!run.cancelled){answer.sources=body.content==='삭제 출처'?[{documentId:99999,page:1}]:captured?.sources??(answer.scope.scopeType==='CASE'?[{documentId:101,page:1,caseId:answer.scope.caseId}]:[]);answer.resultRefs=captured?.resultRefs??[];if(body.content==='없는 스냅샷')answer.resultRefs=[{type:'calculation',snapshotId:99999,version:1,...(answer.scope.scopeType==='CASE'?{caseId:answer.scope.caseId}:{})}];emit('sources',{sources:answer.sources,resultRefs:answer.resultRefs});}
     answer.status=run.cancelled?'CANCELLED':'COMPLETED';emit('message_done',{...identity,status:answer.status});
-   }finally{receipt.done=true;chat.updatedAt=new Date().toISOString();chat.lastMessagePreview=answer.content;active.delete(chat.chatId);try{controller.close();}catch{connected=false;}}
-  },cancel(){connected=false;}}),{headers:{'Content-Type':'text/event-stream'}});
+   }finally{chat.updatedAt=new Date().toISOString();chat.lastMessagePreview=answer.content;active.delete(chat.chatId);try{controller.close();}catch{connected=false;}}
+  }}),{headers:{'Content-Type':'text/event-stream'}});
  }
  return {chats,handlers:[
  http.get(root,({params,request})=>apiResponse(page([...chats.values()].filter(c=>c.workplaceId===Number(params.w)).map(summary),request))),
- http.post(root,async({params,request})=>{const b=await request.json() as {title:string;defaultScope:unknown};const scope=scopeSchema.safeParse(b.defaultScope);if(!chatCreateSchema.safeParse(b).success||!scope.success)return fail('VALIDATION_ERROR',422);const caseId=scope.data.scopeType==='CASE'?scope.data.caseId:undefined;if(caseId!==undefined&&!getCases().some(c=>c.workplaceId===Number(params.w)&&c.caseId===caseId))return fail('RESOURCE_NOT_FOUND',404);const c={chatId:++seq,workplaceId:Number(params.w),title:b.title??'?? ??',defaultScope:scope.data,updatedAt:new Date().toISOString(),lastMessagePreview:'',messages:[]};chats.set(c.chatId,c);return apiResponse(summary(c),201);}),
+ http.post(root,async({params,request})=>{const b=await request.json() as {title:string;defaultScope:unknown};const scope=scopeSchema.safeParse(b.defaultScope);if(!b.title?.trim()||!scope.success||scope.data.scopeType!=='CASE')return fail('VALIDATION_ERROR',422);const caseId=scope.data.caseId;if(!getCases().some(c=>c.workplaceId===Number(params.w)&&c.caseId===caseId))return fail('RESOURCE_NOT_FOUND',404);const c={chatId:++seq,workplaceId:Number(params.w),title:b.title,defaultScope:scope.data,updatedAt:new Date().toISOString(),lastMessagePreview:'',messages:[]};chats.set(c.chatId,c);return apiResponse(summary(c),201);}),
  http.get(`${root}/:c`,({params,request})=>{const c=find(params.w,params.c);return c?apiResponse({session:summary(c),messages:page(c.messages,request)}):fail('RESOURCE_NOT_FOUND',404);}),
- http.patch(`${root}/:c`,async({params,request})=>{const c=find(params.w,params.c);if(!c)return fail('RESOURCE_NOT_FOUND',404);const b=await request.json() as {title:string};if(!chatPatchSchema.safeParse(b).success)return fail('VALIDATION_ERROR',422);c.title=b.title;c.updatedAt=new Date().toISOString();return apiResponse(summary(c));}),
+ http.patch(`${root}/:c`,async({params,request})=>{const c=find(params.w,params.c);if(!c)return fail('RESOURCE_NOT_FOUND',404);const b=await request.json() as {title:string};if(!b.title?.trim())return fail('VALIDATION_ERROR',422);c.title=b.title;c.updatedAt=new Date().toISOString();return apiResponse(summary(c));}),
  http.delete(`${root}/:c`,({params})=>{const c=find(params.w,params.c);if(!c)return fail('RESOURCE_NOT_FOUND',404);if(active.has(c.chatId))return fail('CHAT_RUN_ALREADY_ACTIVE',409);chats.delete(c.chatId);return new HttpResponse(null,{status:204});}),
  http.post(`${root}/:c/messages`,({params,request})=>execute(params.w,params.c,request)),
  http.post(`${root}/:c/messages/:m/retry`,({params,request})=>execute(params.w,params.c,request,Number(params.m))),

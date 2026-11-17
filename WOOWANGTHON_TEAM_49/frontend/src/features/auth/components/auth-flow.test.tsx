@@ -94,12 +94,12 @@ describe("authentication UI with React Testing Library + MSW", () => {
     expect(navigation.router.replace).not.toHaveBeenCalled();
   });
 
-  it("maps server password policy errors after passing P0 client constraints", async () => {
+  it("maps server password policy errors without inventing a client length rule", async () => {
     server.use(http.post(`${testApiUrl}/auth/signup`, () => apiResponse({
       errorCode: "VALIDATION_ERROR", errors: [{ field: "password", reason: "비밀번호가 서버 정책에 맞지 않습니다." }],
     }, 422)));
     mount("signup");
-    const user = await fill("signup", "abcdefgh");
+    const user = await fill("signup", "a");
     await user.click(screen.getByRole("button", { name: "가입하기" }));
     expect(await screen.findByText("비밀번호가 서버 정책에 맞지 않습니다.")).toBeVisible();
     expect(screen.getByLabelText("비밀번호")).toHaveFocus();
@@ -169,7 +169,7 @@ describe("authentication UI with React Testing Library + MSW", () => {
     const pending = new Promise<void>((resolve) => { release = resolve; });
     let refreshes = 0;
     server.use(
-      http.post(`${testApiUrl}/auth/refresh`, () => { refreshes++; return apiResponse({ accessToken: "restored", tokenType: "Bearer", expiresIn: 1800, user: {userId:1,email:"worker@example.com",name:"Worker"} }); }),
+      http.post(`${testApiUrl}/auth/refresh`, () => { refreshes++; return apiResponse({ accessToken: "restored" }); }),
       http.get(`${testApiUrl}/users/me`, async () => { await pending; return apiResponse(testUser); }),
     );
     mount("protected", true);
@@ -190,7 +190,7 @@ describe("authentication UI with React Testing Library + MSW", () => {
   });
 
   it("redirects a restored user away from guest pages", async () => {
-    server.use(http.post(`${testApiUrl}/auth/refresh`, () => apiResponse({ accessToken: "restored", tokenType: "Bearer", expiresIn: 1800, user: {userId:1,email:"worker@example.com",name:"Worker"} })));
+    server.use(http.post(`${testApiUrl}/auth/refresh`, () => apiResponse({ accessToken: "restored" })));
     navigation.search = "next=%2Fdashboard%3Ftab%3Dmine";
     mount("signup");
     await waitFor(() => expect(navigation.router.replace).toHaveBeenCalledWith("/dashboard?tab=mine"));
@@ -204,12 +204,12 @@ describe("authentication UI with React Testing Library + MSW", () => {
   });
 
   it("removes protected content immediately on logout and redirects after server termination", async () => {
-    server.use(http.post(`${testApiUrl}/auth/refresh`, () => apiResponse({ accessToken: "restored", tokenType: "Bearer", expiresIn: 1800, user: {userId:1,email:"worker@example.com",name:"Worker"} })));
+    server.use(http.post(`${testApiUrl}/auth/refresh`, () => apiResponse({ accessToken: "restored" })));
     mount("protected");
     await screen.findByText("민감한 보호 화면");
     await act(async () => { await services.auth.logout(); });
     expect(screen.queryByText("민감한 보호 화면")).not.toBeInTheDocument();
-    await waitFor(() => expect(navigation.router.replace).toHaveBeenCalledWith("/"));
+    await waitFor(() => expect(navigation.router.replace).toHaveBeenCalledWith("/login?next=%2Fdashboard"));
     expect(services.queryClient.getQueryCache().getAll()).toHaveLength(0);
   });
 

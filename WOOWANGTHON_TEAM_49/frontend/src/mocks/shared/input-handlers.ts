@@ -1,10 +1,8 @@
 import { paymentMocks } from "./payment-handlers";
 import { http, HttpResponse } from "msw";
 import type { CaseDetailDto } from "@/features/cases/schemas";
-import { conditionsPutSchema, manualInputSchema, checkTypes, type Condition, type ManualRecord, type RecordType } from "@/features/case-inputs/schemas";
-import {createLocalizedFeaturesCaseInputsManualFields} from "@/features/case-inputs/manual-fields";
-import {createTranslation} from "@/i18n/translate";
-const {manualDefaults, manualFormSchema} = createLocalizedFeaturesCaseInputsManualFields(createTranslation("ko"));
+import { conditionsPutSchema, manualInputSchema, checkTypes, type Condition, type ManualInput, type ManualRecord, type RecordType } from "@/features/case-inputs/schemas";
+import { manualDefaults, manualFormSchema } from "@/features/case-inputs/manual-fields";
 import { buildResultScenario, type MockEvidence } from "./result-scenario";
 import type { DepositComparison } from "@/features/payments/comparison-schemas";
 import type { Results } from "@/features/results/schemas";
@@ -18,11 +16,11 @@ export function inputMocks(getCases: () => CaseDetailDto[], baseUrl = "http://12
   const requests: { method: string; path: string; body?: unknown }[] = [];
   const definitions: Pick<Condition, "conditionId" | "question" | "type" | "options" | "requiredFor">[] = [
     { conditionId: "workplace_size", question: "상시 근로자 수를 알고 있나요?", type: "SELECT", options: ["LESS_THAN_5", "AT_LEAST_5", "UNKNOWN"], requiredFor: ["WAGE_CALCULATION"] },
-    { conditionId: "regular_minutes", question: "이 기간의 소정근로시간은 몇 분인가요?", type: "NUMBER", options: null, requiredFor: ["WAGE_CALCULATION"] },
-    { conditionId: "base_scope_confirmed", question: "임금의 기본 적용 범위를 확인했나요?", type: "BOOLEAN", options: null, requiredFor: ["WAGE_CALCULATION"] },
-    { conditionId: "comparison_basis_confirmed", question: "시급의 기간과 의미가 일치하나요?", type: "BOOLEAN", options: null, requiredFor: ["CONTRACT_ATTENDANCE_COMPARISON"] },
-    { conditionId: "hours_basis_confirmed", question: "실근로시간의 기간과 의미가 일치하나요?", type: "BOOLEAN", options: null, requiredFor: ["CONTRACT_ATTENDANCE_COMPARISON"] },
-    { conditionId: "base_pay_basis_confirmed", question: "기본급의 기간과 의미가 일치하나요?", type: "BOOLEAN", options: null, requiredFor: ["CONTRACT_ATTENDANCE_COMPARISON"] },
+    { conditionId: "regular_minutes", question: "이 기간의 소정근로시간은 몇 분인가요?", type: "NUMBER", requiredFor: ["WAGE_CALCULATION"] },
+    { conditionId: "base_scope_confirmed", question: "임금의 기본 적용 범위를 확인했나요?", type: "BOOLEAN", requiredFor: ["WAGE_CALCULATION"] },
+    { conditionId: "comparison_basis_confirmed", question: "시급의 기간과 의미가 일치하나요?", type: "BOOLEAN", requiredFor: ["CONTRACT_ATTENDANCE_COMPARISON"] },
+    { conditionId: "hours_basis_confirmed", question: "실근로시간의 기간과 의미가 일치하나요?", type: "BOOLEAN", requiredFor: ["CONTRACT_ATTENDANCE_COMPARISON"] },
+    { conditionId: "base_pay_basis_confirmed", question: "기본급의 기간과 의미가 일치하나요?", type: "BOOLEAN", requiredFor: ["CONTRACT_ATTENDANCE_COMPARISON"] },
   ];
   function initialState(c: CaseDetailDto) {
     return { records: [] as ManualRecord[], transactions: [] as { transactionId: number; allocationId: number; data: ManualRecord["data"] }[], conditions: definitions.map(d => ({ ...d, value: null, status: "REQUIRED", source: null } as Condition)), observedVersion: c.inputVersion, job: null as null | { jobId: string; status: string; requestedInputVersion: number; errorCode: string | null }, polls: 0, resultVersion: 0, snapshotInputVersion:c.inputVersion, target:"recompute" };
@@ -93,7 +91,7 @@ export function inputMocks(getCases: () => CaseDetailDto[], baseUrl = "http://12
       list.push(buildResultScenario({...c,inputVersion:s.snapshotInputVersion},s.resultVersion,initial?s.records:[],initial?s.conditions:[],initial?getEvidence(c.caseId):[]));}
     const deposits=depositHistory(c);if(!deposits.length)deposits.push(buildDeposit(c));
     const snapshot=deposits[0];list[0].versions.depositComparison={snapshotId:snapshot.depositComparisonId,version:snapshot.version,inputVersion:snapshot.basedOnInputVersion!,createdAt:snapshot.createdAt!,freshness:"CURRENT"}; const current=freshness(c),active=s.job && ["PENDING","RUNNING"].includes(s.job.status);
-    return {...list[0],depositComparison:{...deposits[0],freshness:current},currentInputVersion:c.inputVersion,freshness:{overall:current,hasOutdatedResults:current!=="CURRENT",activeJobId:active?s.job!.jobId:null},versions:Object.fromEntries(Object.entries(list[0].versions).map(([k,v])=>[k,{...v,freshness:s.target==="deposit"&&k!=="depositComparison"?v.freshness:current}]))};
+    return {...list[0],depositComparison:{...deposits[0],freshness:current},currentInputVersion:c.inputVersion,freshness:{overall:current,hasOutdatedResults:current!=="CURRENT",activeJobId:active?s.job!.jobId:null},versions:Object.fromEntries(Object.entries(list[0].versions).map(([k,v])=>[k,v?{...v,freshness:s.target==="deposit"&&k!=="depositComparison"?v.freshness:current}:null]))};
   }
   function completion(c:CaseDetailDto) {
     const s=state(c);const p=buildResultScenario(c,s.resultVersion,s.records,s.conditions,getEvidence(c.caseId)).payslipValidation;
@@ -108,9 +106,8 @@ export function inputMocks(getCases: () => CaseDetailDto[], baseUrl = "http://12
     const evidenceValues=getEvidence(c.caseId).flatMap(e=>e.fields).filter(f=>f.key==="netPay"&&f.status==="CONFIRMED");const evidence=evidenceValues.length===1?evidenceValues[0]:undefined;
     const net=typeof payslip?.data.netPay==="number"?payslip.data.netPay:typeof evidence?.value==="number"?evidence.value:null;
     const total=(method:string)=>links.filter(a=>payments.transactions.find(t=>t.transactionId===a.transactionId)?.paymentMethod===method).reduce((sum,a)=>sum+a.allocatedAmount,0);
-    const unconfirmed=links.some(a=>payments.transactions.find(t=>t.transactionId===a.transactionId)?.confirmationStatus!=="USER_CONFIRMED");
-    const bank=links.length&&!unconfirmed?total("BANK_TRANSFER"):null,cash=links.length&&!unconfirmed?total("CASH"):null,linked=bank===null||cash===null?null:bank+cash;
-    const review=(!payslip && evidenceValues.length>1) || unconfirmed;
+    const bank=links.length?total("BANK_TRANSFER"):null,cash=links.length?total("CASH"):null,linked=bank===null||cash===null?null:bank+cash;
+    const review=(!payslip && evidenceValues.length>1) || links.some(a=>!["USER_REPORTED","DOCUMENT_SUPPORTED"].includes(payments.transactions.find(t=>t.transactionId===a.transactionId)?.confirmationStatus??""));
     const difference=net===null||linked===null?null:net-linked;
     const version=depositHistory(c).length+1;
     return {depositComparisonId:c.caseId*10000+version,version,basedOnInputVersion:c.inputVersion,createdAt:new Date().toISOString(),freshness:"CURRENT",payslipNetPay:net,linkedBankDepositTotal:bank,linkedCashPaymentTotal:cash,linkedPaymentTotal:linked,difference,status:review?"REVIEW_REQUIRED":difference===null?"INSUFFICIENT_INFORMATION":difference===0?"MATCH":"DIFFERENCE"};
@@ -151,7 +148,7 @@ export function inputMocks(getCases: () => CaseDetailDto[], baseUrl = "http://12
       const c = current(params.c); if (!c) return missing(); const body = await request.json(); requests.push({ method: request.method, path: new URL(request.url).pathname, body });
       const parsed = conditionsPutSchema.safeParse(body); if (!parsed.success) return apiResponse({ errorCode: "VALIDATION_ERROR", errors: parsed.error.issues.map(i => ({ field: i.path.join("."), reason: i.message })) }, 422);
       if (parsed.data.expectedInputVersion !== c.inputVersion) return apiResponse({ errorCode: "INPUT_VERSION_CONFLICT", details: { currentInputVersion: c.inputVersion, expectedInputVersion: parsed.data.expectedInputVersion } }, 409);
-      result(c); const s = state(c); parsed.data.answers.forEach(a => { const condition = s.conditions.find(v => v.conditionId === a.conditionId)!; condition.source = "USER_INPUT"; condition.value = a.value; condition.status = a.value === "UNKNOWN" ? "UNKNOWN" : "ANSWERED"; });
+      result(c); const s = state(c); parsed.data.answers.forEach(a => { const condition = s.conditions.find(v => v.conditionId === a.conditionId)!; condition.value = a.value; condition.status = a.value === "UNKNOWN" ? "UNKNOWN" : "ANSWERED"; });
       return apiResponse(schedule(c));
     }),
     http.get(`${baseUrl}/cases/:c/readiness`, ({ params }) => {
@@ -184,5 +181,19 @@ export function inputMocks(getCases: () => CaseDetailDto[], baseUrl = "http://12
       return apiResponse({caseId:c.caseId,currentInputVersion:c.inputVersion,pending:s.job?.status==="PENDING"?1:0,running:s.job?.status==="RUNNING"?1:0,activeJob:active?s.job:null,latestJob:s.job,results:refs.versions});
     }),
   ];
-  return { handlers, requests, state, depositCandidates:payments.candidates, getResult(caseId:number) { const c=current(caseId); return c?structuredClone(result(c)):undefined; }, notifyInputChange(c:number) {const owner=current(c);if(!owner)throw new Error("Unknown mock Case");return schedule(owner,false).recompute;}, setJobStatus(c: number, status: string) { const owner = current(c); if (!owner) return; const s = state(owner); if (!s.job) schedule(owner, false); s.job!.status = status; if(["PARTIAL","SUCCEEDED"].includes(status))publish(owner); } };
+  function seedInputs(caseId:number, inputs:ManualInput[], answers:Record<string,Condition["value"]>) {
+    const c=current(caseId);if(!c)throw new Error("Unknown mock Case");
+    const s=state(c);if(history(c).length||s.records.length)throw new Error("Mock inputs must be seeded before result snapshots");
+    const now=new Date().toISOString();
+    for(const value of inputs) {
+      const input=manualInputSchema.parse(value);
+      if(input.recordType==="DEPOSIT")s.transactions.push({...payments.manual(c,input.data),data:structuredClone(input.data)});
+      else s.records.push({recordId:nextRecord++,caseId,recordType:input.recordType,data:structuredClone(input.data),source:input.source,createdAt:now,updatedAt:now});
+    }
+    for(const condition of s.conditions)if(Object.hasOwn(answers,condition.conditionId)) {
+      condition.value=answers[condition.conditionId];
+      condition.status=condition.value===null?"REQUIRED":condition.value==="UNKNOWN"?"UNKNOWN":"ANSWERED";
+    }
+  }
+  return { handlers, requests, state, seedInputs, getResult(caseId:number) { const c=current(caseId); return c?structuredClone(result(c)):undefined; }, notifyInputChange(c:number) {const owner=current(c);if(!owner)throw new Error("Unknown mock Case");return schedule(owner,false).recompute;}, setJobStatus(c: number, status: string) { const owner = current(c); if (!owner) return; const s = state(owner); if (!s.job) schedule(owner, false); s.job!.status = status; if(["PARTIAL","SUCCEEDED"].includes(status))publish(owner); } };
 }

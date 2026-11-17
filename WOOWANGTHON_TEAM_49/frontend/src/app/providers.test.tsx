@@ -6,24 +6,24 @@ import { createAppServices } from "@/lib/app-services";
 import { AppProviders } from "./providers";
 
 const route = vi.hoisted(() => ({ pathname: "/" }));
-vi.mock("next/navigation", () => ({ usePathname: () => route.pathname, useRouter: () => ({refresh: vi.fn()}) }));
+vi.mock("next/navigation", () => ({ usePathname: () => route.pathname }));
 vi.mock("@/lib/app-services", async () => {
-  const actual = await vi.importActual<typeof import('@/lib/app-services')>('@/lib/app-services');
-  return {createAppServices: vi.fn(() => {
-    const services = actual.createAppServices();
-    services.auth.restore = vi.fn().mockResolvedValue(undefined);
-    return services;
-  })};
+  const { QueryClient } = await import("@tanstack/react-query");
+  return {
+    createAppServices: vi.fn(() => ({
+      queryClient: new QueryClient(),
+      auth: { restore: vi.fn().mockResolvedValue(undefined) },
+    })),
+  };
 });
 
-beforeEach(() => { vi.clearAllMocks(); route.pathname = "/"; });
+beforeEach(() => { route.pathname = "/"; });
 afterEach(cleanup);
 
-it("restores the landing session once so the logo has a resolved destination", () => {
+it("renders the public landing without constructing API services or restoring a session", () => {
   render(<AppProviders><h1>Public landing</h1></AppProviders>);
   expect(screen.getByRole("heading", { name: "Public landing" })).toBeVisible();
-  expect(createAppServices).toHaveBeenCalledTimes(1);
-  expect(vi.mocked(createAppServices).mock.results[0].value.auth.restore).toHaveBeenCalledTimes(1);
+  expect(createAppServices).not.toHaveBeenCalled();
 });
 
 it("initializes the existing services when navigating to auth and retains them between auth routes", () => {

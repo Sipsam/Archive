@@ -23,19 +23,13 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 All implementation decisions must follow this priority:
 
-1. P0: contracts/openapi.json, docs/references/API_REFERENCE.html
-2. P1: docs/references/월급잇다_UIUX_프로토타입_v0.4.html
-3. P2: docs/references/FE_구현_설계서_v0.3.md
-4. P3: docs/references/최종기획안.pdf
-5. P4: docs/references/백엔드_API_명세서_v1.pdf, docs/references/API_ENDPOINTS.md, docs/references/데이터베이스_스키마.md
-6. P5: Other references
-
-`contracts/openapi.json` is the authoritative API contract for implementation and all runtime/test validation.
-`docs/references/openapi.json`, when present, is a reference copy only and is not a contract source.
-Use `docs/references/API_REFERENCE.html` only as a supplement subordinate to `contracts/openapi.json`.
+1. P0: docs/references/백엔드_API_명세서_v1.pdf, docs/references/API_ENDPOINTS.md, docs/references/데이터베이스_스키마.md
+2. P1: docs/references/최종기획안.pdf
+3. P2: docs/references/월급잇다_UIUX_프로토타입_v0.4.html
+4. P3: docs/references/FE_구현_설계서_v0.3.md
+5. P4: Other references
 
 When documents conflict, use the higher-priority source.
-When documents conflict with same priority, use the former one in the list.
 
 If the backend OpenAPI specification is available,
 verify actual endpoint and DTO contracts against it.
@@ -144,6 +138,7 @@ verify actual endpoint and DTO contracts against it.
 - When API behavior is unclear, document the uncertainty instead of inventing behavior.
 - Run lint, TypeScript type checking, and build after meaningful changes.
 - Report modified files, completed work, unresolved issues, and verification results.
+
 
 ## Development Completion Policy
 

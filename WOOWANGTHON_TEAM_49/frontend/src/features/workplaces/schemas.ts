@@ -1,39 +1,29 @@
-
-import {message as describeMessage} from '@/i18n/message';
 import { z } from "zod";
-import {createTranslation, type Translation} from '@/i18n/translate';
-import {defaultLocale} from '@/i18n/config';
-export type WorkplaceDto = z.infer<typeof workplaceSchema>;
-export type WorkplaceFormValues = z.infer<typeof workplaceFormSchema>;
-export type WorkplaceWrite = z.infer<typeof workplaceCreateSchema>;
 
-export function createLocalizedFeaturesWorkplacesSchemas(translation: Translation) {
-  const {} = translation;
-const employmentStatusSchema = z.enum(["CURRENT", "FORMER"]);
-const workplaceSchema = z.object({
-  workplaceId: z.number().int(),
+export const employmentStatusSchema = z.enum(["CURRENT", "FORMER"]);
+export const workplaceSchema = z.object({
+  workplaceId: z.number().int().positive(),
   name: z.string(),
   industry: z.string().nullable(),
   region: z.string().nullable(),
   employmentStatus: employmentStatusSchema,
-  caseCount: z.number().int(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
+  caseCount: z.number().int().nonnegative(),
+  // Dates are not required by the UI; do not assume lightweight responses include them.
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
 });
-const workplaceCreateSchema = z.strictObject({
- name: z.string().min(1).max(200), industry: z.string().max(200).nullable().optional(),
- region: z.string().max(200).nullable().optional(), employmentStatus: employmentStatusSchema.optional(),
-});
-const workplacePatchSchema = workplaceCreateSchema.extend({
- name: workplaceCreateSchema.shape.name.nullable().optional(), employmentStatus: employmentStatusSchema.nullable().optional(),
-});
-const workplaceFormSchema = z.object({
-  name: z.string().trim().min(1, describeMessage("workplaces.schemas_workplace_input")).max(200, describeMessage("workplaces.schemas_atMost_input")),
-  industry: z.string().trim().max(200, describeMessage("workplaces.schemas_atMost_input")),
-  region: z.string().trim().max(200, describeMessage("workplaces.schemas_atMost_input")),
+
+export const workplaceFormSchema = z.object({
+  name: z.string().trim().min(1, "사업장명을 입력해 주세요."),
+  industry: z.string().trim(),
+  region: z.string().trim(),
   employmentStatus: employmentStatusSchema,
 });
-return {employmentStatusSchema, workplaceSchema, workplaceCreateSchema, workplacePatchSchema, workplaceFormSchema};
+export type WorkplaceDto = z.infer<typeof workplaceSchema>;
+export type WorkplaceFormValues = z.infer<typeof workplaceFormSchema>;
+export interface WorkplaceWrite {
+  name: string;
+  industry: string | null;
+  region: string | null;
+  employmentStatus: z.infer<typeof employmentStatusSchema>;
 }
-
-export const {employmentStatusSchema, workplaceSchema, workplaceCreateSchema, workplacePatchSchema, workplaceFormSchema} = createLocalizedFeaturesWorkplacesSchemas(createTranslation(defaultLocale));

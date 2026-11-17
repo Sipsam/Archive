@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import createNextIntlPlugin from "next-intl/plugin";
 
 const nextConfig: NextConfig = {
   async headers() {
@@ -8,13 +7,15 @@ const nextConfig: NextConfig = {
       { key: "Cache-Control", value: "no-store" },
     ] }];
   },
+  /* config options here */
   turbopack: {
     rules: {
-      // Keep CSS Modules on Next.js's built-in CSS pipeline.
-      "globals.css": { loaders: ["@tailwindcss/turbopack"], as: "*.css" },
+      // Only the Tailwind entry needs this loader. Preserve Next.js CSS Module exports.
+      "globals.css": {
+        loaders: ["@tailwindcss/turbopack"],
+      },
     },
   },
-  output: "standalone",
 };
 
-export default createNextIntlPlugin("./src/i18n/request.ts")(nextConfig);
+export default nextConfig;

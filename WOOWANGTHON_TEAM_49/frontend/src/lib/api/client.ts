@@ -1,5 +1,3 @@
-import {MessageError} from '@/i18n/message-error';
-
 import type { MemorySession } from "@/features/auth/session";
 import { parseApiBaseUrl } from "@/lib/config/env";
 import type { JsonValue } from "@/types/api";
@@ -43,7 +41,7 @@ export function createApiClient(options: ClientOptions) {
       !url.pathname.startsWith(`${new URL(baseUrl).pathname.replace(/\/$/, "")}/`) ||
       url.hash
     ) {
-      throw new MessageError("errors.client_start");
+      throw new Error("API 경로는 Base URL 내부의 /로 시작하는 상대 경로여야 합니다.");
     }
     return url.toString();
   }
@@ -51,7 +49,7 @@ export function createApiClient(options: ClientOptions) {
   function assertCurrent(generation: number, signal: AbortSignal) {
     signal.throwIfAborted();
     if (options.session.getSnapshot().generation !== generation) {
-      throw new DOMException("errors.client_change", "AbortError");
+      throw new DOMException("세션이 변경되었습니다.", "AbortError");
     }
   }
 
@@ -99,7 +97,7 @@ export function createApiClient(options: ClientOptions) {
       headers.set("Accept", accept);
       const token = authenticated ? options.session.getSnapshot().accessToken : null;
       if (token) headers.set("Authorization", `Bearer ${token}`);
-      if (init.body !== undefined && init.formData) throw new MessageError("errors.client_count_empty");
+      if (init.body !== undefined && init.formData) throw new Error("JSON과 multipart 본문은 함께 보낼 수 없습니다.");
       if (init.formData) headers.delete("Content-Type");
       else if (init.body !== undefined) headers.set("Content-Type", "application/json");
 
@@ -117,9 +115,7 @@ export function createApiClient(options: ClientOptions) {
       } catch (error) {
         assertCurrent(initial.generation, signal);
         if (error instanceof Error && error.name === "AbortError") throw error;
-        const failure = new ApiError(0, { kind: "network" });
-        failure.diagnostic = {phase:"network"};
-        throw failure;
+        throw new ApiError(0, { kind: "network" });
       }
       assertCurrent(initial.generation, signal);
       return { response, token };
@@ -139,23 +135,12 @@ export function createApiClient(options: ClientOptions) {
 
     if (!response.ok) {
       const error = await readApiError(response);
-      error.diagnostic = {phase:"http",httpStatus:response.status};
       assertCurrent(initial.generation, signal);
       if (response.status === 401 && authenticated) options.session.clear();
       throw error;
     }
 
-    let result: T;
-    try { result = await read(response); }
-    catch (error) {
-      if (error instanceof ApiError && error.kind === "protocol") {
-        const wrapped = new ApiError(response.status, {kind: "protocol"});
-        wrapped.diagnostic = {...error.diagnostic, phase: error.diagnostic?.phase ?? "dto", httpStatus: response.status,
-          endpointTemplate: path.split("?")[0].split("/").map(part => /^\d+$/.test(part) ? "{id}" : ["cases","workplaces","documents","chats","reports","conditions","questions","results","auth","refresh","login","consultation-centers","company-inquiry","messages","preview","file"].includes(part) || !part ? part : "*").join("/")};
-        throw wrapped;
-      }
-      throw error;
-    }
+    const result = await read(response);
     assertCurrent(initial.generation, signal);
     return result;
   }
@@ -207,7 +192,7 @@ export function createApiClient(options: ClientOptions) {
     },
     requestSse(path: string, init: ApiRequestOptions = {}): Promise<ReadableStream<Uint8Array>> {
       return request(path, init, "text/event-stream", async (response) => {
-        if (response.status !== (init.expectedStatus ?? 200) || !hasMediaType(response, "text/event-stream") || !response.body) throw protocolError(response.status, hasMediaType(response,"text/event-stream") ? "sse" : "media-type");
+        if (response.status !== (init.expectedStatus ?? 200) || !hasMediaType(response, "text/event-stream") || !response.body) throw protocolError();
         return response.body;
       });
     },

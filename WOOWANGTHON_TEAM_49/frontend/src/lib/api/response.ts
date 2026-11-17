@@ -1,5 +1,4 @@
 import { z } from "zod";
-import type { ApiErrorData } from "@/types/api";
 
 import { ApiError } from "./error";
 
@@ -9,16 +8,14 @@ const envelopeSchema = z.object({
   data: z.unknown(),
 });
 
-export const errorDataSchema = z.object({
-  errorCode: z.string(),
-  details: z.json().optional(),
-  errors: z.array(z.object({ field: z.string(), reason: z.string() })).nullable().optional(),
+const errorDataSchema = z.object({
+  errorCode: z.string().optional(),
+  details: z.record(z.string(), z.unknown()).optional(),
+  errors: z.array(z.object({ field: z.string(), reason: z.string() })).optional(),
 });
 
-export function protocolError(status = 0, phase = "status"): ApiError {
-  const error = new ApiError(status, { kind: "protocol" });
-  error.diagnostic = { phase, httpStatus: status };
-  return error;
+export function protocolError(): ApiError {
+  return new ApiError(0, { kind: "protocol" });
 }
 
 export function hasMediaType(response: Response, expected: string): boolean {
@@ -27,7 +24,7 @@ export function hasMediaType(response: Response, expected: string): boolean {
 
 export async function readJsonData(response: Response): Promise<unknown> {
   if (response.status === 204 || !hasMediaType(response, "application/json")) {
-    throw protocolError(response.status, "media-type");
+    throw protocolError();
   }
 
   let payload: unknown;
@@ -35,7 +32,7 @@ export async function readJsonData(response: Response): Promise<unknown> {
     payload = await response.json();
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") throw error;
-    throw protocolError(response.status, "json");
+    throw protocolError();
   }
 
   const parsed = envelopeSchema.safeParse(payload);
@@ -44,33 +41,20 @@ export async function readJsonData(response: Response): Promise<unknown> {
     parsed.data.code !== response.status ||
     !Object.prototype.hasOwnProperty.call(payload, "data")
   ) {
-    const error = protocolError(response.status, "envelope");
-    if(!parsed.success) error.diagnostic!.issues = parsed.error.issues.map(issue=>({
-      path: ["code","message","data"].includes(String(issue.path[0])) ? String(issue.path[0]) : "*",
-      expectedType: "expected" in issue ? String(issue.expected) : issue.code,
-      actualType: typeof payload === "object" && payload !== null ? typeof Reflect.get(payload,issue.path[0] ?? "") : typeof payload,
-    }));
-    throw error;
+    throw protocolError();
   }
 
   return parsed.data.data;
 }
 
 export async function readApiError(response: Response): Promise<ApiError> {
-  let data: Partial<ApiErrorData> = {};
+  let data = {};
   if (hasMediaType(response, "application/json")) {
     try {
       const envelope = envelopeSchema.safeParse(await response.json());
       if (envelope.success) {
         const parsed = errorDataSchema.safeParse(envelope.data.data);
         if (parsed.success) data = parsed.data;
-        else {
-          // Recover the business code without accepting a malformed wire DTO.
-          const code = z.object({ errorCode: z.string() }).safeParse(envelope.data.data);
-          if (code.success) data = code.data;
-          const ancillary = errorDataSchema.omit({ errorCode: true }).safeParse(envelope.data.data);
-          if (ancillary.success) data = { ...data, ...ancillary.data };
-        }
       }
     } catch {
       // Proxies may return an empty/malformed error body. HTTP status remains authoritative.

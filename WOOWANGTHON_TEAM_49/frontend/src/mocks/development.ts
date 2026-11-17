@@ -1,7 +1,3 @@
-import { languageRequestSchema } from '@/features/auth/language';
-import { loginValidator } from "./shared/auth-validation";
-import { signupRequestSchema, forgotPasswordRequestSchema, resetPasswordRequestSchema } from "@/features/auth/schemas";
-import { caseDocumentResponse, settleMockDocument } from "./shared/document-handlers";
 import { getResponse, http, HttpResponse } from "msw";
 import { supportMocks } from "./shared/support-handlers";
 import { chatMocks } from './shared/chat-handlers';
@@ -12,23 +8,14 @@ import { reviewMocks } from "./shared/review-handlers";
 import { apiResponse } from "./shared/response";
 import { samplePdf } from "./sample";
 import { inputMocks } from "./shared/input-handlers";
+import { resultPreviewAnswers, resultPreviewInputs } from "./shared/result-preview";
 
-export const demoProfile = { email: "worker@example.com", password: "password1234", name: "가상 근로자" };
-export const demoAccount = { email: demoProfile.email, password: demoProfile.password };
+export const demoAccount = { email: "worker@example.com", password: "password1234", name: "가상 근로자" };
 // This cookie is an inert development marker, never an authentication credential.
 const marker = "wageitda_mock_session";
 let latestResetToken = "";
 export function readDevelopmentResetToken() { return latestResetToken; }
 export function clearMockSession() { document.cookie = `${marker}=; Path=/; Max-Age=0; SameSite=Lax`; }
-// Development-only synthetic DB preference: language codes, never profile data.
-function mockLanguage(userId: number) {
-  const value = document.cookie.split('; ').find(v => v.startsWith(`wageitda_mock_language_${userId}=`))?.split('=')[1];
-  const parsed = languageRequestSchema.safeParse({language: value});
-  return parsed.success ? parsed.data.language : 'ko';
-}
-export function clearMockLanguages() {
-  for (const part of document.cookie.split('; ')) if (part.startsWith('wageitda_mock_language_')) document.cookie = `${part.split('=')[0]}=; Path=/; Max-Age=0; SameSite=Lax`;
-}
 
 function createBusinessScenario(baseUrl: string, seed: boolean, idOffset: number) {
   const management = managementMocks({ baseUrl, count: 2, empty: !seed, idOffset });
@@ -48,23 +35,14 @@ function createBusinessScenario(baseUrl: string, seed: boolean, idOffset: number
     if (link) link.documentId = next;
   }, c => inputs.notifyInputChange(c));
   review.histories.splice(0);
-  // Only the seeded synthetic PDF has known layout coordinates. Uploaded files
-  // keep the no-highlight fallback because this mock does not perform OCR.
-  if(seed){
-    const documentId=documents[0].documentId;
-    review.fields(cases[0].caseId,documentId).forEach(field=>{
-      field.source=field.key==="grossPay"?{documentId,page:1,text:"Gross pay: KRW 2,300,000",boundingBox:[50/595,140/842,185/595,18/842],coordinateSystem:"RELATIVE_0_1"}:null;
-    });
-  }
   const inputs = inputMocks(management.getCases, baseUrl, c => docs.getLinks().filter(l=>l.caseId===c).flatMap(l=>documents.some(d=>d.documentId===l.documentId && d.documentType==="PAYSLIP")?[{documentId:l.documentId,fields:review.fields(c,l.documentId)}]:[]));
+  if (seed) inputs.seedInputs(16, resultPreviewInputs, resultPreviewAnswers);
   // Seed real positive-ID snapshots through the existing synthetic publish pipeline.
   cases.forEach(c=>{inputs.getResult(c.caseId);inputs.notifyInputChange(c.caseId);inputs.setJobStatus(c.caseId,"PARTIAL");});
   const files = new Map<number, Blob>();
   const polls = new Map<number, number>();
   const fail = (errorCode: string, status: number) => apiResponse({ errorCode }, status);
   const sync = () => {
-    // Synthetic OCR rows for mock DEPOSIT documents only; no real OCR is performed.
-    inputs.depositCandidates.splice(0,inputs.depositCandidates.length,...documents.filter(d=>d.documentType==="DEPOSIT"&&["READY","READ_READY","REVIEW_REQUIRED"].includes(d.processingStatus)).map(d=>({workplaceId:d.workplaceId,registration:{source:"DOCUMENT" as const,sourceDocumentId:d.documentId,sourceCandidateId:`mock-${d.documentId}`,sourceRowId:"transaction_1",paymentMethod:"BANK_TRANSFER" as const,transactionDate:"2026-11-10",amount:100000,confirmationStatus:"USER_REPORTED" as const},registerable:true,reasonCode:null,existingTransactionId:null,requiresUserConfirmation:true,requiresCaseAllocation:true})));
     const links = docs.getLinks();
     // A deleted Case removes links, preserving workplace originals.
     for (let i = links.length - 1; i >= 0; i--) if (!cases.some(c => c.caseId === links[i].caseId)) links.splice(i, 1);
@@ -79,9 +57,7 @@ function createBusinessScenario(baseUrl: string, seed: boolean, idOffset: number
       const c = path.match(/\/cases\/(\d+)/)?.[1];
       const w = path.match(/\/workplaces\/(\d+)/)?.[1];
       const d = path.match(/\/documents\/(\d+)/)?.[1];
-      // Case writes validate the complete P0 body in management handlers before ownership lookup.
-      const caseWrite = (request.method === "POST" && /\/cases$/.test(path)) || (request.method === "PATCH" && /\/cases\/[^/]+$/.test(path));
-      if (!caseWrite && request.headers.get("Content-Type")?.includes("application/json") && request.method !== "GET") {
+      if (request.headers.get("Content-Type")?.includes("application/json") && request.method !== "GET") {
         const body = await request.clone().json().catch(() => ({})) as Record<string, unknown>;
         if (typeof body.documentId === "number" && !documents.some(v => v.documentId === body.documentId)) return fail("RESOURCE_NOT_FOUND", 404);
         if (typeof body.workplaceId === "number" && !management.getWorkplace(body.workplaceId)) return fail("RESOURCE_NOT_FOUND", 404);
@@ -100,7 +76,7 @@ function createBusinessScenario(baseUrl: string, seed: boolean, idOffset: number
         if (!doc || (w && doc.workplaceId !== Number(w)) || (c && !doc.linkedCaseIds?.includes(Number(c)))) return fail("RESOURCE_NOT_FOUND", 404);
         if (request.method === "GET" && /\/documents\/\d+$/.test(path) && ["UPLOADED", "PROCESSING"].includes(doc.processingStatus)) {
           const count = (polls.get(doc.documentId) ?? 0) + 1; polls.set(doc.documentId, count);
-          if (count > 1) settleMockDocument(doc); else { doc.processingStatus = "PROCESSING"; doc.progress = 50; }
+          doc.processingStatus = count > 1 ? "READY" : "PROCESSING"; doc.progress = count > 1 ? 100 : 50;
         }
       }
       if (request.method === "POST" && /\/(documents|replace)$/.test(path)) {
@@ -119,11 +95,11 @@ function createBusinessScenario(baseUrl: string, seed: boolean, idOffset: number
       const page = Math.max(1, Number(q.get("page") ?? 1)), size = Math.min(100, Math.max(1, Number(q.get("size") ?? 20)));
       const items = docs.getLinks().filter(l => l.caseId === caseId).map(link => {
         const doc = documents.find(d => d.documentId === link.documentId)!;
-        return { ...caseDocumentResponse(doc, link.linkId), reviewStatus: review.reviewStates.get(`${caseId}:${doc.documentId}`) ?? "NOT_STARTED" };
+        return { ...doc, link, reviewStatus: review.reviewStates.get(`${caseId}:${doc.documentId}`) ?? "NOT_STARTED" };
       });
       return apiResponse({ items: items.slice((page - 1) * size, page * size), page, size, total: items.length });
     }),
-    http.get(`${baseUrl}/workplaces/:w/documents/:d/preview`, ({ params }) => apiResponse({ documentId: Number(params.d), mediaType: files.get(Number(params.d))?.type ?? "application/pdf", pageCount: 1, coordinateSystem: "RELATIVE_0_1", rotationDegrees: 0, supportsHighlight: seed && Number(params.d)===documents[0]?.documentId && !files.has(Number(params.d)) })),
+    http.get(`${baseUrl}/workplaces/:w/documents/:d/preview`, ({ params }) => apiResponse({ documentId: Number(params.d), mediaType: files.get(Number(params.d))?.type ?? "application/pdf", pageCount: 1, coordinateSystem: "RELATIVE_0_1", rotationDegrees: 0, supportsHighlight: false })),
     http.get(`${baseUrl}/workplaces/:w/documents/:d/file`, async ({ params }) => {
       const file = files.get(Number(params.d));
       return new HttpResponse(file ? await file.arrayBuffer() : samplePdf(), { headers: { "Content-Type": file?.type ?? "application/pdf" } });
@@ -157,7 +133,7 @@ function createBusinessScenario(baseUrl: string, seed: boolean, idOffset: number
 export function createDevelopmentScenario(baseUrl = getApiBaseUrl()) {
   const seed = createBusinessScenario(baseUrl, true, 0);
   const stores = new Map([[7, seed]]);
-  const users = new Map([[demoAccount.email, { ...demoProfile, userId: 7, language: "ko" }]]);
+  const users = new Map([[demoAccount.email, { ...demoAccount, userId: 7 }]]);
   let activeUser = users.get(demoAccount.email)!;
   let token = "";
   latestResetToken = "";
@@ -165,11 +141,11 @@ export function createDevelopmentScenario(baseUrl = getApiBaseUrl()) {
   const deleted = new Set<string>();
   let receipt = false;
   const fail = (errorCode: string, status: number) => apiResponse({ errorCode }, status);
-  const issue = () => { token = `mock-only-${crypto.randomUUID()}`; return { accessToken: token, tokenType: "Bearer", expiresIn: 1800, user: { userId: activeUser.userId, email: activeUser.email, name: activeUser.name, language: activeUser.language } }; };
+  const issue = () => { token = `mock-only-${crypto.randomUUID()}`; return { accessToken: token, tokenType: "Bearer", expiresIn: 1800, user: { userId: activeUser.userId, email: activeUser.email, name: activeUser.name } }; };
   const handlers = [
     http.post(`${baseUrl}/auth/forgot-password`, async ({ request }) => {
-      const body = await request.json() as { email: string };
-      if (!forgotPasswordRequestSchema.safeParse(body).success) return fail("VALIDATION_ERROR", 422);
+      const body = await request.json() as { email?: string };
+      if (!body.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) return fail("VALIDATION_ERROR", 422);
       if (users.has(body.email) && !deleted.has(body.email)) {
         latestResetToken = crypto.randomUUID();
         resets.set(latestResetToken, { email: body.email, expires: Date.now() + 30 * 60_000, used: false });
@@ -178,7 +154,6 @@ export function createDevelopmentScenario(baseUrl = getApiBaseUrl()) {
     }),
     http.post(`${baseUrl}/auth/reset-password`, async ({ request }) => {
       const body = await request.json() as { token?: string; newPassword?: string };
-      if (!resetPasswordRequestSchema.safeParse(body).success) return fail("VALIDATION_ERROR", 422);
       const reset = body.token && resets.get(body.token);
       if (!reset || reset.used || reset.expires <= Date.now() || !body.newPassword || deleted.has(reset.email)) return fail("VALIDATION_ERROR", 422);
       users.get(reset.email)!.password = body.newPassword;
@@ -189,21 +164,19 @@ export function createDevelopmentScenario(baseUrl = getApiBaseUrl()) {
     // P4 conditional receipt fixture. No artificial physical purge completion.
     http.get(`${baseUrl}/users/me/deletion`, () => receipt ? apiResponse({ status: "LEGAL_HOLD", normalStoragePurgeDueAt: null }) : fail("AUTH_REQUIRED", 401)),
     http.post(`${baseUrl}/auth/signup`, async ({ request }) => {
-      const body = await request.json() as typeof demoProfile;
-      if (!signupRequestSchema.safeParse(body).success) return fail("VALIDATION_ERROR", 422);
+      const body = await request.json() as typeof demoAccount;
+      if (!body.email || !body.password || !body.name) return fail("VALIDATION_ERROR", 422);
       if (users.has(body.email)) return fail("EMAIL_ALREADY_EXISTS", 409);
-      users.set(body.email, { ...body, userId: users.size + 7, language: "ko" });
+      users.set(body.email, { ...body, userId: users.size + 7 });
       stores.set(users.get(body.email)!.userId, createBusinessScenario(baseUrl, false, users.get(body.email)!.userId * 100000));
       return apiResponse({ userId: users.get(body.email)!.userId, email: body.email, name: body.name }, 201);
     }),
     http.post(`${baseUrl}/auth/login`, async ({ request }) => {
-      const body: unknown = await request.json().catch(() => undefined);
-      if (!loginValidator(body)) return fail("VALIDATION_ERROR", 422);
+      const body = await request.json() as typeof demoAccount;
       const user = users.get(body.email);
       if (!user || deleted.has(user.email) || user.password !== body.password) return fail("INVALID_CREDENTIALS", 401);
       receipt = false;
       activeUser = user;
-      activeUser.language = mockLanguage(user.userId);
       document.cookie = `${marker}=${encodeURIComponent(user.email)}; Path=/; SameSite=Lax`;
       return apiResponse(issue());
     }),
@@ -212,21 +185,13 @@ export function createDevelopmentScenario(baseUrl = getApiBaseUrl()) {
       const user = email && users.get(decodeURIComponent(email));
       if (!user || deleted.has(user.email)) return fail("AUTH_REQUIRED", 401);
       activeUser = user;
-      activeUser.language = mockLanguage(user.userId);
       return apiResponse(issue());
     }),
     http.post(`${baseUrl}/auth/logout`, () => { token = ""; clearMockSession(); return new HttpResponse(null, { status: 204 }); }),
     http.all(`${baseUrl}/*`, ({ request }) => {
       if (!token || request.headers.get("Authorization") !== `Bearer ${token}`) return fail("AUTH_REQUIRED", 401);
     }),
-    http.get(`${baseUrl}/users/me`, () => apiResponse({ userId: activeUser.userId, email: activeUser.email, name: activeUser.name, language: activeUser.language })),
-    http.patch(`${baseUrl}/users/me/language`, async ({request}) => {
-      const parsed = languageRequestSchema.safeParse(await request.json().catch(() => null));
-      if (!parsed.success) return fail("VALIDATION_ERROR", 422);
-      activeUser.language = parsed.data.language;
-      document.cookie = `wageitda_mock_language_${activeUser.userId}=${parsed.data.language}; Path=/; SameSite=Lax`;
-      return apiResponse({language: activeUser.language});
-    }),
+    http.get(`${baseUrl}/users/me`, () => apiResponse({ userId: activeUser.userId, email: activeUser.email, name: activeUser.name })),
     http.delete(`${baseUrl}/users/me`, async ({ request }) => {
       const body = await request.json() as { confirmation?: string };
       if (body.confirmation !== "DELETE_ACCOUNT") return fail("VALIDATION_ERROR", 422);

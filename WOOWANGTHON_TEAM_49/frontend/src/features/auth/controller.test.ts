@@ -67,7 +67,7 @@ describe("MSW authentication integration", () => {
       // Node interception reconstructs the Request; fetch init is checked by client unit tests.
       expect(request.headers.has("Authorization")).toBe(false);
       await pending;
-      return apiResponse({ accessToken: "restored-token", tokenType: "Bearer", expiresIn: 1800, user: {userId:1,email:"worker@example.com",name:"Worker"} });
+      return apiResponse({ accessToken: "restored-token" });
     }));
     const first = app.auth.restore();
     const duplicate = app.auth.restore();
@@ -112,7 +112,7 @@ describe("MSW authentication integration", () => {
       http.post(`${testApiUrl}/auth/refresh`, async () => {
         refreshes++;
         await pending;
-        return apiResponse({ accessToken: "rotated-token", tokenType: "Bearer", expiresIn: 1800, user: {userId:1,email:"worker@example.com",name:"Worker"} });
+        return apiResponse({ accessToken: "rotated-token" });
       }),
     );
     const completed = Promise.all([app.authApi.getMe(), app.authApi.getMe(), app.authApi.getMe()]);
@@ -128,12 +128,12 @@ describe("MSW authentication integration", () => {
   it("does not keep a token when current-user verification fails", async () => {
     const app = setup();
     server.use(
-      http.post(`${testApiUrl}/auth/refresh`, () => apiResponse({ accessToken: "restored-token", tokenType: "Bearer", expiresIn: 1800, user: {userId:1,email:"worker@example.com",name:"Worker"} })),
+      http.post(`${testApiUrl}/auth/refresh`, () => apiResponse({ accessToken: "restored-token" })),
       http.get(`${testApiUrl}/users/me`, () => apiResponse({}, 503)),
     );
     await app.auth.restore();
     expect(app.auth.getSnapshot().status).toBe("anonymous");
-    expect(app.auth.getSnapshot().notice).toBe("auth.controller_previous_login_status_confirm_failure_retry");
+    expect(app.auth.getSnapshot().notice).toContain("확인하지 못했습니다");
     expect(app.session.getSnapshot().accessToken).toBeNull();
     expect(app.queryClient.getQueryCache().getAll()).toHaveLength(0);
   });
@@ -161,7 +161,7 @@ describe("MSW authentication integration", () => {
     await vi.waitFor(() => expect(logoutHeader).toBe(`Bearer ${testLogin.accessToken}`));
     release();
     await logout;
-    expect(app.auth.getSnapshot()).toEqual({ status: "anonymous", signedOut: true, notice: "auth.controller_logout" });
+    expect(app.auth.getSnapshot()).toEqual({ status: "anonymous", notice: "로그아웃되었습니다." });
   });
 
   it.each([401, 500])("keeps the client signed out and reports server logout failure (%i) without refreshing", async (status) => {
@@ -170,12 +170,12 @@ describe("MSW authentication integration", () => {
     let refreshes = 0;
     server.use(
       http.post(`${testApiUrl}/auth/logout`, () => apiResponse({}, status)),
-      http.post(`${testApiUrl}/auth/refresh`, () => { refreshes++; return apiResponse({ accessToken: "must-not-restore", tokenType: "Bearer", expiresIn: 1800, user: {userId:1,email:"worker@example.com",name:"Worker"} }); }),
+      http.post(`${testApiUrl}/auth/refresh`, () => { refreshes++; return apiResponse({ accessToken: "must-not-restore" }); }),
     );
     await app.auth.logout();
     await app.auth.restore();
     expect(app.auth.getSnapshot().status).toBe("anonymous");
-    expect(app.auth.getSnapshot().notice).toBe("auth.controller_logout_confirm_failure_retry_login_count");
+    expect(app.auth.getSnapshot().notice).toContain("서버 세션 종료는 확인하지 못했으므로");
     expect(app.session.getSnapshot().accessToken).toBeNull();
     expect(refreshes).toBe(0);
   });
@@ -188,7 +188,7 @@ describe("MSW authentication integration", () => {
     server.use(http.post(`${testApiUrl}/auth/refresh`, async () => {
       started = true;
       await pending;
-      return apiResponse({ accessToken: "late-token", tokenType: "Bearer", expiresIn: 1800, user: {userId:1,email:"worker@example.com",name:"Worker"} });
+      return apiResponse({ accessToken: "late-token" });
     }));
     const restoring = app.auth.restore();
     await vi.waitFor(() => expect(started).toBe(true));

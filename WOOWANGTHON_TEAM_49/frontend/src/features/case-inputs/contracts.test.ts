@@ -1,4 +1,3 @@
-import {createTranslation} from '@/i18n/translate';
 import { describe, expect, it } from "vitest";
 import { server } from "@/test/server";
 import { managementMocks } from "@/mocks/shared/management-handlers";
@@ -6,10 +5,9 @@ import { inputMocks } from "@/mocks/shared/input-handlers";
 import { createAppServices } from "@/lib/app-services";
 import { caseInputsApi } from "./api";
 import { conditionsPutSchema, manualInputSchema, type ManualInput } from "./schemas";
-import {createLocalizedFeaturesCaseInputsManualFields} from './manual-fields';
+import { manualDefaults, manualFormSchema, toManualInput } from "./manual-fields";
 import { documentApi, recomputeActive, recomputeSchema } from "@/features/documents/api";
 
-const {manualDefaults, manualFormSchema, toManualInput} = createLocalizedFeaturesCaseInputsManualFields(createTranslation('ko'));
 const fixtures: ManualInput[] = [
   { recordType: "CONTRACT", data: { hourlyWage: 0, monthlyBasePay: null }, source: "USER_INPUT" },
   { recordType: "ATTENDANCE", data: { workDate: "2026-10-10", clockIn: "2026-10-10T09:00:00+09:00", clockOut: "2026-10-10T18:00:00+09:00", breakMinutes: 60 }, source: "USER_INPUT" },
@@ -109,6 +107,6 @@ describe("input validation and lossless draft conversion", () => {
     expect(conditionsPutSchema.safeParse({ expectedInputVersion: 7, answers: [{ conditionId: "regular_minutes", value: "UNKNOWN" }] }).success).toBe(true);
   });
   it.each(["PARTIAL", "SUCCEEDED", "FAILED", "SUPERSEDED", "CANCELLED"])("stops polling terminal job %s", status => {
-    expect(recomputeActive(recomputeSchema.parse({ caseId:15,currentInputVersion:7,results:{},pending: 0, running: 0, activeJob: null, latestJob: { status } }))).toBe(false);
+    expect(recomputeActive(recomputeSchema.parse({ caseId: 15, pending: 0, running: 0, activeJob: null, latestJob: { status } }))).toBe(false);
   });
 });
