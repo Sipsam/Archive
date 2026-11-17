@@ -58,14 +58,18 @@ git commit -m 'docs(archive): register project sources'
 
 `docs/archive-lfs-known-missing.json`의 13개 OID는 사용자가 의도적으로 삭제했다고 확인한 payload다. 포인터와 과거 커밋은 보존하며 자동 다운로드/복원하지 않는다. validate의 `KNOWN_MISSING`은 경고, `UNEXPECTED_MISSING`은 새로운 이상으로 종료 코드 2를 반환한다. 새로운 누락을 자동 baseline에 추가하지 않는다. 과거 checkout/extract가 실제 LFS 파일을 복구하지 못할 수 있다. bundle만으로 완전 복구 가능하다고 해석하지 않는다.
 
-`security`는 모든 refs와 reflog를 검사하므로 정리 전 객체를 계속 탐지할 수 있다. Push 검사는 대상 tip의 도달 이력만 검사한다. HIGH와 광범위 REVIEW의 차이, 캐시 정책 및 잔존 범위는 [보안 보고서](archive-security-report.md)를 따른다. 검사는 제한된 정규식이며 GitHub 전체 규칙과 같지 않다.
+`security`는 모든 refs와 reflog를 검사하므로 정리 전 객체를 계속 탐지할 수 있다. Push 검사는 대상 tip의 도달 이력만 검사한다. HIGH(키·토큰·개인키 등)는 Push를 차단하고, 광범위한 credential 할당·URL REVIEW는 추가 검토용 진단이다. 제한된 정규식 검사는 모든 비밀정보 부재를 보장하지 않는다. 원본 source를 다시 fetch하면 과거 민감정보가 재유입될 수 있으므로 일반 관리는 origin만 조회한다. 캐시는 Git 공통 디렉터리의 `archive-security-cache/`에 저장되고 검사 코드 해시와 대상 tip으로 무효화된다. 검사 결과에 민감한 원문을 출력하거나 공개하지 않는다.
 
 ## 백업·복원·추출
 
+별도 상시 백업은 필수가 아니다. 다만 실제 `sync`는 적용할 변경이 있을 때 첫 참조 갱신 전에, `promote -Approve`는 적용 전에, `push`와 `push-safe`는 각 실제 Push 전에 외부 복구 백업을 자동 생성한다. 경로는 저장소 루트의 두 단계 상위 아래 `Archive-backups/<sync|promote|push>-<시각>`이다. 현재 `D:\IdeaProjects\Archive`에서는 `D:\Archive-backups`가 된다. 이는 앞으로 명령 실행 시 생성되는 경로이며 현재 존재하는 백업을 뜻하지 않는다. 자동 백업 생략 옵션은 없고 `-WhatIf`에서는 생성하지 않는다. add/update는 시스템 임시 디렉터리에 외부 후보 자료를 만든다. 안전장치는 유지하며, 생성 자료의 검토·보관·삭제는 운영자가 관리한다.
+
+아래는 선택적 수동 백업 예시이며 실제 존재하는 경로가 아니다.
+
 ```powershell
-.\scripts\archive-manager.ps1 backup -Destination D:\Archive-backups\manual-new
-.\scripts\archive-manager.ps1 restore -Bundle D:\Archive-backups\manual-new\archive.bundle -Destination D:\RecoveredProjects\Archive.git -WhatIf
-.\scripts\archive-manager.ps1 restore -Bundle D:\Archive-backups\manual-new\archive.bundle -Destination D:\RecoveredProjects\Archive.git
+.\scripts\archive-manager.ps1 backup -Destination E:\ArchiveRecovery\manual-new
+.\scripts\archive-manager.ps1 restore -Bundle E:\ArchiveRecovery\manual-new\archive.bundle -Destination D:\RecoveredProjects\Archive.git -WhatIf
+.\scripts\archive-manager.ps1 restore -Bundle E:\ArchiveRecovery\manual-new\archive.bundle -Destination D:\RecoveredProjects\Archive.git
 git -C D:\RecoveredProjects\Archive.git fsck --full
 .\scripts\archive-manager.ps1 extract -Project Remory -Branch Remory/main -Destination D:\RecoveredProjects\Remory -WhatIf
 ```
@@ -78,4 +82,4 @@ git -C D:\RecoveredProjects\Archive.git fsck --full
 python -m unittest discover -s scripts/tests -v
 ```
 
-테스트는 GitHub와 연결되지 않은 임시 Git/bare 저장소만 사용한다. 원본 서비스 빌드나 실제 SendGrid 인증 시험은 포함하지 않는다.
+테스트는 GitHub와 연결되지 않은 임시 Git/bare 저장소만 사용한다. 원본 서비스 빌드나 실제 외부 서비스 인증 시험은 포함하지 않는다.
