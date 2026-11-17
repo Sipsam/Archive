@@ -1,0 +1,112 @@
+import { z } from "zod";
+import { caseDocumentSchema, processingSchema } from "../schemas";
+const id = z.number().int().positive();
+export const valueSchema = z.json();
+export const fieldStatusSchema = z.enum(["UNCONFIRMED", "CONFIRMED", "MISSING", "UNREADABLE", "CONFLICTED", "DEFERRED", "NEEDS_RECONFIRMATION"]);
+export const reviewStatusSchema = z.enum(["NOT_STARTED", "IN_PROGRESS", "CONFIRMED"]);
+export const reviewResolutionSchema = z.enum(["NONE", "NOT_IN_DOCUMENT", "UNKNOWN"]);
+export const analysisValueOriginSchema = z.enum(["USER_CONFIRMED", "SYSTEM_EXTRACTED_UNVERIFIED", "NONE"]);
+// Optional only during migration: absence preserves legacy presentation, never implies eligibility.
+export const reviewFieldMetaSchema = z.object({
+ requiresUserReview:z.boolean(), reviewReason:z.enum(["REQUIRED","MISSING","UNREADABLE","CONFLICTED","RECONFIRMATION"]).nullable(),
+ reviewResolution:reviewResolutionSchema, reviewResolved:z.boolean(), usableForAnalysis:z.boolean(), analysisValueOrigin:analysisValueOriginSchema,
+});
+export const reviewSummaryMetaSchema = z.object({
+ totalFieldCount:z.number().int().nonnegative(), confirmedFieldCount:z.number().int().nonnegative(),
+ requiredReviewCount:z.number().int().nonnegative(), resolvedRequiredCount:z.number().int().nonnegative(),
+ pendingRequiredFieldIds:z.array(id), optionalUnconfirmedFieldIds:z.array(id), canCompleteReview:z.boolean(),
+});
+export type ReviewReason = z.infer<typeof reviewFieldMetaSchema>["reviewReason"];
+export type ReviewFieldMeta = z.infer<typeof reviewFieldMetaSchema>;
+export type ReviewSummaryMeta = z.infer<typeof reviewSummaryMetaSchema>;
+export type ReviewResolution = z.infer<typeof reviewResolutionSchema>;
+export type AnalysisValueOrigin = z.infer<typeof analysisValueOriginSchema>;
+export const sourceSchema = z.object({
+  documentId: id, page: id.nullable(), text: z.string().nullable().optional(),
+  boundingBox: z.tuple([z.number(), z.number(), z.number(), z.number()]).nullable().optional(),
+  coordinateSystem: z.string().nullable().optional(),
+});
+export const fieldWireSchema = z.object({
+  ...reviewFieldMetaSchema.partial().shape,
+  agentKey: z.string().nullable().optional(), fieldId: z.number().int(), key: z.string(), label: z.string(), value: valueSchema, valueType: z.string(), status: fieldStatusSchema,
+  editedByUser: z.boolean(), effectiveValueOrigin: z.enum(["SHARED_DEFAULT", "CASE_OVERRIDE"]), hasCaseOverride: z.boolean(),
+  confirmedAt: z.string().nullable(), source: z.record(z.string(),z.json()).nullable(),
+});
+// P0 source is free JSON; interpret optional HTML location metadata separately.
+export const fieldViewSchema = fieldWireSchema.extend({source:sourceSchema.nullable()});
+export const fieldSchema = fieldWireSchema.transform((value): z.infer<typeof fieldViewSchema> & {sourceInterpretation?: "ready" | "interpretation-error";rawSource?: Record<string, z.infer<typeof valueSchema>> | null} => {
+ const source = sourceSchema.safeParse(value.source);
+ return {...value, source:source.success ? source.data : null, sourceInterpretation:source.success ? "ready" : "interpretation-error", rawSource:value.source};
+});
+export const fieldsSchema = z.object({documentId: z.number().int(), caseId: z.number().int(), processingStatus: z.string(), reviewStatus: z.string(), fields: z.array(fieldSchema)});
+export const previewSchema = z.object({
+  documentId: id, mediaType: z.string(), pageCount: id.nullable(),
+  coordinateSystem: z.string().nullable(), rotationDegrees: z.number().nullable(), supportsHighlight: z.boolean(),
+  // previewUrl is intentionally not retained or followed. Only the documented authenticated /file is used.
+});
+const recomputeSchema = z.object({scheduled: z.boolean(), jobId: z.string().nullable().optional(), affectedChecks: z.array(z.string()).optional()});
+export const updateMetaSchema = z.object({
+  inputVersion: id.optional(), affectedCaseIds: z.array(id).optional(), recompute: recomputeSchema.optional(),
+  caseUpdates: z.array(z.object({caseId: id, inputVersion: id, recompute: recomputeSchema.optional()})).optional(),
+});
+// API_REFERENCE CaseMutation is a map keyed by Case ID, not an array.
+// Convert only after validating the wire shape. UI receipts keep an explicit caseId.
+const caseUpdatesWireSchema = z.record(z.string().regex(/^[1-9]\d*$/).refine(key => Number.isSafeInteger(Number(key))), z.object({inputVersion:id, recompute:recomputeSchema})).transform(updates => Object.entries(updates).map(([caseId, update]) => ({caseId:Number(caseId), ...update})));
+const mutationMetaWireSchema = updateMetaSchema.extend({caseUpdates:caseUpdatesWireSchema.optional()});
+export const fieldUpdatedSchema = mutationMetaWireSchema.extend({...reviewFieldMetaSchema.partial().shape, fieldId: id, previousValue:valueSchema, value: valueSchema, status: fieldStatusSchema, editedByUser:z.boolean(), hasCaseOverride:z.boolean(), effectiveValueOrigin:z.enum(["SHARED_DEFAULT","CASE_OVERRIDE"]), affectedCaseIds:z.array(id), caseUpdates:caseUpdatesWireSchema});
+export const caseFieldUpdatedSchema = fieldUpdatedSchema.extend({inputVersion:id, recompute:recomputeSchema, hasCaseOverride:z.literal(true), effectiveValueOrigin:z.literal("CASE_OVERRIDE")});
+// Resolution changes Case review metadata without necessarily creating a value override.
+export const caseResolutionUpdatedSchema = fieldUpdatedSchema.extend({inputVersion:id, recompute:recomputeSchema, ...reviewFieldMetaSchema.shape}).refine(
+ value => value.hasCaseOverride === (value.effectiveValueOrigin === "CASE_OVERRIDE"),
+ {message:"Inconsistent override origin",path:["effectiveValueOrigin"]},
+);
+export const sharedFieldUpdatedSchema = fieldUpdatedSchema.extend({hasCaseOverride:z.literal(false), effectiveValueOrigin:z.literal("SHARED_DEFAULT")});
+export const overrideRemovedSchema = mutationMetaWireSchema.extend({fieldId: id, effectiveValueOrigin: z.literal("SHARED_DEFAULT")});
+// HTML API-047 supplement; P0 only declares free JSON here.
+const historyValueSchema = z.object({value: valueSchema, status: z.string(), origin: z.string().optional(), originalDocumentId: z.number().int().optional()});
+export const historyWireSchema = z.object({historyId: id, scope: z.string(), previous: historyValueSchema, new: historyValueSchema, createdAt: z.string()});
+export const historySchema = historyWireSchema.transform(wire=>({...wire, previousValue:wire.previous.value, newValue:wire.new.value, changedAt:wire.createdAt}));
+export const historyListSchema = z.object({items:z.array(historySchema)});
+export const reviewConfirmedSchema = z.object({...reviewSummaryMetaSchema.partial().shape, processingStatus:processingSchema.optional(), documentId:id, reviewStatus:reviewStatusSchema, unconfirmedFieldIds:z.array(id)}).extend(mutationMetaWireSchema.shape);
+export const reviewSchema = z.object({
+  ...reviewSummaryMetaSchema.partial().shape,
+  documentId: id, caseId: id.optional(), processingStatus: processingSchema, reviewStatus: reviewStatusSchema,
+  confirmedFieldCount: z.number().int().nonnegative().optional(), totalFieldCount: z.number().int().nonnegative().optional(),
+  unconfirmedFieldIds: z.array(id).optional(), reasonCodes: z.array(z.string()).optional(), confirmed: z.boolean().optional(),
+}).extend(mutationMetaWireSchema.shape);
+// OpenAPI fixes the path scalar; response internals below are HTML supplements.
+export const replacementIdSchema = z.number().int();
+export const replacementCreatedSchema = z.object({
+  replacementId: replacementIdSchema, documentId: id.optional(),
+  originalLinkRetained: z.boolean().optional(),
+});
+export const rawFieldSchema = z.object({
+  fieldId: id.optional(), key: z.string().optional(), label: z.string().optional(),
+  value: valueSchema.optional(), valueType: z.string().optional(), status: z.string().optional(),
+  editedByUser: z.boolean().optional(), effectiveValueOrigin: z.string().optional(),
+  hasCaseOverride: z.boolean().optional(), confirmedAt: z.string().nullable().optional(),
+  source: sourceSchema.nullable().optional(),
+});
+export const replacementWireSchema = z.object({
+  replacementId: replacementIdSchema, status: z.string().optional(),
+  original: caseDocumentSchema.nullish(), candidate: caseDocumentSchema.nullish(),
+  fields: z.array(rawFieldSchema).nullish(),
+});
+export function replacementView(wire: z.infer<typeof replacementWireSchema>) {
+  return {...wire, documentId: wire.candidate?.documentId,
+    processingStatus: wire.candidate?.processingStatus,
+    fields: wire.fields ?? undefined};
+}
+export const replacementSchema = replacementWireSchema.transform(replacementView);
+export const replacementConfirmedSchema = mutationMetaWireSchema.extend({
+  documentId: id.optional(), replacementId: replacementIdSchema.optional(), status: z.string().optional(),
+});
+export type ExtractedField = z.infer<typeof fieldSchema>;
+export type FieldValue = z.infer<typeof valueSchema>;
+export type SourceDto = z.infer<typeof sourceSchema>;
+export type PreviewDto = z.infer<typeof previewSchema>;
+export type UpdateMeta = z.infer<typeof updateMetaSchema>;
+export type ReplacementId = z.infer<typeof replacementIdSchema>;
+export interface ReviewContext { caseId: number; workplaceId: number; documentId: number }
+export type FieldPatch = { value?: FieldValue; confirmed?: boolean; reviewResolution?: never } | { reviewResolution: ReviewResolution; value?: never; confirmed?: never };
+export type SharedFieldPatch = { value?: FieldValue; confirmed?: boolean; reviewResolution?: never };

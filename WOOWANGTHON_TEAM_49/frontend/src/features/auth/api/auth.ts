@@ -1,0 +1,50 @@
+import { languageRequestSchema, languageResponseSchema } from '../language';
+import type { BackendLanguage } from '@/i18n/config';
+import { createMemorySession } from "@/features/auth/session";
+import { createApiClient, type ApiClient } from "@/lib/api/client";
+import { protocolError } from "@/lib/api/response";
+
+import { loginResponseSchema, userSchema, signupRequestSchema, forgotPasswordRequestSchema, resetPasswordRequestSchema } from "../schemas";
+import type { LoginRequest, SignupRequest } from "../types";
+import { deletionSchema } from "../deletion";
+
+function decode<T>(schema: { safeParse: (value: unknown) => { success: true; data: T } | { success: false } }) {
+  return (value: unknown): T => {
+    const result = schema.safeParse(value);
+    if (!result.success) throw protocolError();
+    return result.data;
+  };
+}
+
+export function createAuthApi(api: ApiClient, baseUrl: string) {
+  return {
+    signup: (body: SignupRequest, signal?: AbortSignal) => api.requestJson(
+      "/auth/signup", () => undefined, { method: "POST", body: signupRequestSchema.parse(body), auth: "none", signal, expectedStatus: 201 },
+    ),
+    login: (body: LoginRequest, signal?: AbortSignal) => api.requestJson(
+      "/auth/login", decode(loginResponseSchema), { method: "POST", body: { email: body.email, password: body.password }, auth: "none", signal, expectedStatus: 200 },
+    ),
+    forgotPassword: (email: string) => api.requestAccepted("/auth/forgot-password", { method: "POST", body: forgotPasswordRequestSchema.parse({ email }), auth: "none" }),
+    resetPassword: (token: string, newPassword: string) => api.requestNoContent("/auth/reset-password", { method: "POST", body: resetPasswordRequestSchema.parse({ token, newPassword }), auth: "none" }),
+    deleteAccount: () => api.requestAccepted("/users/me", { method: "DELETE", body: { confirmation: "DELETE_ACCOUNT" }, refresh: false }),
+    // Receipt cookie only. Never refresh or send a Bearer credential here.
+    deletionStatus: (signal?: AbortSignal) => api.requestJson("/users/me/deletion", decode(deletionSchema), { auth: "none", refresh: false, expectedStatus: 200, signal }),
+    changeLanguage: (language: BackendLanguage) => api.requestJson('/users/me/language', decode(languageResponseSchema), {method: 'PATCH', body: languageRequestSchema.parse({language}), expectedStatus: 200}),
+    getMe: (signal?: AbortSignal) => api.requestJson("/users/me", decode(userSchema), { signal, expectedStatus: 200 }),
+    async logout(accessToken: string | null) {
+      // Main session is revoked immediately. Keep only this bounded logout request alive.
+      const isolatedSession = createMemorySession();
+      if (accessToken) isolatedSession.start(accessToken);
+      const logoutClient = createApiClient({ baseUrl, session: isolatedSession });
+      try {
+        await logoutClient.requestNoContent("/auth/logout", {
+          method: "POST", refresh: false, signal: AbortSignal.timeout(10_000),
+        });
+      } finally {
+        isolatedSession.clear();
+      }
+    },
+  };
+}
+
+export type AuthApi = ReturnType<typeof createAuthApi>;

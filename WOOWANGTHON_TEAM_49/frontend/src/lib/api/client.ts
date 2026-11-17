@@ -1,0 +1,217 @@
+import {MessageError} from '@/i18n/message-error';
+
+import type { MemorySession } from "@/features/auth/session";
+import { parseApiBaseUrl } from "@/lib/config/env";
+import type { JsonValue } from "@/types/api";
+
+import { ApiError } from "./error";
+import { downloadFilename, type DownloadType } from "./download";
+import { hasMediaType, protocolError, readApiError, readJsonData } from "./response";
+
+export interface ApiRequestOptions {
+  /** A documented success status, checked after HTTP error handling. */
+  expectedStatus?: number;
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  headers?: HeadersInit;
+  body?: JsonValue;
+  formData?: FormData;
+  signal?: AbortSignal;
+  /** Public endpoints (login/refresh/etc.) must opt out of Bearer and refresh. */
+  auth?: "session" | "none";
+  /** For session termination: a 401 must not rotate a cookie and recreate a session. */
+  refresh?: boolean;
+}
+
+interface ClientOptions {
+  baseUrl: string;
+  session: MemorySession;
+  fetch?: typeof fetch;
+  refreshAccessToken?: (signal: AbortSignal) => Promise<string>;
+}
+
+export function createApiClient(options: ClientOptions) {
+  const baseUrl = parseApiBaseUrl(options.baseUrl);
+  const fetcher = options.fetch ?? globalThis.fetch;
+  let refreshFlight: { generation: number; promise: Promise<void> } | undefined;
+
+  function resolvePath(path: string) {
+    const url = new URL(`${baseUrl}${path}`);
+    // A token-bearing client only accepts paths within its configured API prefix.
+    if (
+      !path.startsWith("/") || path.startsWith("//") || path.includes("\\") ||
+      url.origin !== new URL(baseUrl).origin ||
+      !url.pathname.startsWith(`${new URL(baseUrl).pathname.replace(/\/$/, "")}/`) ||
+      url.hash
+    ) {
+      throw new MessageError("errors.client_start");
+    }
+    return url.toString();
+  }
+
+  function assertCurrent(generation: number, signal: AbortSignal) {
+    signal.throwIfAborted();
+    if (options.session.getSnapshot().generation !== generation) {
+      throw new DOMException("errors.client_change", "AbortError");
+    }
+  }
+
+  function refresh(generation: number, signal: AbortSignal): Promise<void> {
+    if (refreshFlight?.generation === generation) return refreshFlight.promise;
+
+    const flight = {
+      generation,
+      promise: Promise.resolve().then(async () => {
+        try {
+          const token = await options.refreshAccessToken!(signal);
+          assertCurrent(generation, signal);
+          if (!options.session.rotate(token, generation)) throw protocolError();
+        } catch (error) {
+          if (options.session.getSnapshot().generation === generation) options.session.clear();
+          throw error;
+        }
+      }).finally(() => {
+        if (refreshFlight === flight) refreshFlight = undefined;
+      }),
+    };
+    refreshFlight = flight;
+    return flight.promise;
+  }
+
+  async function request<T>(
+    path: string,
+    init: ApiRequestOptions,
+    accept: string,
+    read: (response: Response) => Promise<T>,
+  ): Promise<T> {
+    const url = resolvePath(path);
+    const initial = options.session.getSnapshot();
+    const authenticated = init.auth !== "none";
+    const signal = AbortSignal.any([
+      initial.signal,
+      ...(init.signal ? [init.signal] : []),
+    ]);
+
+    const send = async () => {
+      assertCurrent(initial.generation, signal);
+      const headers = new Headers(init.headers);
+      // Callers cannot accidentally retain a previous user's Authorization header.
+      headers.delete("Authorization");
+      headers.set("Accept", accept);
+      const token = authenticated ? options.session.getSnapshot().accessToken : null;
+      if (token) headers.set("Authorization", `Bearer ${token}`);
+      if (init.body !== undefined && init.formData) throw new MessageError("errors.client_count_empty");
+      if (init.formData) headers.delete("Content-Type");
+      else if (init.body !== undefined) headers.set("Content-Type", "application/json");
+
+      let response: Response;
+      try {
+        response = await fetcher(url, {
+          method: init.method ?? "GET",
+          headers,
+          body: init.formData ?? (init.body === undefined ? undefined : JSON.stringify(init.body)),
+          credentials: "include",
+          cache: "no-store",
+          redirect: "error",
+          signal,
+        });
+      } catch (error) {
+        assertCurrent(initial.generation, signal);
+        if (error instanceof Error && error.name === "AbortError") throw error;
+        const failure = new ApiError(0, { kind: "network" });
+        failure.diagnostic = {phase:"network"};
+        throw failure;
+      }
+      assertCurrent(initial.generation, signal);
+      return { response, token };
+    };
+
+    let { response, token } = await send();
+    if (response.status === 401 && authenticated && init.refresh !== false && options.refreshAccessToken) {
+      await response.body?.cancel();
+      // A delayed 401 for an old token must reuse the already refreshed token.
+      if (options.session.getSnapshot().accessToken === token) {
+        // Caller cancellation must not cancel the shared refresh for other requests.
+        await refresh(initial.generation, initial.signal);
+      }
+      assertCurrent(initial.generation, signal);
+      ({ response, token } = await send());
+    }
+
+    if (!response.ok) {
+      const error = await readApiError(response);
+      error.diagnostic = {phase:"http",httpStatus:response.status};
+      assertCurrent(initial.generation, signal);
+      if (response.status === 401 && authenticated) options.session.clear();
+      throw error;
+    }
+
+    let result: T;
+    try { result = await read(response); }
+    catch (error) {
+      if (error instanceof ApiError && error.kind === "protocol") {
+        const wrapped = new ApiError(response.status, {kind: "protocol"});
+        wrapped.diagnostic = {...error.diagnostic, phase: error.diagnostic?.phase ?? "dto", httpStatus: response.status,
+          endpointTemplate: path.split("?")[0].split("/").map(part => /^\d+$/.test(part) ? "{id}" : ["cases","workplaces","documents","chats","reports","conditions","questions","results","auth","refresh","login","consultation-centers","company-inquiry","messages","preview","file"].includes(part) || !part ? part : "*").join("/")};
+        throw wrapped;
+      }
+      throw error;
+    }
+    assertCurrent(initial.generation, signal);
+    return result;
+  }
+
+  return {
+    /** Startup restoration and reactive 401s share the same per-session flight. */
+    refreshSession(): Promise<void> {
+      if (!options.refreshAccessToken) return Promise.reject(protocolError());
+      const snapshot = options.session.getSnapshot();
+      return refresh(snapshot.generation, snapshot.signal);
+    },
+    /** A feature-level schema validates data; no unchecked requestJson<T> assertion. */
+    requestJson<T>(path: string, decode: (data: unknown) => T, init: ApiRequestOptions = {}) {
+      return request(path, init, "application/json", async (response) => {
+        if (init.expectedStatus !== undefined && response.status !== init.expectedStatus) throw protocolError();
+        return decode(await readJsonData(response));
+      });
+    },
+    requestNoContent(path: string, init: ApiRequestOptions = {}): Promise<void> {
+      return request(path, init, "application/json", async (response) => {
+        if (response.status !== 204) throw protocolError();
+      });
+    },
+    /** An accepted operation whose P0 contract does not specify a response DTO. */
+    requestAccepted(path: string, init: ApiRequestOptions = {}): Promise<void> {
+      return request(path, init, "application/json", async (response) => {
+        if (response.status !== 202) throw protocolError();
+        await response.body?.cancel();
+      });
+    },
+    requestBlob(path: string, init: ApiRequestOptions = {}): Promise<Blob> {
+      return request(path, init, "application/octet-stream, application/pdf, application/zip, image/*", async (response) => {
+        const mediaType = response.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase();
+        if (
+          response.status !== 200 ||
+          !mediaType ||
+          (!["application/octet-stream", "application/pdf", "application/zip"].includes(mediaType) && !mediaType.startsWith("image/"))
+        ) throw protocolError();
+        return response.blob();
+      });
+    },
+    requestDownload(path: string, type: DownloadType, fallback: string, init: ApiRequestOptions = {}) {
+      return request(path, init, type, async (response) => {
+        if (response.status !== 200 || !hasMediaType(response, type)) throw protocolError();
+        const blob = await response.blob();
+        if (!blob.size) throw protocolError();
+        return { blob, filename: downloadFilename(response.headers.get("Content-Disposition"), fallback, type) };
+      });
+    },
+    requestSse(path: string, init: ApiRequestOptions = {}): Promise<ReadableStream<Uint8Array>> {
+      return request(path, init, "text/event-stream", async (response) => {
+        if (response.status !== (init.expectedStatus ?? 200) || !hasMediaType(response, "text/event-stream") || !response.body) throw protocolError(response.status, hasMediaType(response,"text/event-stream") ? "sse" : "media-type");
+        return response.body;
+      });
+    },
+  };
+}
+
+export type ApiClient = ReturnType<typeof createApiClient>;

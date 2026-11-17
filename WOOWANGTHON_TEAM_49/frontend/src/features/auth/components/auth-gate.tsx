@@ -1,0 +1,40 @@
+"use client";
+import { useTranslation } from '@/i18n/use-translation';
+
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, type ReactNode } from "react";
+
+import { useAuth } from "../hooks/use-auth";
+import { loginHref, safeReturnTo } from "../redirect";
+import { AuthPending } from "./auth-pending";
+
+/** Presentation guard only. Backend ownership checks remain authoritative. */
+export function AuthGate({ mode, children }: { mode: "guest" | "protected"; children: ReactNode }) {
+ const {translate} = useTranslation();
+
+  const { status, signedOut } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const search = params.toString();
+  const returnTo = safeReturnTo(params.get("next"));
+
+  useEffect(() => {
+    if (mode === "protected" && status === "deletion-accepted") {
+      router.replace("/account-deletion");
+    } else if (mode === "protected" && status === "anonymous") {
+      router.replace(signedOut ? "/" : loginHref(`${pathname}${search ? `?${search}` : ""}`));
+    } else if (mode === "guest" && status === "authenticated") {
+      router.replace(returnTo);
+    }
+  }, [mode, status, signedOut, router, pathname, search, returnTo]);
+
+  const allowed = mode === "protected" ? status === "authenticated" : status === "anonymous" || status === "deletion-accepted";
+  if (!allowed) {
+    const title = status === "signing-out" ? translate("auth.authGate_logout")
+      : status === "authenticated" ? translate("auth.authGate_login")
+        : status === "anonymous" ? translate("auth.authGate_login_required") : undefined;
+    return <AuthPending fullPage={mode === "protected"} title={title} />;
+  }
+  return children;
+}

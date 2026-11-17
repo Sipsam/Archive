@@ -1,0 +1,44 @@
+"use client";
+import {useLocalized} from '@/i18n/use-translation';
+import {createLocalizedFeaturesCasesViewModels} from '../view-models';
+
+import { useTranslation } from '@/i18n/use-translation';
+
+import Link from "next/link";
+import { Building2 } from "lucide-react";
+import styles from "./case-workspace.module.css";
+import { usePathname } from "next/navigation";
+import { useCase } from "../queries";
+
+import { useCaseProgress } from "../use-case-progress";
+export function TaskNavigation({ id }: { id: number }) {
+ const {translate} = useTranslation();
+
+  const pathname = usePathname();
+  const query = useCase(id);
+  const dto = query.data;
+  const progress = useCaseProgress(dto);
+  const steps = [["", translate("cases.caseContext_taskNavigation_steps"), ""], ["upload", translate("cases.caseContext_record"), "UPLOAD"], ["review", translate("cases.caseContext_content_confirm"), "REVIEW"], ["conditions", translate("cases.caseContext_confirm"), "CONDITIONS"], ["result", translate("cases.caseContext_result_record_comparison"), "RESULT"]];
+  const current = steps.findIndex(step => step[2] === (progress?.next === "COMPARE" ? "RESULT" : progress?.next));
+  return <div className={styles.stickyNavigation}><nav aria-label={translate("cases.caseContext_case")} className={`case-task-navigation ${styles.navigation}`}>{steps.map(([path, label], index) => {
+    const href = `/cases/${id}${path ? `/${path}` : ""}`;
+    const active = pathname === href || (path === "upload" && pathname === `/cases/${id}/manual-records`);
+    const status = !dto ? translate("cases.caseContext_status_confirm") : path === "" ? translate("cases.caseContext_all") : path === "conditions" && progress?.conditionsComplete === true ? translate("cases.viewModels_complete") : path === "review" && progress?.reviewComplete === true ? translate("cases.caseContext_review_complete") : path === "review" && progress?.reviewComplete === false ? translate("cases.caseContext_confirm_required") : path === "upload" && dto.documentCount > 0 ? translate("cases.caseContext_create", { value1: dto.documentCount }) : path === "result" && dto.latestCalculationId !== null ? translate("cases.caseContext_result") : index === current ? translate("cases.caseContext_current_progress_step") : translate("cases.caseContext_progress");
+    return <Link key={href} href={href} aria-current={active ? "page" : undefined} className="workspace-nav-link border border-border"><span>{label}</span><small>{status}</small></Link>;
+  })}</nav></div>;
+}
+export function CaseContext({ id, showStep = true }: { id: number; showStep?: boolean }) {
+const {caseCard} = useLocalized(createLocalizedFeaturesCasesViewModels);
+
+ const {translate} = useTranslation();
+
+  const pathname = usePathname();
+  const query = useCase(id);
+  const progress = useCaseProgress(query.data);
+  const item = query.data ? caseCard({...query.data, currentStep: progress?.next ?? query.data.currentStep}) : null;
+  // The overview presents its own case header and the same task navigation.
+  if (pathname === `/cases/${id}`) return null;
+  return <section aria-label={translate("cases.caseContext_current_wageCase")} className={styles.context}>
+    {item && <div className={styles.contextMeta}><div className={styles.contextIdentity}><Link href={`/workplaces/${query.data!.workplaceId}`} className="inline-flex min-h-11 items-center font-bold"><Building2 size={17} aria-hidden="true" />{item.workplaceName}</Link><p className="text-body text-muted">{item.period} · {item.payType}</p></div>{showStep && <p className={styles.contextStep}>{translate("cases.caseCards_current_2", { value1: item.step })}</p>}</div>}
+  </section>;
+}
