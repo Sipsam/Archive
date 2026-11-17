@@ -5,3 +5,9 @@ data/lol_assignment_dataset/
 kobert-finetuned-fold*/
 2025-01-OpenSWBasicProject/backend/kobert-finetuned-fold*/
 .idea/
+
+# Archive manager transient artifacts (backups belong outside this repository)
+/scripts/__pycache__/
+/scripts/tests/__pycache__/
+/.archive-manager/
+*.bundle
