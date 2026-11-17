@@ -1,0 +1,108 @@
+[
+  {
+    "branch": "2025-02-OpenSWDevProject/frontend",
+    "old": "4991b00f914fcabc340f9717a23d1b91e331d91f",
+    "remote": "70a763d32f4aceb80a37002051b738d77e815c13",
+    "new": "6589daa3184d9663b56600f3287d6e1b53e6008f",
+    "tree": "adbc1fc77d98110ba16f0cc7f5dd38577b984c96",
+    "strategy": "normal merge-tree; unchanged local tree; both tips reachable",
+    "pushed": false
+  },
+  {
+    "branch": "2026_04_animal_league/frontend",
+    "old": "b378f62b1f5a035eb4e8878670ebf95252f0c80d",
+    "remote": "608bfe67d0c2eba25f708c06e8e9a4f6383fe3ef",
+    "new": "87702df627c3ea1978b936a6ac76ce7df00c3a7f",
+    "tree": "2aa9462f121e884337aad606b063accafbe753bb",
+    "strategy": "normal merge-tree; unchanged local tree; both tips reachable",
+    "pushed": false
+  },
+  {
+    "branch": "2026_14th_final_study_BE/backup/week8-jangsungwon-before-merge",
+    "old": "4b26e4429a55857e3a46a13767d103eb2dbfc230",
+    "remote": "c201f4a481cb9db704e4469ed0c92a7273407414",
+    "state": "HELD",
+    "reason": "normal merge conflict; no ref change"
+  },
+  {
+    "branch": "2026_14th_final_study_BE/week8/issue-6-jangsungwon",
+    "old": "0d9b3e18090666ffb91d4cd1809ed7eff25e30ea",
+    "remote": "f7eb37f2f2f6d2964b4eea0236b34b34b58927d9",
+    "new": "cb7d9cab6e4d97af905de7e51e6bedbca697678f",
+    "tree": "d928ce88cb7de2e8e4e7feb9aaddfcc5d0f35440",
+    "strategy": "normal merge-tree; unchanged local tree; both tips reachable",
+    "pushed": false
+  },
+  {
+    "branch": "2026_KIT_Vibe/backend",
+    "old": "8e0fb1af1a31ee602ec7e92e53433686800c0e42",
+    "remote": "ae2eccf3c7f726993cd00e277746a1f424cab249",
+    "new": "6e7a6b5e9fcb14d2f936c8f9df19e0fd9c4c7f80",
+    "tree": "11dd6418f9f29b520c8eb1c8993a1f531a65feaa",
+    "strategy": "normal merge-tree; unchanged local tree; both tips reachable",
+    "pushed": false
+  },
+  {
+    "branch": "2026_KIT_Vibe/frontend",
+    "old": "c8e47f137d5630a9ca5d7144783a2480590fafc3",
+    "remote": "85d37d0ecc75f42690015da3371648c299389658",
+    "new": "f2a607db2d91806ebc36cbd2844ad0fa62527f7b",
+    "tree": "2ee6e201125405c9a56f1f797bf66f83a95cfe2c",
+    "strategy": "normal merge-tree; unchanged local tree; both tips reachable",
+    "pushed": false
+  },
+  {
+    "branch": "2026_likelion_study/week4/장성원",
+    "old": "2a5c0e6ff3f3a3d7333e2162b7636f789b8e9ed1",
+    "remote": "d17fcbb30da2674f1871033832067811e123bbb5",
+    "new": "43c3510c5d853c51a7bda579d0aeac129937f5c3",
+    "tree": "d6e1aaaed8867b9361d827b9d6b0905b972b5225",
+    "strategy": "normal merge-tree; unchanged local tree; both tips reachable",
+    "pushed": false
+  },
+  {
+    "branch": "Remory/backend/feat-ai-service",
+    "old": "69bf57aa4da57856263dd5bbd8c9ef0bd0a2639b",
+    "remote": "cd1b0f12682408cfea7b03c1a0664f49d78e5fa4",
+    "new": "f138aba03be7bfd2b8df1761fb25125951f821ad",
+    "tree": "cbefe7b6e7f0bd1820a94793382512e0a126b32a",
+    "strategy": "normal merge-tree; unchanged local tree; both tips reachable",
+    "pushed": false
+  },
+  {
+    "branch": "Remory/backend/feat-ai-voice-pipeline",
+    "old": "d978a724440c998cfbee8008a4cb79bc3207d802",
+    "remote": "8f790633bfd9e6339b8062e7007597a794e79611",
+    "new": "095f9618f60d4a193d9984e46c79cc012ccba50d",
+    "tree": "109f1906aef346b3f556fbef42c5ed89b86ea0ef",
+    "strategy": "normal merge-tree; unchanged local tree; both tips reachable",
+    "pushed": false
+  },
+  {
+    "branch": "Remory/backend/feat-consent-log",
+    "old": "c125e76bd13a9e5d0e75fb46b0701811c55ad065",
+    "remote": "7c81cfb2d6ca6aac92a40d7907d441f672373a14",
+    "new": "b6eed2e5dfab22de85d4a641c7e485b9f3469143",
+    "tree": "c091375f9436c7a42d50e0f7c6894fbae82d6115",
+    "strategy": "normal merge-tree; unchanged local tree; both tips reachable",
+    "pushed": false
+  },
+  {
+    "branch": "Remory/backend/feat-target-verification",
+    "old": "060b4fb6fdb7f02c254008ecf98645ef438b0c62",
+    "remote": "55d43da719f27652f8fd41dbeab66b03bbeba7f7",
+    "new": "d0a21c3acc455d8f15233c027234e626b09d7505",
+    "tree": "8d4238a86c9353c139ba67c20b06a3a6830bc4d4",
+    "strategy": "normal merge-tree; unchanged local tree; both tips reachable",
+    "pushed": false
+  },
+  {
+    "branch": "Remory/demo",
+    "old": "e151fac9bc13809fab69517621bc8d3dba3fb6a6",
+    "remote": "f65c55266f9856248a8b2889489814d58228673c",
+    "new": "309e36b6fa20cc0776190187e1e29c2fea83614e",
+    "tree": "085a6f7d9ad287879e1c91e58d04447cc3c06f66",
+    "strategy": "normal merge-tree; unchanged local tree; both tips reachable",
+    "pushed": false
+  }
+]

@@ -1,0 +1,18 @@
+{
+  "branch": "2026_14th_final_study_BE/backup/week8-jangsungwon-before-merge",
+  "local": "4b26e4429a55857e3a46a13767d103eb2dbfc230",
+  "remote": "c201f4a481cb9db704e4469ed0c92a7273407414",
+  "mergeBase": "b12cdb4bfe226871d0d388e1e8e2b9e49e8eed15",
+  "new": "2a148a9b6e1ddd129bf6acc277bc88c601a5e40c",
+  "projectTreesIdentical": true,
+  "remoteChanges": [
+    "Project changes since merge base; project tip trees identical on both sides"
+  ],
+  "resolution": "Retain local Archive ignore rules; full local snapshot unchanged; both parents retained",
+  "worktree": "D:\\Archive-backups\\finish-20261117\\conflict-worktree",
+  "pushed": false,
+  "conflicts": [
+    "Archive root .gitignore modify/delete"
+  ],
+  "projectExternalChangesFromBaseToRemote": []
+}

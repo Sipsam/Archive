@@ -1,0 +1,78 @@
+{
+  "historical": true,
+  "phase": "Before second-pass sanitization",
+  "objects": 18406,
+  "counts": {
+    "Credential assignment (review)": 886,
+    "SendGrid": 3,
+    "Credential URL (review)": 50
+  },
+  "highFindings": [
+    {
+      "type": "SendGrid",
+      "object": "4411213a11297334430705365c05dd3653f7618a",
+      "objectType": "blob",
+      "path": "2025-02-OpenSWDevProject/src/main/java/com/dev/dev/service/EmailService.java",
+      "line": 15,
+      "severity": "HIGH",
+      "classification": "candidate; validity and revocation unverified",
+      "changeCommits": [
+        "19917b536a786c3a7b642ae20974093063aaaa1a",
+        "71a6366d0def2e99b74d8ce78dc00094c875d1c5",
+        "75ce12a9b96c229ae74e2bc4f5f9cbb97d623bb9",
+        "7a68355904be39a12a8751b805d1326dc3c37d53",
+        "a94a12ae7ab97b482f117a7a5ad46d8649edc97e",
+        "de0f2b16af4fc9a374a1ed3958b1ac933c067b1d",
+        "f69fe42e507d46ec0567c6331a1e74746743e567"
+      ],
+      "affectedRefs": [
+        "refs/heads/2025-02-OpenSWDevProject/backend",
+        "refs/heads/backup/openswdev-backend-after-merge",
+        "refs/heads/backup/reconcile-2025-02-OpenSWDevProject-backend",
+        "refs/heads/security/openswdev-backend-env",
+        "refs/remotes/repo-2025-02/backend"
+      ]
+    },
+    {
+      "type": "SendGrid",
+      "object": "3679751113838d756dfe6339d48c4480b7077c35",
+      "objectType": "blob",
+      "path": "src/main/java/com/dev/dev/service/EmailService.java",
+      "line": 15,
+      "severity": "HIGH",
+      "classification": "candidate; validity and revocation unverified",
+      "changeCommits": [
+        "f69fe42e507d46ec0567c6331a1e74746743e567",
+        "fcfc6585123acd0e9089c4dbb6c823d1e03fa364"
+      ],
+      "affectedRefs": [
+        "refs/heads/2025-02-OpenSWDevProject/backend",
+        "refs/heads/backup/openswdev-backend-after-merge",
+        "refs/heads/backup/reconcile-2025-02-OpenSWDevProject-backend",
+        "refs/heads/security/openswdev-backend-env",
+        "refs/remotes/repo-2025-02/backend"
+      ]
+    },
+    {
+      "type": "SendGrid",
+      "object": "07ed128de99726d4de7fe5925fc111ff8a92ce98",
+      "objectType": "blob",
+      "path": "src/main/java/com/dev/dev/service/EmailService.java",
+      "line": 15,
+      "severity": "HIGH",
+      "classification": "candidate; validity and revocation unverified",
+      "changeCommits": [
+        "43f7ad36ec0fb23a9c4512721b9d419d9491b6ff",
+        "fcfc6585123acd0e9089c4dbb6c823d1e03fa364"
+      ],
+      "affectedRefs": [
+        "refs/heads/2025-02-OpenSWDevProject/backend",
+        "refs/heads/backup/openswdev-backend-after-merge",
+        "refs/heads/backup/reconcile-2025-02-OpenSWDevProject-backend",
+        "refs/heads/security/openswdev-backend-env",
+        "refs/remotes/repo-2025-02/backend"
+      ]
+    }
+  ],
+  "fullMetadataBackup": "D:/Archive-backups/finish-20261117/working-docs/archive-security-findings.json"
+}

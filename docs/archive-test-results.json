@@ -1,0 +1,7 @@
+{
+  "tests": 17,
+  "passed": 17,
+  "exit": 0,
+  "powershell": "Windows PowerShell 5.1: 15 command WhatIf checks passed",
+  "log": "D:\\Archive-backups\\finish-20261117\\tests-final.txt"
+}
