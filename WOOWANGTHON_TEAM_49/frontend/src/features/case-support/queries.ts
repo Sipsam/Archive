@@ -4,12 +4,14 @@ import { useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useSessionScope } from "@/hooks/use-session-scope";
 import { useCaseRemoval } from "@/features/cases/queries";
+import { documentApi } from "@/features/documents/api";
+import { documentKeys } from "@/features/documents/query-keys";
 import { businessKeys } from "@/lib/query/business-keys";
 import { supportApi } from "./api";
 import type { Report } from "./schemas";
 import { MessageError } from "@/i18n/message-error";
 
-export { useReportDocuments } from "./use-report-documents";
+export type CenterFilters = { category: string; page: number };
 
 const reportKeys = {
   root: (generation: number, caseId: number) => [...businessKeys.case(generation, caseId), "reports"],
@@ -54,19 +56,18 @@ export function useReport(caseId: number, initial: Report) {
   });
 }
 
-export function useCreateReport(caseId: number, availableDocumentIds: readonly number[], onSuccess: (report: Report) => void, source?:{save:()=>Promise<{version:number}>;fingerprint:string}) {
+export function useCreateReport(caseId: number, availableDocumentIds: readonly number[], onSuccess: (report: Report) => void) {
   const scope = useSupportScope(caseId);
   const retry = useRef<{ body: string; key: string } | null>(null);
   return useMutation({
     gcTime: 0,
-    mutationFn: async (documentIds: number[]) => {
+    mutationFn: (documentIds: number[]) => {
       if (documentIds.some(id => !availableDocumentIds.includes(id))) {
         throw new MessageError("caseSupport.screens_selected_original_retry_confirm");
       }
-      const draft=await source?.save();
-      const body = JSON.stringify({documentIds,draftVersion:draft?.version,basis:source?.fingerprint});
+      const body = JSON.stringify(documentIds);
       if (retry.current?.body !== body) retry.current = { body, key: crypto.randomUUID() };
-      return supportApi(scope.api).create(caseId, documentIds, retry.current.key,draft?.version);
+      return supportApi(scope.api).create(caseId, documentIds, retry.current.key);
     },
     onSuccess: async report => {
       if (scope.session.getSnapshot().generation !== scope.generation) return;
@@ -77,3 +78,31 @@ export function useCreateReport(caseId: number, availableDocumentIds: readonly n
   });
 }
 
+export function useRegisteredCenters(filters: CenterFilters) {
+  const scope = useSessionScope();
+  return useQuery({
+    queryKey: [...businessKeys.root(scope.generation), "consultation-centers", filters],
+    enabled: scope.enabled,
+    queryFn: ({ signal }) => supportApi(scope.api).centers("", filters.category, filters.page, signal),
+  });
+}
+
+/** Load all server pages so local selection and validation share the same scope. */
+export function useReportDocuments(caseId: number) {
+  const s = useSupportScope(caseId);
+  const context = { kind: "case", id: caseId } as const;
+  return useQuery({
+    queryKey: [...documentKeys.lists(s.generation), "report-selection", caseId],
+    enabled: s.enabled,
+    queryFn: async ({ signal }) => {
+      const api = documentApi(s.api);
+      const first = await api.list(context, { page: 1, size: 100 }, signal);
+      const items = [...first.items];
+      for (let page = 2; (page - 1) * first.size < first.total; page++) {
+        const next = await api.list(context, { page, size: 100 }, signal);
+        items.push(...next.items);
+      }
+      return { ...first, items };
+    },
+  });
+}

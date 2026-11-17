@@ -121,5 +121,5 @@ it("focuses the required field and recovers from a registration error", async ()
   fireEvent.click(screen.getByRole("button", { name: "근무지 등록" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "근무지 등록" })).toBeEnabled());
   expect(navigation.replace).not.toHaveBeenCalled();
-  expect(await screen.findByRole("alert")).toBeVisible();
+  expect(screen.getByRole("alert")).toBeVisible();
 });

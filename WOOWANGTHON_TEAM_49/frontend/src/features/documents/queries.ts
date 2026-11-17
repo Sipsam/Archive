@@ -8,16 +8,15 @@ import { useSessionScope } from "@/hooks/use-session-scope";
 import { documentKeys, type RecomputeReceipt } from "./query-keys";
 import { businessKeys } from "@/lib/query/business-keys";
 import { useRemovalState } from "@/lib/query/use-removal-state";
-import { observeRecompute, type RecomputeObservation } from "./recompute-observation";
 import { documentApi, recomputeActive } from "./api";
 import type { DocumentContext, DocumentDto, DocumentFilters, LinkInput } from "./schemas";
 
 export { documentKeys } from "./query-keys";
 
-export function useDocuments(context: DocumentContext, filters: DocumentFilters, enabled = true) {
+export function useDocuments(context: DocumentContext, filters: DocumentFilters) {
   const s = useSessionScope();
   const removal = useRemovalState(context.kind === "library" ? ["unused-removal"] : [...(context.kind === "case" ? businessKeys.case(s.generation, context.id) : businessKeys.workplace(s.generation, context.id)), "remove"]);
-  return useQuery({ queryKey: documentKeys.list(s.generation, context, filters), queryFn: ({ signal }) => documentApi(s.api).list(context, filters, signal), enabled: s.enabled && enabled && !removal.pending && !removal.removed });
+  return useQuery({ queryKey: documentKeys.list(s.generation, context, filters), queryFn: ({ signal }) => documentApi(s.api).list(context, filters, signal), enabled: s.enabled && !removal.pending && !removal.removed });
 }
 export function useDocumentStatus(context: DocumentContext, dto: DocumentDto) {
 const {isProcessing} = useLocalized(createLocalizedFeaturesDocumentsViewModels);
@@ -50,12 +49,7 @@ export function useRecomputeStatus(caseId: number) {
   const unobserved = (data: Awaited<ReturnType<ReturnType<typeof documentApi>["recompute"]>> | undefined) => !!receipt.data && data?.activeJob?.jobId !== receipt.data.jobId && data?.latestJob?.jobId !== receipt.data.jobId;
   const query = useQuery({ queryKey: documentKeys.recompute(s.generation, caseId), queryFn: async ({ signal }) => {
       const result = await documentApi(s.api).recompute(caseId, signal);
-      if (signal.aborted || s.session.getSnapshot().generation !== s.generation) return result;
-      const key = documentKeys.recomputeObservation(s.generation, caseId);
-      const previous = s.queryClient.getQueryData<RecomputeObservation>(key);
-      const observation = observeRecompute(previous, result, s.queryClient.getQueryData<RecomputeReceipt>(documentKeys.recomputeHint(s.generation, caseId))?.jobId);
-      s.queryClient.setQueryData(key, observation.state);
-      if (observation.refresh) {
+      if (!recomputeActive(result)) {
         // Existing result snapshots remain visible while the final server versions refresh.
         void s.queryClient.invalidateQueries({ queryKey: businessKeys.case(s.generation, caseId), predicate: q => q.queryKey.includes("readiness") || q.queryKey.includes("results") || q.queryKey.includes("deposit-comparison") || q.queryKey.includes("questions") || q.queryKey.includes("reports") });
       }
@@ -63,7 +57,7 @@ export function useRecomputeStatus(caseId: number) {
     }, enabled: s.enabled && !removal.pending && !removal.removed,
     refetchInterval: q => q.state.error ? false : q.state.data && recomputeActive(q.state.data) ? 2000
       : unobserved(q.state.data) && Date.now() - receipt.data!.receivedAt < 15_000 ? 2000 : false });
-  return { ...query, awaitingScheduledJob: unobserved(query.data), scheduledJobTimedOut: unobserved(query.data) && query.dataUpdatedAt - receipt.data!.receivedAt >= 15_000 };
+  return { ...query, awaitingScheduledJob: unobserved(query.data) };
 }
 export type DocumentAction =
  | { type: "upload"; context: Exclude<DocumentContext, {kind: "library"}>; file: File; documentType: string; signal: AbortSignal }

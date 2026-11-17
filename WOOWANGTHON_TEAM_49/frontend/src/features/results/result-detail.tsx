@@ -6,7 +6,6 @@ import {createLocalizedFeaturesResultsViewModels} from './view-models';
 
 import { useTranslation } from '@/i18n/use-translation';
 
-import { ResultReasons } from "./result-reasons";
 import Link from "next/link";
 import { ArrowDownUp, ArrowRight } from "lucide-react";
 import type { Results } from "./schemas";
@@ -37,7 +36,7 @@ const {displayScalar, statusLabels} = useLocalized(createLocalizedFeaturesResult
   const basis = record(card.data.comparisonBasis) ?? card.period;
   const mismatched = basis?.semanticMatch === false;
   const sources = Array.isArray(card.data.sources) ? card.data.sources : [];
-  const displayed = new Set([...columns.flat().map(v => v.key), ...metadataKeys, "difference", "formula", "comparisonBasis", "sources", "status", "type", "label", "title", "currency", "periodStart", "periodEnd", "nextAction", "reasonCode", "reasonCodes"]);
+  const displayed = new Set([...columns.flat().map(v => v.key), ...metadataKeys, "difference", "formula", "comparisonBasis", "sources", "status", "type", "label", "title", "currency", "periodStart", "periodEnd", "nextAction"]);
   const remaining = Object.fromEntries(Object.entries(card.data).filter(([key]) => !displayed.has(key)));
   const tone = card.status;
   return <article data-result-detail tabIndex={-1} aria-label={translate("results.resultDetail_detail", { value1: card.title })} className={styles.detail}>
@@ -51,14 +50,13 @@ const {displayScalar, statusLabels} = useLocalized(createLocalizedFeaturesResult
     </div>
     {"difference" in card.data && <p className={styles.difference} data-status={tone}>{mismatched ? translate("results.resultComparisonTable_comparison_basis_confirm_required") : <><strong>{displayScalar(card.data.difference, "difference", card.unit)}</strong><span>{translate("results.resultComparisonTable_difference")}</span></>}</p>}
     <p className={styles.guidance}>{mismatched ? translate("results.resultDetail_period_unit_match_comparison_basis_confirm") : card.status === "DIFFERENCE" ? translate("results.resultDetail_record_original_add_confirm") : card.status === "MATCH" ? translate("results.resultDetail_current_comparison_record_match") : card.status === "INSUFFICIENT_INFORMATION" ? translate("results.resultDetail_confirm_original_input") : card.status === "REVIEW_REQUIRED" ? translate("results.resultDetail_original_applicable_review") : translate("results.resultDetail_calculation_use_applicable_confirm")}</p>
-    {card.status==="INSUFFICIENT_INFORMATION"&&(groupId==="deposit"||groupId==="validation")&&<p className={styles.guidance}>{translate(groupId==="deposit"?"results.resultDetail_depositRequirements":"results.resultDetail_validationRequirements")}</p>}
-    <ResultReasons caseId={caseId} data={card.data}/>
     {groupId !== "calculation" && <p className={styles.disclaimer}>{translate("results.resultDetail_difference_current_comparison_scope_unpaid_wage")}</p>}
     <section className={styles.section} aria-label={translate("results.resultDetail_original_evidence")}><h4 className={styles.sourceHeading}><span>{translate("results.resultDetail_original_evidence")}</span>{!sources.length&&<Link href={`/cases/${caseId}/review`}>{translate("results.resultDetail_document_review_navigate")}<ArrowRight size={14} aria-hidden="true"/></Link>}</h4>
       {sources.length ? <div className={styles.sources}>{sources.map((source, index) => <SourceEvidence key={index} caseId={caseId} value={record(source) ?? {}} compact/>)}</div> : <p className={styles.empty}>{translate("results.resultDetail_result_link_original_evidence_notProvided")}</p>}
     </section>
     {Object.keys(remaining).length > 0 && <section className={`${styles.section} ${styles.additional}`} aria-label={translate("results.resultDetail_add_information")}><h4>{translate("results.resultDetail_add_information")}</h4><ServerValue caseId={caseId} value={remaining} unit={card.unit}/></section>}
     {typeof card.data.nextAction === "string" && <p className={styles.nextAction}>{card.data.nextAction}</p>}
+    <details className={styles.section}><summary>?????? ???????? ??</summary><ServerValue caseId={caseId} value={card.data} unit={card.unit}/><ServerValue caseId={caseId} value={card.version}/></details>
     <footer className={styles.actions}><Link href={`/cases/${caseId}/questions`}>{translate("results.resultDetail_confirm_question")}<ArrowRight size={16} aria-hidden="true"/></Link><button type="button" aria-label={translate("results.resultDetail_confirm_detail_close")} onClick={onClose}>{translate("results.resultDetail_confirm")}</button></footer>
   </article>;
 }

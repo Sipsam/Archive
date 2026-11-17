@@ -13,7 +13,6 @@ export function ReportPdfPreview({file,onClose}:{file:{blob:Blob;filename:string
   const {translate}=useTranslation();
   const url=useObjectUrl(file.blob), dialog=useRef<HTMLDialogElement>(null), printer=useRef<HTMLIFrameElement>(null);
   const [page,setPage]=useState(1),[pages,setPages]=useState<number|null>(null),[printReady,setPrintReady]=useState(false),[printError,setPrintError]=useState(false);
-  const [zoom,setZoom]=useState(1);
   const onRendered=useCallback(()=>{},[]);
   useEffect(()=>{
     const element=dialog.current,previous=document.activeElement;
@@ -31,8 +30,7 @@ export function ReportPdfPreview({file,onClose}:{file:{blob:Blob;filename:string
     <div className={styles.previewActions}><button disabled={!url||page<=1} onClick={()=>setPage(p=>p-1)}>{translate('documents.originalViewer_previous_page')}</button><span aria-live="polite">{translate('documents.originalViewer_page',{value1:page,value2:pages??'?'})}</span><button disabled={!url||pages===null||page>=pages} onClick={()=>setPage(p=>p+1)}>{translate('documents.originalViewer_next_page')}</button><button disabled={!url} onClick={()=>saveDownload(file)}><Download size={17} aria-hidden="true"/>{translate('caseSupport.reportPresentation_pdf_download')}</button><button disabled={!url||!printReady} onClick={print}><Printer size={17} aria-hidden="true"/>{translate('caseSupport.bundle_print')}</button></div>
     <p className={styles.printHelp}>{translate('caseSupport.bundle_printHelp')}</p>
     {printError&&<p role="alert">{translate('caseSupport.bundle_printFallback')}</p>}
-    <div className={styles.previewActions}><button disabled={zoom<=0.5} onClick={()=>setZoom(z=>Math.max(0.5,z-0.25))}>{translate('documents.originalViewer_div4')}</button><span>{Math.round(zoom*100)}%</span><button disabled={zoom>=3} onClick={()=>setZoom(z=>Math.min(3,z+0.25))}>{translate('documents.originalViewer_div5')}</button></div>
-    <div className={styles.pdfViewport}><div style={{width:`${zoom*100}%`}}>{url?<PdfCanvas url={url} page={page} pageCount={null} rotation={null} onRendered={onRendered} onDocumentLoaded={setPages}/>:<p role="status">{translate('caseSupport.bundle_loadingPdf')}</p>}</div></div>
+    <div className={styles.pdfViewport}>{url?<PdfCanvas url={url} page={page} pageCount={null} rotation={null} onRendered={onRendered} onDocumentLoaded={setPages}/>:<p role="status">{translate('caseSupport.bundle_loadingPdf')}</p>}</div>
     {url&&<iframe ref={printer} className={styles.printFrame} title={translate('caseSupport.bundle_printDocument')} src={url} aria-hidden="true" tabIndex={-1} onLoad={()=>setPrintReady(true)}/>}
   </dialog>;
 }

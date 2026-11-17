@@ -71,8 +71,8 @@ function Preparation({caseId}:{caseId:number}) {
  const reports=useReports(caseId);
  return <div className={styles.preparationBody}>
   {(questions.isPending || questions.isError) && <div className={styles.reviewFeedback}><QueryFeedback pending={questions.isPending} error={questions.isError ? questions.error : undefined} retry={() => void questions.refetch()}/></div>}
-  {questions.isSuccess && <aside className={styles.reviewNotice} aria-label={translate("caseSupport.inquiryScreen_confirm_question")}>
-   <span className={styles.reviewIcon}><FileQuestion size={24} aria-hidden="true"/></span><div><h3>{translate("caseSupport.inquiryScreen_confirm_question")}</h3><p>{translate("caseSupport.questionCount", { count: questions.data.questions.length })}</p><small>{translate("caseSupport.questionsPurpose")}</small></div><Link aria-label={translate("caseSupport.inquiryScreen_confirm_question")} href={`/cases/${caseId}/questions`}>{translate("caseSupport.preCheck_view")}<ChevronRight size={18} aria-hidden="true"/></Link>
+  {questions.isSuccess && questions.data.questions.length > 0 && <aside className={styles.reviewNotice} aria-label={translate("caseSupport.inquiryScreen_confirm_question")}>
+   <span className={styles.reviewIcon}><FileQuestion size={24} aria-hidden="true"/></span><div><h3>{translate("caseSupport.inquiryScreen_confirm_question")}</h3><p>{translate("caseSupport.questionCount", { count: questions.data.questions.length })}</p><small>{translate("caseSupport.questionsPurpose")}</small></div><Link href={`/cases/${caseId}/questions`}>{translate("caseSupport.preCheck_view")}<ChevronRight size={18} aria-hidden="true"/></Link>
   </aside>}
   <p className={styles.flow}>{translate("caseSupport.supportFlow")}</p>
   <div className={styles.actionGrid}>

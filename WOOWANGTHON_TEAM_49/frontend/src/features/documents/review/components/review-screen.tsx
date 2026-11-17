@@ -1,5 +1,4 @@
 "use client";
-import { ReviewStatusBadges } from "./review-status-badges";
 import {useMessageState} from '@/i18n/use-message-state';
 
 import {useLocalized} from '@/i18n/use-translation';
@@ -13,7 +12,7 @@ import { useSearchParams } from "next/navigation";
 import { safeChatReturn } from "@/features/results/snapshot-link";
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { ChevronDown, FileText } from "lucide-react";
+import { CheckCircle2, ChevronDown, FileText, ScanLine } from "lucide-react";
 import { CaseStageHeader } from "@/features/cases/components/case-stage-header";
 import { QueryFeedback } from "@/components/ui/query-feedback";
 import { cardStyle, secondaryButton } from "@/components/ui/styles";
@@ -33,7 +32,7 @@ import { CaseNextStep } from "@/features/cases/components/case-next-step";
 import { ReviewConfirmation } from "./review-confirmation";
 import styles from "./review-screen.module.css";
 export function ReviewScreen({id,initialDocumentId}:{id:number;initialDocumentId?:number}){
-
+const {statusLabels} = useLocalized(createLocalizedFeaturesDocumentsViewModels);
 
  const {translate} = useTranslation();
 
@@ -53,12 +52,12 @@ export function ReviewScreen({id,initialDocumentId}:{id:number;initialDocumentId
   return <div className={styles.screen}>{back&&<Link href={back} className={secondaryButton}>{translate("documents.reviewScreen_div")}</Link>}<CaseStageHeader stage="review" title={translate("documents.reviewScreen_document_content_confirm")} description={translate("documents.reviewScreen_extraction_confirm")} action={<Link href={`/cases/${id}/upload`} className={secondaryButton}>{translate("documents.reviewScreen_record_create")}</Link>} />
     {dirty&&<p role="status" className="rounded-control bg-warning-soft p-4 text-body">{translate("documents.reviewScreen_save_change_document_navigate")}</p>}
     <CaseNextStep title={translate("documents.reviewScreen_document_content_confirm_2")} description={translate("documents.reviewScreen_work_calculation_required_information_confirm")} href={`/cases/${id}/conditions`} label={translate("documents.reviewScreen_calculation_confirm")} ariaLabel={translate("documents.reviewScreen_document_review_next_step")} />
-    <details data-case-document-picker className={styles.documentPicker}><summary><span className={styles.fileIcon}><FileText size={21} aria-hidden="true" /></span><span className={styles.fileName}><small>{translate("documents.reviewScreen_current_document")}</small>{dto?.fileName??translate("documents.reviewScreen_select_none")}</span><span className={styles.documentCount}>{translate("documents.reviewScreen_document_change", { value1: documents.data.items.length })}</span><ChevronDown size={17} aria-hidden="true" /></summary><nav aria-label={translate("documents.reviewScreen_review_document_select")} className="max-h-64 overflow-y-auto">{documents.data.items.map(d=><button key={d.documentId} className={styles.documentOption} aria-current={dto?.documentId===d.documentId?"page":undefined} onClick={()=>changeDocument(d.documentId)}><span className={styles.optionName}>{d.fileName}{dto?.documentId===d.documentId&&<span className="sr-only">{translate("documents.reviewScreen_select")}</span>}</span><ReviewStatusBadges processing={d.processingStatus} review={d.reviewStatus}/></button>)}</nav></details>
+    <details data-case-document-picker className={styles.documentPicker}><summary><span className={styles.fileIcon}><FileText size={21} aria-hidden="true" /></span><span className={styles.fileName}><small>{translate("documents.reviewScreen_current_document")}</small>{dto?.fileName??translate("documents.reviewScreen_select_none")}</span><span className={styles.documentCount}>{translate("documents.reviewScreen_document_change", { value1: documents.data.items.length })}</span><ChevronDown size={17} aria-hidden="true" /></summary><nav aria-label={translate("documents.reviewScreen_review_document_select")} className="max-h-64 overflow-y-auto">{documents.data.items.map(d=><button key={d.documentId} className="block min-h-11 w-full break-all border-b border-border px-3 py-2 text-left text-body focus-visible:outline-2" aria-current={dto?.documentId===d.documentId?"page":undefined} onClick={()=>changeDocument(d.documentId)}>{d.fileName} · {statusLabels[d.processingStatus]}{dto?.documentId===d.documentId?translate("documents.reviewScreen_select"):""}</button>)}</nav></details>
     {!dto?<section className={cardStyle}><h2 className="text-title font-bold">{translate("documents.reviewScreen_review_link_document_empty")}</h2><p>{translate("documents.reviewScreen_selected_document_release_record_empty_create_link")}</p></section>:<ReviewDocument key={dto.documentId} dto={dto} caseId={id} version={c.data.inputVersion} period={{start:c.data.periodStart,end:c.data.periodEnd}} dirty={editDirty} onDirty={setEditDirty} />}
   </div>;
 }
 function ReviewDocument({dto,caseId,version,period,dirty,onDirty}:{dto:DocumentDto;caseId:number;version:number;period:{start:string;end:string};dirty:boolean;onDirty:(dirty:boolean)=>void}){
-const {documentTypeIssue, processingErrorMessage, isProcessing} = useLocalized(createLocalizedFeaturesDocumentsViewModels);
+const {documentTypeIssue, processingErrorMessage, isProcessing, statusLabels} = useLocalized(createLocalizedFeaturesDocumentsViewModels);
 const {recomputeJobLabel, reviewError, reviewStateView} = useLocalized(createLocalizedFeaturesDocumentsReviewViewModels);
 
  const {translate} = useTranslation();
@@ -72,7 +71,7 @@ const {recomputeJobLabel, reviewError, reviewStateView} = useLocalized(createLoc
   const sourceTrigger=useRef<HTMLElement|null>(null);
   const context={caseId,documentId:dto.documentId,workplaceId:dto.workplaceId};
   return <>
-
+    <p className={styles.documentStatus}><span><ScanLine size={14} aria-hidden="true" />{translate("documents.reviewScreen_document_processing")}{statusLabels[processing]}</span>{" · "}<span><CheckCircle2 size={14} aria-hidden="true" />{translate("documents.reviewScreen_user_review")}{reviewStateView(processing,fields.data?.reviewStatus??status.data?.reviewStatus??dto.reviewStatus).reviewLabel}</span></p>
     {status.isError&&<QueryFeedback error={status.error} retry={()=>{void status.refetch();}} />}
     {recompute.isError?<QueryFeedback error={recompute.error} retry={()=>{void recompute.refetch();}} />:<p hidden={!!recompute.data && !recomputeActive(recompute.data) && recompute.data.latestJob?.status !== "FAILED"} role="status" className="text-body text-muted">{!recompute.data?translate("documents.reviewScreen_update_status_load"):recomputeActive(recompute.data)?translate("documents.reviewScreen_input_change_result_update"):translate("documents.reviewScreen_update_all_calculation_complete", { value1: recomputeJobLabel(jobText(recompute.data.latestJob?.status??recompute.data.activeJob?.status)) })}</p>}
     {typeIssue&&<div className={cardStyle}><DocumentTypeResolution key={typeIssue.code} dto={dto} issue={typeIssue} disabled={dirty} /></div>}

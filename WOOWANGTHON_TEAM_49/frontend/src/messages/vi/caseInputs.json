@@ -1,5 +1,4 @@
 {
-  "conditionPresentation_base_scope": "Căn cứ của lương cơ bản đã ghi nhận có phù hợp với lần tính lương này không?",
   "conditionDuration_work_time": "Số giờ làm việc theo hợp đồng (giờ)",
   "conditionDuration_work_time_minutes": "Số giờ làm việc theo hợp đồng (phút)",
   "conditionDuration_input_processing_unanswered": "Nếu bạn chỉ nhập một trường thì các trường còn lại được coi là 0. Nếu cả hai đều để trống thì sẽ không có phản hồi.",

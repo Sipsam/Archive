@@ -16,7 +16,7 @@ const {statusLabels} = useLocalized(createLocalizedFeaturesResultsViewModels);
 
  const {translate} = useTranslation();
  return <span className="inline-block rounded-full bg-neutral-soft px-3 py-1 text-sm font-bold">{status ? statusLabels[status] ?? status : translate("results.resultComparisonTable_status_notProvided")}</span>; }
-export function ResultSummary({value,compare=false,action}:{value:Model;compare?:boolean;action?:React.ReactNode}) {
+export function ResultSummary({value,compare=false}:{value:Model;compare?:boolean}) {
 const {displayScalar} = useLocalized(createLocalizedFeaturesResultsViewModels);
 
  const {translate} = useTranslation();
@@ -42,10 +42,9 @@ const {displayScalar} = useLocalized(createLocalizedFeaturesResultsViewModels);
  <dd>{displayScalar(grossAvailable?d.calculation?.calculatedSubtotal:d.calculation?.grossPay,grossAvailable?"calculatedSubtotal":"grossPay")}</dd>
  </div>
  </dl>
- <div className={styles.scope}><div className={styles.scopeDetails}><Badge status={d.summary.calculationStatus}/><p>{d.summary.calculationStatus==="COMPLETE"?translate("results.resultPresentation_calculation_scope_provided_item"):d.summary.calculationStatus==="PARTIAL"?<>{translate("results.resultPresentation_minutes_calculation_all_wage")}<br/>{translate("results.resultPresentation_confirm_calculation_included")}</>:d.summary.calculationStatus===null?translate("results.resultPresentation_calculation_result_notProvided"):<>{translate("results.resultPresentation_calculation_required_record")}<br/>{translate("results.resultPresentation_confirm")}</>}</p></div>{action && <div className={styles.refreshAction}>{action}</div>}</div>
+ <div className={styles.scope}><Badge status={d.summary.calculationStatus}/><p>{d.summary.calculationStatus==="COMPLETE"?translate("results.resultPresentation_calculation_scope_provided_item"):d.summary.calculationStatus==="PARTIAL"?<>{translate("results.resultPresentation_minutes_calculation_all_wage")}<br/>{translate("results.resultPresentation_confirm_calculation_included")}</>:d.summary.calculationStatus===null?translate("results.resultPresentation_calculation_result_notProvided"):<>{translate("results.resultPresentation_calculation_required_record")}<br/>{translate("results.resultPresentation_confirm")}</>}</p></div>
  </>}
  {compare&&<><p className={styles.comparisonTitle}>{translate("results.resultPresentation_record_difference")}<br/>{translate("results.resultPresentation_confirm_content")}</p><Badge status={d.summary.comparisonStatus}/><p className={styles.scopeCopy}>{translate("results.resultPresentation_contract_attendance_payslip_comparison_sum_confirm_match", { value1: d.summary.counts.match ?? translate("common.notProvided") })}</p></>}
-
  </section>;
 }
 export function ResultNextSteps({value,caseId}:{value:Model;caseId:number}) {

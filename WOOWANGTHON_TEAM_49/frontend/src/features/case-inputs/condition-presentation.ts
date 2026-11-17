@@ -9,7 +9,6 @@ const {conditionAnswerSchema} = localized11(translation);
 const titles: Record<string, string> = {
   workplace_size: translate("caseInputs.conditionPresentation_workplace_work"),
   regular_minutes: translate("caseInputs.conditionPresentation_period_time"),
-  base_scope_confirmed: translate("caseInputs.conditionPresentation_base_scope"),
   comparison_basis_confirmed: translate("caseInputs.conditionPresentation_record_hourlyWage_period_basis"),
   hours_basis_confirmed: translate("caseInputs.conditionPresentation_record_period_work_time"),
   base_pay_basis_confirmed: translate("caseInputs.conditionPresentation_record_basePay_period_scope"),

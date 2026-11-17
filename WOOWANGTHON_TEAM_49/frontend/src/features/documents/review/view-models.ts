@@ -18,7 +18,7 @@ function fieldEditorView(field: ExtractedField, unknownShared = false) {
   const structured = field.value !== null && typeof field.value === "object";
   return {kind: structured ? "structured" as const : "scalar" as const,
     text: unknownShared || field.value === null ? "" : structured ? JSON.stringify(field.value, null, 2) : String(field.value),
-    scalar: structured ? "json" as const : field.value !== null ? typeof field.value === "number" ? "number" as const : typeof field.value === "boolean" ? "boolean" as const : "string" as const : ["MONEY_KRW", "MINUTES"].includes(field.valueType) ? "number" as const : "string" as const};
+    scalar: typeof field.value === "number" || field.valueType === "MONEY_KRW" ? "number" as const : typeof field.value === "boolean" ? "boolean" as const : "string" as const};
 }
 function reviewStateView(processingStatus: string, reviewStatus: string) {
   const labels: Record<string, string> = reviewLabels;
@@ -51,10 +51,10 @@ function highlightBox(preview: PreviewDto, source: SourceDto | null | undefined,
   return {left:percent(left),top:percent(top),width:percent(right-left),height:percent(bottom-top)};
 }
 function parseFieldValue(field: ExtractedField, text: string, empty: boolean, scalar?: "string"|"number"|"boolean"): FieldValue {
-  if(!scalar && field.value !== null && typeof field.value === "object") throw new MessageError("documents.viewModels_use");
+  if(field.value !== null && typeof field.value === "object") throw new MessageError("documents.viewModels_use");
   if(empty) return null;
-  // The selection controls JSON serialization, not the backend field schema or unit.
-  if((scalar??fieldEditorView(field).scalar) === "number") {
+  // Preserve established JSON scalar types. P0 specifies MONEY_KRW; unknown null-valued types require an explicit scalar selection in the form.
+  if((scalar??typeof field.value) === "number" || field.valueType === "MONEY_KRW") {
     if(!text.trim() || !Number.isFinite(Number(text))) throw new MessageError("documents.viewModels_input_none_select");
     const value=Number(text);if(field.valueType === "MONEY_KRW" && !Number.isSafeInteger(value)) throw new MessageError("documents.viewModels_unit_count_input");return value;
   }

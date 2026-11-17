@@ -40,7 +40,7 @@
 .summaryFile > div { min-width: 0; }
 .summaryFile strong { font-size: .9rem; font-weight: 750; }
 .summaryFile p { margin-top: 5px; color: var(--muted); font-size: .77rem; line-height: 1.7; }
-.summaryFile b { flex: none; white-space: nowrap; margin-left: auto; color: #8c9aaf; font-size: .7rem; }
+.summaryFile b { margin-left: auto; color: #8c9aaf; font-size: .7rem; }
 .separateNote { padding-top: 15px; color: #637a98; font-size: .77rem; line-height: 1.7; }
 .resultDetails { margin-block: 12px; font-size: .8rem; line-height: 1.8; }
 .resultDetails p { color: var(--muted); }

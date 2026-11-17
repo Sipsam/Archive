@@ -1,23 +1,13 @@
 "use client";
 import { useTranslation } from '@/i18n/use-translation';
-import { Clock3, Languages, MapPin, Navigation, Phone, Search, ArrowUpRight, Building2, Mail } from "lucide-react";
+import { ArrowUpRight, Building2, Clock3, Languages, Mail, MapPin, Navigation, Phone } from "lucide-react";
 import { SupportLinks } from "./support-navigation";
-import { useEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useSessionScope } from "@/hooks/use-session-scope";
-import { businessKeys } from "@/lib/query/business-keys";
+import { useState } from "react";
 import { QueryFeedback } from "@/components/ui/query-feedback";
 import { secondaryButton } from "@/components/ui/styles";
-import { supportApi } from "./api";
 import styles from "./centers-screen.module.css";
-
-export function safeWebsite(value?: string | null) {
-  if (!value) return undefined;
-  try { const url = new URL(value); return ["https:", "http:"].includes(url.protocol) && !url.username && !url.password ? url.href : undefined; } catch { return undefined; }
-}
-export function safePhone(value?: string | null) { return value && /^\+?[0-9][0-9 ()-]{2,24}$/.test(value) ? `tel:${value.replace(/[ ()-]/g, "")}` : undefined; }
-
-import { addressSearch, centerCatalog, centerGroup, centerReach, filterCatalog, safeEmail, type CenterGroup, type ResearchedCenter } from './center-catalog';
+import { useRegisteredCenters, type CenterFilters } from "./queries";
+import { addressSearch, centerCatalog, centerGroup, centerReach, filterCatalog, safeEmail, safePhone, safeWebsite, type CenterGroup, type ResearchedCenter } from './center-catalog';
 
 function readableDetail(value: unknown) {
   if (typeof value === "string") return value.trim() || undefined;
@@ -26,25 +16,12 @@ function readableDetail(value: unknown) {
 }
 
 export function CentersScreen() {
- const {translate, translateContent} = useTranslation();
- const navigationRef = useRef<HTMLDivElement>(null);
- useEffect(() => {
-   const nav = navigationRef.current?.querySelector("nav");
-   const current = nav?.querySelector<HTMLElement>('[aria-current="page"]');
-   if (nav && current && nav.scrollWidth > nav.clientWidth) nav.scrollLeft += current.getBoundingClientRect().right - nav.getBoundingClientRect().right;
- }, []);
-
+  const {translate} = useTranslation();
   const [group, setGroup] = useState<CenterGroup | ''>('');
   const catalog = filterCatalog(group);
-  const s = useSessionScope();
-  const [region, setRegion] = useState("");
-  const [category, setCategory] = useState("");
-  const [filters, setFilters] = useState({ region: "", category: "", page: 1 });
-  const q = useQuery({ queryKey: [...businessKeys.root(s.generation), "consultation-centers", filters], enabled: s.enabled, queryFn: ({ signal }) => supportApi(s.api).centers(filters.region, filters.category, filters.page, signal) });
-  const items = q.data?.items;
   return <div className={styles.page}>
     <header className={styles.hero}><div><p className={styles.eyebrow}>{translate("caseSupport.centersScreen_consultationCenter")}</p><h1>{translate("caseSupport.centersScreen_heroTitle")}<span>{translate("caseSupport.centersScreen_heroEmphasis")}</span></h1><p className={styles.description}>{translate("caseSupport.centersScreen_consultation_count_information_confirm")}</p></div><div className={styles.heroArt} aria-hidden="true"><span className={styles.mapLayer}/><span className={styles.mapLayer}/><span className={styles.pin}><MapPin size={65} strokeWidth={2.5}/></span></div></header>
-    <div ref={navigationRef} className={styles.supportNav}><SupportLinks/></div>
+    <div className={styles.supportNav}><SupportLinks/></div>
     <section className={styles.catalog} aria-labelledby="catalog-title">
       <div className={styles.catalogHeading}><div><p className={styles.eyebrow}>{translate('caseSupport.directory_publicSources')}</p><h2 id="catalog-title">{translate('caseSupport.directory_count', {count:catalog.length})}</h2></div></div>
       <p className={styles.catalogHelp}>{translate('caseSupport.directory_scope', {count:centerCatalog.length})}</p>
@@ -55,12 +32,20 @@ export function CentersScreen() {
       <div className={styles.results}>{catalog.map(center=><CatalogCard key={center.researchId} center={center}/>)}</div>
       <aside className={styles.catalogNotice}><Building2 size={22} aria-hidden="true"/><div><h3>{translate('caseSupport.directory_beforeContact')}</h3><p>{translate('caseSupport.directory_disclaimer')}</p></div></aside>
     </section>
-    <form className={styles.filters} onSubmit={e => { e.preventDefault(); setFilters({ region, category, page: 1 }); }}>
-      <h2><Search size={21} aria-hidden="true"/>{translate("caseSupport.centersScreen_searchTitle")}</h2>
-      <label>{translate("caseSupport.centersScreen_region")}<input className="ui-control" placeholder={translate("caseSupport.centersScreen_placeholder_label")} value={region} onChange={e => setRegion(e.target.value)}/></label>
-      <label>{translate("caseSupport.centersScreen_consultation_minutes")}<select aria-label={translate("caseSupport.centersScreen_consultation_minutes")} className="ui-control" value={category} onChange={e => setCategory(e.target.value)}><option value="">{translate("caseSupport.centersScreen_all_minutes")}</option><option value="WAGE">{translate("caseSupport.centersScreen_wage")}</option></select></label>
-      <button className={styles.searchButton} disabled={q.isFetching}><Search size={18} aria-hidden="true"/>{translate("caseSupport.centersScreen_form")}</button>
-    </form>
+    <RegisteredCenters/>
+  </div>;
+}
+
+function RegisteredCenters() {
+  const {translate,translateContent}=useTranslation();
+  const [filters,setFilters]=useState<CenterFilters>({category:"",page:1});
+  const q=useRegisteredCenters(filters);
+  const items=q.data?.items;
+  return (
+    <details className={styles.registered}>
+    <summary>{translate('caseSupport.directory_registered')}</summary>
+    <p className={styles.catalogHelp}>{translate('caseSupport.directory_registeredHelp')}</p>
+    <label className={styles.registeredFilter}>{translate("caseSupport.centersScreen_consultation_minutes")}<select aria-label={translate("caseSupport.centersScreen_consultation_minutes")} className="ui-control" value={filters.category} onChange={e => setFilters(v=>({...v,category:e.target.value,page:1}))}><option value="">{translate("caseSupport.centersScreen_all_minutes")}</option><option value="WAGE">{translate("caseSupport.centersScreen_wage")}</option></select></label>
     {q.isPending ? <QueryFeedback pending/> : q.isError ? <QueryFeedback error={q.error} retry={() => void q.refetch()}/> : <>
       {q.data.nationwideFallbackUsed && <p className={styles.fallback} role="status">{translate("caseSupport.centersScreen_region_unit")}</p>}
       {!items?.length && <p className={styles.empty}>{translate("caseSupport.centersScreen_consultationCenter_empty_region_minutes_page_search")}</p>}
@@ -77,12 +62,12 @@ export function CentersScreen() {
         <div className={styles.meta}>
           <p>{translateContent("caseSupport.centersScreen_website", { value1: safeWebsite(c.website) ? <a href={safeWebsite(c.website)} target="_blank" rel="noopener noreferrer">{c.website}</a> : translate("caseSupport.centersScreen_confirm_website_none") })}</p>
           <p>{translateContent("caseSupport.centersScreen_source", { value1: safeWebsite(c.sourceUrl) ? <a href={safeWebsite(c.sourceUrl)} target="_blank" rel="noopener noreferrer">{c.sourceUrl}</a> : translate("caseSupport.centersScreen_confirm") })}</p>
-          <p>{translate("caseSupport.centersScreen_article6", { value1: c.verifiedAt ?? translate("caseSupport.centersScreen_confirm") })}</p>
         </div>
       </article>)}</div>
       <nav aria-label={translate("caseSupport.centersScreen_consultationCenter_page")} className={styles.pagination}><button className={secondaryButton} disabled={filters.page === 1 || q.isFetching} onClick={() => setFilters(v => ({ ...v, page: v.page - 1 }))}>{translate("caseSupport.centersScreen_previous_page")}</button><span>{translate("caseSupport.centersScreen_page_all", { value1: q.data.page, value2: q.data.total })}</span><button className={secondaryButton} disabled={q.isFetching || q.data.page * q.data.size >= q.data.total} onClick={() => setFilters(v => ({ ...v, page: v.page + 1 }))}>{translate("caseSupport.centersScreen_next_page")}</button></nav>
     </>}
-  </div>;
+    </details>
+  );
 }
 
 function CatalogCard({center:c}:{center:ResearchedCenter}) {
