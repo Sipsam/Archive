@@ -1,4 +1,5 @@
 "use client";
+
 import { useMutationState, type MutationKey } from "@tanstack/react-query";
 
 /** Derive removal state from Query's mutation cache, without a second entity store. */

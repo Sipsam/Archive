@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {deletionSchema, deletionPollInterval, createLocalizedFeaturesAuthDeletion} from './deletion';
-import {createTranslation} from '@/i18n/translate';
-const {deletionDescription}=createLocalizedFeaturesAuthDeletion(createTranslation('ko'));
+import { deletionSchema, deletionDescription, deletionPollInterval } from './deletion';
 describe('conditional receipt adapter',()=>{
  it('accepts missing optional fields',()=>expect(deletionSchema.parse({})).toEqual({}));
  it('preserves null schedule',()=>expect(deletionSchema.parse({normalStoragePurgeDueAt:null}).normalStoragePurgeDueAt).toBeNull());

@@ -1,16 +1,7 @@
-
-import {message as describeMessage} from '@/i18n/message';
 import { z } from "zod";
-import {createTranslation, type Translation} from '@/i18n/translate';
-import {defaultLocale} from '@/i18n/config';
-export type WorkplaceDto = z.infer<typeof workplaceSchema>;
-export type WorkplaceFormValues = z.infer<typeof workplaceFormSchema>;
-export type WorkplaceWrite = z.infer<typeof workplaceCreateSchema>;
 
-export function createLocalizedFeaturesWorkplacesSchemas(translation: Translation) {
-  const {} = translation;
-const employmentStatusSchema = z.enum(["CURRENT", "FORMER"]);
-const workplaceSchema = z.object({
+export const employmentStatusSchema = z.enum(["CURRENT", "FORMER"]);
+export const workplaceSchema = z.object({
   workplaceId: z.number().int(),
   name: z.string(),
   industry: z.string().nullable(),
@@ -20,20 +11,20 @@ const workplaceSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
 });
-const workplaceCreateSchema = z.strictObject({
+
+export const workplaceCreateSchema = z.strictObject({
  name: z.string().min(1).max(200), industry: z.string().max(200).nullable().optional(),
  region: z.string().max(200).nullable().optional(), employmentStatus: employmentStatusSchema.optional(),
 });
-const workplacePatchSchema = workplaceCreateSchema.extend({
+export const workplacePatchSchema = workplaceCreateSchema.extend({
  name: workplaceCreateSchema.shape.name.nullable().optional(), employmentStatus: employmentStatusSchema.nullable().optional(),
 });
-const workplaceFormSchema = z.object({
-  name: z.string().trim().min(1, describeMessage("workplaces.schemas_workplace_input")).max(200, describeMessage("workplaces.schemas_atMost_input")),
-  industry: z.string().trim().max(200, describeMessage("workplaces.schemas_atMost_input")),
-  region: z.string().trim().max(200, describeMessage("workplaces.schemas_atMost_input")),
+export const workplaceFormSchema = z.object({
+  name: z.string().trim().min(1, "사업장명을 입력해 주세요.").max(200, "200자 이하로 입력해 주세요."),
+  industry: z.string().trim().max(200, "200자 이하로 입력해 주세요."),
+  region: z.string().trim().max(200, "200자 이하로 입력해 주세요."),
   employmentStatus: employmentStatusSchema,
 });
-return {employmentStatusSchema, workplaceSchema, workplaceCreateSchema, workplacePatchSchema, workplaceFormSchema};
-}
-
-export const {employmentStatusSchema, workplaceSchema, workplaceCreateSchema, workplacePatchSchema, workplaceFormSchema} = createLocalizedFeaturesWorkplacesSchemas(createTranslation(defaultLocale));
+export type WorkplaceDto = z.infer<typeof workplaceSchema>;
+export type WorkplaceFormValues = z.infer<typeof workplaceFormSchema>;
+export type WorkplaceWrite = z.infer<typeof workplaceCreateSchema>;

@@ -8,12 +8,6 @@ node_modules
 coverage
 playwright-report
 test-results
-.playwright-cli
-output
-tmp
-temp
-.npm-cache
-*.tsbuildinfo
 docs
 *.log
 README.md

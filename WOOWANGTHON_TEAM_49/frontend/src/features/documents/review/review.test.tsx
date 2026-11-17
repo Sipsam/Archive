@@ -1,4 +1,3 @@
-import {createTranslation} from '@/i18n/translate';
 import { createOpenApiContract } from "@/test/openapi/contract";
 import { caseDocumentResponse } from "@/mocks/shared/document-handlers";
 // @vitest-environment jsdom
@@ -28,9 +27,7 @@ import { FieldEditor } from "./components/field-editor";
 import { documentApi } from "../api";
 import { reviewApi } from "./api";
 import { reviewKeys } from "./query-keys";
-import {createLocalizedFeaturesDocumentsReviewViewModels} from './view-models';
-
-const {displayValue, fieldView, highlightBox, parseFieldValue} = createLocalizedFeaturesDocumentsReviewViewModels(createTranslation('ko'));
+import { displayValue,fieldView,highlightBox,parseFieldValue } from "./view-models";
 const navigation=vi.hoisted(()=>({replace:vi.fn()}));
 vi.mock("next/navigation",()=>({useRouter:()=>navigation,usePathname:()=>"/cases/15/review",useSearchParams:()=>new URLSearchParams()}));
 const apps:AppServices[]=[];const NativeURL=URL;
@@ -46,186 +43,7 @@ async function setup(){const m=managementMocks();const d=documentMocks(m.getCase
  const mount=(node:ReactNode)=>render(<AppServicesContext value={app}><QueryClientProvider client={app.queryClient}><AuthGate mode="protected">{node}</AuthGate></QueryClientProvider></AppServicesContext>);
  return {app,mocks,m,d,mount,user:userEvent.setup()};}
 const noop=()=>{};
-describe("editable JSON scalar formats",()=>{
- const t=createTranslation("ko").translate;
- it.each(["case","shared"] as const)("shows server type rejection after format change in %s scope",async scope=>{
-  const {mount,mocks,user}=await setup();const done=vi.fn();
-  server.use(http.patch(`${testApiUrl}/${scope==="case"?"cases/15":"workplaces/3"}/documents/101/fields/501`,()=>apiResponse({errorCode:"INVALID_FIELD_VALUE",errors:[{field:"value",reason:"Unsupported field type"}]},422)));
-  mount(<FieldEditor field={mocks.fields(15,101)[0]} scope={scope} context={context} version={7} onClose={done} onDirty={noop} onSaved={noop}/>);
-  await user.selectOptions(screen.getByLabelText(t("documents.fieldEditor_input_format")),"string");
-  await user.click(screen.getByRole("button",{name:t("documents.fieldEditor_edit_save")}));
-  if(scope==="shared")await user.click(within(screen.getByRole("dialog")).getByRole("button",{name:t("documents.fieldEditor_sharedDefault_save_confirm")}));
-  expect(await screen.findByText("Unsupported field type")).toBeVisible();
-  expect(done).not.toHaveBeenCalled();
-  expect(screen.getByLabelText(t("documents.fieldEditor_edit"))).toHaveValue("2300000");
- });
- it("preserves structured JSON text through scalar selection and back",async()=>{
-  const {mount,mocks,user}=await setup();const value={items:[0,false,null]};
-  mount(<FieldEditor field={{...mocks.fields(15,101)[0],value}} scope="case" context={context} version={7} onClose={noop} onDirty={noop} onSaved={noop}/>);
-  const selector=screen.getByLabelText(t("documents.fieldEditor_input_format"));
-  expect(selector).toHaveValue("json");
-  await user.selectOptions(selector,"boolean");
-  expect(screen.getByLabelText(t("documents.fieldEditor_edit"))).toHaveValue(JSON.stringify(value,null,2));
-  await user.selectOptions(selector,"json");
-  expect(screen.getByLabelText(t("documents.fieldEditor_div"))).toHaveValue(JSON.stringify(value,null,2));
-  await user.click(screen.getByRole("button",{name:t("documents.fieldEditor_edit_save")}));
-  await waitFor(()=>expect(mocks.requests.find(r=>r.method==="PATCH")?.body?.value).toEqual(value));
- });
- it.each([
-  ["extracted", "TEXT", "number", "12", 12],
-  [42, "MONEY_KRW", "string", "42", "42"],
-  [0, "MINUTES", "number", "0", 0],
-  [false, "MONEY_KRW", "boolean", "false", false],
-  [null, "TEXT", "boolean", "false", false],
-  [null, "TEXT", "string", "manual", "manual"],
-  [null, "MONEY_KRW", "number", "0", 0],
- ] as const)("serializes %j (%s) as %s",async(value,valueType,format,text,expected)=>{
-  const {mount,mocks,user}=await setup();const done=vi.fn();
-  const field={...mocks.fields(15,101)[0],value,valueType};
-  mount(<FieldEditor field={field} scope="case" context={context} version={7} onClose={done} onDirty={noop} onSaved={noop}/>);
-  const selector=screen.getByLabelText(t("documents.fieldEditor_input_format"));
-  expect(selector).toHaveValue(value===null?(valueType==="MONEY_KRW"?"number":"string"):typeof value);
-  expect(within(selector).getAllByRole("option")).toHaveLength(3);
-  await user.selectOptions(selector,format);
-  fireEvent.change(screen.getByLabelText(t("documents.fieldEditor_edit")),{target:{value:text}});
-  await user.click(screen.getByRole("button",{name:t("documents.fieldEditor_edit_save")}));
-  await waitFor(()=>expect(done).toHaveBeenCalled());
-  expect(mocks.requests.find(r=>r.method==="PATCH")?.body).toEqual({value:expected,confirmed:true,expectedInputVersion:7});
-  expect(mocks.fields(15,101)[0].value).toEqual(expected);
- });
- it("retains incompatible text through boolean and number selection, rejects it, then saves a shared string",async()=>{
-  const {mount,mocks,user}=await setup();const done=vi.fn();
-  mount(<FieldEditor field={{...mocks.fields(15,101)[0],value:"original"}} scope="shared" context={context} version={7} onClose={done} onDirty={noop} onSaved={noop}/>);
-  const selector=screen.getByLabelText(t("documents.fieldEditor_input_format"));
-  for(const format of ["boolean","number"]){
-   await user.selectOptions(selector,format);
-   expect(screen.getByLabelText(t("documents.fieldEditor_edit"))).toHaveValue("original");
-   await user.click(screen.getByRole("button",{name:t("documents.fieldEditor_edit_save")}));
-   expect(await screen.findByRole("alert")).toBeVisible();
-   expect(mocks.requests.some(r=>r.method==="PATCH")).toBe(false);
-  }
-  await user.selectOptions(selector,"string");
-  expect(screen.getByLabelText(t("documents.fieldEditor_edit"))).toHaveValue("original");
-  await user.click(screen.getByRole("button",{name:t("documents.fieldEditor_edit_save")}));
-  await user.click(within(screen.getByRole("dialog")).getByRole("button",{name:t("documents.fieldEditor_sharedDefault_save_confirm")}));
-  await waitFor(()=>expect(done).toHaveBeenCalled());
-  expect(mocks.requests.find(r=>r.method==="PATCH")?.body).toEqual({value:"original"});
- });
- it.each(["", " ", "NaN", "Infinity", "-Infinity", "1e999", "abc", "0.5"])("rejects invalid money number %j before PATCH",async text=>{
-  const {mount,mocks,user}=await setup();
-  mount(<FieldEditor field={mocks.fields(15,101)[0]} scope="case" context={context} version={7} onClose={noop} onDirty={noop} onSaved={noop}/>);
-  fireEvent.change(screen.getByLabelText(t("documents.fieldEditor_edit")),{target:{value:text}});
-  await user.click(screen.getByRole("button",{name:t("documents.fieldEditor_edit_save")}));
-  expect(await screen.findByRole("alert")).toBeVisible();
-  expect(mocks.requests.some(r=>r.method==="PATCH")).toBe(false);
- });
- it("blocks stale field saves until explicit reload and uses the new version",async()=>{
-  const {mount,mocks,m,user}=await setup();const done=vi.fn();m.getCases()[0].inputVersion=8;
-  mount(<FieldEditor field={mocks.fields(15,101)[0]} scope="case" context={context} version={7} onClose={done} onDirty={noop} onSaved={noop}/>);
-  await user.click(screen.getByRole("button",{name:t("documents.fieldEditor_edit_save")}));
-  await waitFor(()=>expect(screen.getByRole("button",{name:t("documents.fieldEditor_edit_save")})).toBeDisabled());
-  await user.click(screen.getByRole("button",{name:t("documents.fieldEditor_current_draft_retry_load")}));
-  await waitFor(()=>expect(screen.getByRole("button",{name:t("documents.fieldEditor_edit_save")})).toBeEnabled());
-  await user.click(screen.getByRole("button",{name:t("documents.fieldEditor_edit_save")}));
-  await waitFor(()=>expect(done).toHaveBeenCalled());
-  expect(mocks.requests.filter(r=>r.method==="PATCH").at(-1)?.body?.expectedInputVersion).toBe(8);
- });
-});
-it("never completes a document with zero fields even when the server allows POST",async()=>{
- const {mount}=await setup();
- server.use(http.get(`${testApiUrl}/cases/15/documents/101/review`,()=>apiResponse({documentId:101,processingStatus:"READY",reviewStatus:"NOT_STARTED",canCompleteReview:true,pendingRequiredFieldIds:[]})));
- mount(<ReviewConfirmation context={context} version={7} fields={[]} disabled={false}/>);
- expect(await screen.findByRole("button",{name:createTranslation("ko").translate("documents.reviewConfirmation_document_review_complete_request")})).toBeDisabled();
-});
-it("keeps a successful POST IN_PROGRESS response distinct from eligibility",async()=>{
- const {mount,mocks,user}=await setup();
- mocks.originals.get(101)!.forEach(f=>{f.value=1;f.status="CONFIRMED";});
- server.use(http.post(`${testApiUrl}/cases/15/documents/101/review/confirm`,()=>apiResponse({documentId:101,processingStatus:"READY",reviewStatus:"IN_PROGRESS",unconfirmedFieldIds:[],totalFieldCount:3,confirmedFieldCount:3,requiredReviewCount:2,resolvedRequiredCount:2,pendingRequiredFieldIds:[],optionalUnconfirmedFieldIds:[],canCompleteReview:true})));
- const t=createTranslation("ko").translate;
- mount(<ReviewConfirmation context={context} version={7} fields={mocks.fields(15,101)} disabled={false}/>);
- await user.click(await screen.findByRole("button",{name:t("documents.reviewConfirmation_document_review_complete_request")}));
- expect(mocks.reviewStates.get("15:101")).not.toBe("CONFIRMED");
- expect(screen.queryByText(t("documents.reviewPolicy_legacy"))).not.toBeInTheDocument();
-});
-it("shows extraction provenance on optional fields and no missing resolution on conflicts",async()=>{
- const {mount,mocks,user}=await setup();const t=createTranslation("ko").translate;
- mocks.originals.get(101)![2].status="UNCONFIRMED";
- const base=mocks.fields(15,101);
- mount(<FieldsPanel fields={[...base,{...base[0],fieldId:900,key:"unknownKey",label:"conflict",value:null,status:"CONFLICTED",requiresUserReview:true,reviewReason:"CONFLICTED"}]} context={context} inputVersion={7} onSource={noop} onDirty={noop} dirty={false}/>);
- const conflict=screen.getByRole("article",{name:"conflict"});
- expect(within(conflict).queryByRole("button",{name:t("documents.reviewPolicy_UNKNOWN")})).not.toBeInTheDocument();
- await user.click(screen.getByRole("button",{name:new RegExp(t("documents.fieldsPanel_item_confirm"))}));
- expect(within(screen.getByRole("article",{name:base[2].label})).getByText(t("documents.reviewPolicy_automatic"))).toBeVisible();
-});
-it("resolves missing fields through a case-only body and exposes undo without claiming confirmation",async()=>{
- const {mount,mocks,user}=await setup();const t=createTranslation("ko").translate;
- mount(<ReviewScreen id={15} initialDocumentId={101}/>);
- const field=mocks.fields(15,101)[1];
- const card=await screen.findByRole("article",{name:field.label});
- await user.click(within(card).getByRole("button",{name:t("documents.reviewPolicy_UNKNOWN")}));
- const dialog=screen.getByRole("dialog");
- await user.click(within(dialog).getByRole("button",{name:t("documents.reviewPolicy_UNKNOWN")}));
- await waitFor(()=>expect(mocks.fields(15,101)[1].reviewResolved).toBe(true));
- expect(mocks.requests.find(r=>r.body?.reviewResolution)?.body).toEqual({reviewResolution:"UNKNOWN",expectedInputVersion:7});
- expect(mocks.fields(15,101)[1]).toMatchObject({value:null,status:"MISSING"});
- await user.click(await within(card).findByRole("button",{name:t("documents.reviewPolicy_NONE")}));
- await user.click(within(screen.getByRole("dialog")).getByRole("button",{name:t("documents.reviewPolicy_NONE")}));
- await waitFor(()=>expect(mocks.fields(15,101)[1].reviewResolved).toBe(false));
-});
-it.each(["PROCESSING","FAILED"] as const)("blocks review completion for %s even if canCompleteReview is true",async processingStatus=>{
- const {mount,mocks}=await setup();
- server.use(http.get(`${testApiUrl}/cases/15/documents/101/review`,()=>apiResponse({documentId:101,processingStatus,reviewStatus:"IN_PROGRESS",canCompleteReview:true,pendingRequiredFieldIds:[]})));
- mount(<ReviewConfirmation context={context} version={7} fields={mocks.fields(15,101)} disabled={false}/>);
- expect(await screen.findByRole("button",{name:createTranslation("ko").translate("documents.reviewConfirmation_document_review_complete_request")})).toBeDisabled();
-});
 describe("P0 document review via MSW",()=>{
- it("keeps the editor concise and allows missing money to be entered without implicit null or confirmation",async()=>{
-  const {mount,mocks,user}=await setup();const done=vi.fn();
-  mount(<FieldEditor field={mocks.fields(15,101)[1]} scope="case" context={context} version={7} onClose={done} onDirty={noop} onSaved={noop} />);
-  const input=screen.getByLabelText("수정값");expect(input).toBeEnabled();
-  expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
-  for(const text of ["이 내역에만 적용할 값","공유 기본값과 다른 내역의 값은 유지됩니다.","미확인은 0이 아닙니다."])expect(screen.queryByText(text)).not.toBeInTheDocument();
-  expect(screen.getByText(createTranslation("ko").translate("documents.reviewPolicy_inputConfirmed"))).toBeVisible();
-  await user.click(screen.getByRole("button",{name:"수정값 저장"}));
-  expect(await screen.findByRole("alert")).toBeVisible();expect(input).toHaveFocus();
-  expect(mocks.requests.some(r=>r.method==="PATCH")).toBe(false);
-  await user.type(input,"0");await user.click(screen.getByRole("button",{name:"수정값 저장"}));
-  await waitFor(()=>expect(done).toHaveBeenCalled());
-  expect(mocks.requests.find(r=>r.method==="PATCH")?.body).toEqual({value:0,confirmed:true,expectedInputVersion:7});
-  expect(mocks.fields(15,101)[1].status).toBe("CONFIRMED");
- });
- it("shows a missing hint once for empty values while retaining zero and false",async()=>{
-  const {mount,mocks}=await setup();const base=mocks.fields(15,101)[0];
-  mount(<FieldsPanel fields={[null,"",0,false].map((value,i)=>({...base,fieldId:700+i,label:`value ${i}`,value}))} context={context} inputVersion={7} onSource={noop} onDirty={noop} dirty={false} />);
-  for(let i=0;i<4;i++){
-   const card=within(screen.getByRole("article",{name:`value ${i}`}));
-   expect(card.queryAllByText("문서에서 값을 가져오지 못했어요. 원문을 보고 직접 입력해 주세요.")).toHaveLength(i<2?1:0);
-   expect(card.queryByText("값 없음",{exact:true})).not.toBeInTheDocument();
-  }
- });
- it("removes replacement management and keeps the next-step card and document URL selection",async()=>{
-  const {mount,user,d,mocks,app}=await setup();
-  await documentApi(app.api).connect(15,102,{purpose:null,applicableFrom:null,applicableTo:null,expectedInputVersion:7});
-  const replace=vi.spyOn(window.history,"replaceState");
-  mount(<ReviewScreen id={15} initialDocumentId={101}/>);
-  await screen.findByRole("region",{name:"OCR 추출 필드"});
-  expect(screen.queryByText("문서 교체 관리")).not.toBeInTheDocument();
-  expect(screen.queryByText("계산 조건 확인으로 이동")).not.toBeInTheDocument();
-  const next=screen.getByRole("navigation",{name:"문서 검토 다음 단계"});
-  expect(next).toHaveAttribute("data-case-next");
-  expect(screen.getAllByRole("navigation",{name:"문서 검토 다음 단계"})).toHaveLength(1);
-  expect(next.nextElementSibling).toBe(document.querySelector("[data-case-document-picker]"));
-  expect(within(next).getByRole("heading",{name:"문서 내용을 확인했다면"})).toBeVisible();
-  expect(within(next).getByText("이제 근무 조건과 계산에 필요한 정보를 확인해 보세요.")).toBeVisible();
-  expect(within(next).getByRole("link",{name:"계산 조건 확인하기"})).toHaveAttribute("href","/cases/15/conditions");
-  await user.click(document.querySelector("[data-case-document-picker] > summary")!);
-  const other=d.getDocuments().find(doc=>doc.documentId!==101&&doc.linkedCaseIds.includes(15))!;
-  await user.click(screen.getByRole("button",{name:new RegExp(other.fileName)}));
-  expect(replace).toHaveBeenCalledWith(null,"",`/cases/15/review?documentId=${other.documentId}`);
-  await waitFor(()=>expect(mocks.requests.some(r=>r.path.endsWith(`/documents/${other.documentId}/fields`))).toBe(true));
-  expect(mocks.requests.some(r=>r.path.includes("/document-replacements/"))).toBe(false);
-  replace.mockRestore();
- });
  it("carries one integer ID through create/detail/confirm and independently validates transport",async()=>{
   const {app,mocks}=await setup();const api=reviewApi(app.api);
   const created=await api.replace(15,101,new File(["x"],"new.png",{type:"image/png"}),7);
@@ -268,12 +86,12 @@ describe("P0 document review via MSW",()=>{
  it("requests metadata and original Blob with Bearer, ignoring private previewUrl",async()=>{const {mount,mocks}=await setup();mount(<OriginalViewer workplaceId={3} documentId={101} />);expect(await screen.findByRole("img",{name:"문서 원문 1페이지"})).toHaveAttribute("src","blob:local-review-resource");expect(mocks.requests.filter(r=>/preview|file$/.test(r.path))).toHaveLength(2);expect(mocks.requests.every(r=>r.authorization==="Bearer msw-access-token")).toBe(true);expect(document.body.innerHTML).not.toContain("must-not-follow");});
  it("releases Blob URLs and file cache on unmount",async()=>{const {mount,app}=await setup();const v=mount(<OriginalViewer workplaceId={3} documentId={101} />);await screen.findByRole("img",{name:"문서 원문 1페이지"});const revoke=URL.revokeObjectURL;v.unmount();expect(revoke).toHaveBeenCalledWith("blob:local-review-resource");await waitFor(()=>expect(app.queryClient.getQueryData(reviewKeys.file(app.session.getSnapshot().generation,3,101))).toBeUndefined());});
  it("retries original failures and displays image decoding errors",async()=>{const {mount,user}=await setup();server.use(http.get(`${testApiUrl}/workplaces/3/documents/101/file`,()=>apiResponse({},403)));mount(<OriginalViewer workplaceId={3} documentId={101} />);expect(await screen.findByRole("alert")).toHaveTextContent("권한");server.use(http.get(`${testApiUrl}/workplaces/3/documents/101/file`,()=>new HttpResponse(new Uint8Array([1]),{headers:{"Content-Type":"image/png"}})));await user.click(screen.getByRole("button",{name:"다시 시도"}));fireEvent.error(await screen.findByRole("img",{name:"문서 원문 1페이지"}));expect(screen.getByRole("alert")).toHaveTextContent("이미지를 표시할 수 없습니다");});
- it("displays zero, missing values, source and independent review statuses",async()=>{const {mount,user}=await setup();mount(<ReviewScreen id={15} initialDocumentId={101} />);const fields=await screen.findByRole("region",{name:"OCR 추출 필드"});await user.click(screen.getByRole("button",{name:/세부 항목 확인/}));expect(within(fields).getAllByRole("article").length).toBeGreaterThan(1);await user.click(within(within(fields).getByRole("article",{name:"지급총액"})).getByText("근거·이력·공유 설정"));expect(within(fields).getByText(/지급총액 2,300,000원/)).toBeVisible();expect(within(fields).getByRole("article",{name:"공제액"})).toHaveTextContent("문서에서 값을 가져오지 못했어요. 원문을 보고 직접 입력해 주세요.");expect(within(fields).getByRole("article",{name:"추가 지급액"})).toHaveTextContent("0");expect(screen.getAllByText("추출 완료")[0].parentElement).toHaveTextContent("검토 전");});
+ it("displays zero, missing values, source and independent review statuses",async()=>{const {mount,user}=await setup();mount(<ReviewScreen id={15} initialDocumentId={101} />);const fields=await screen.findByRole("region",{name:"OCR 추출 필드"});await user.click(screen.getByRole("button",{name:/세부 항목 확인/}));expect(within(fields).getAllByRole("article").length).toBeGreaterThan(1);await user.click(within(within(fields).getByRole("article",{name:"지급총액"})).getByText("근거·이력·공유 설정"));expect(within(fields).getByText(/지급총액 2,300,000원/)).toBeVisible();expect(within(fields).getByRole("article",{name:"공제액"})).toHaveTextContent("값 없음");expect(within(fields).getByRole("article",{name:"추가 지급액"})).toHaveTextContent("0");expect(screen.getByText("문서 처리: 처리 완료").parentElement).toHaveTextContent("사용자 검토: 검토 전");});
  it("preserves all five field status labels and scalar null/zero semantics",async()=>{const {mocks}=await setup();const f=mocks.fields(15,101)[0];expect(displayValue(null)).toBe("값 없음");expect(displayValue(0)).toBe("0");expect(displayValue(false)).toBe("아니요");expect(["UNCONFIRMED","CONFIRMED","MISSING","UNREADABLE","CONFLICTED"].map(status=>fieldView({...f,status:status as typeof f.status}).statusLabel)).toEqual(["미확인","확인됨","값 없음","판독 불가","상충"]);expect(parseFieldValue(f,"0",false)).toBe(0);expect(parseFieldValue(f,"",true)).toBeNull();expect(()=>parseFieldValue(f,"",false)).toThrow();});
- it("only highlights valid matching relative coordinates; rotated or absent coordinates fall back",()=>{const p={documentId:101,mediaType:"image/png",pageCount:2,coordinateSystem:"RELATIVE_0_1",rotationDegrees:0,supportsHighlight:true};const s={documentId:101,page:1,boundingBox:[0.1,0.2,0.3,0.1] as [number,number,number,number],coordinateSystem:"RELATIVE_0_1"};expect(highlightBox(p,s,1)).toEqual({left:"9.6%",top:"19.7%",width:"30.8%",height:"10.6%"});expect(highlightBox(p,s,2)).toBeUndefined();expect(highlightBox({...p,rotationDegrees:90},s,1)).toBeUndefined();expect(highlightBox(p,s,1,90)).toBeUndefined();expect(highlightBox(p,{...s,boundingBox:[0.9,0.2,0.4,0.1]},1)).toBeUndefined();expect(highlightBox(p,{...s,documentId:102},1)).toBeUndefined();});
- it("keeps a relative overlay stable during zoom and page changes",async()=>{const {mount,user}=await setup();mount(<ViewerContent url="blob:local" preview={{documentId:101,mediaType:"image/png",pageCount:2,coordinateSystem:"RELATIVE_0_1",rotationDegrees:0,supportsHighlight:true}} source={{documentId:101,page:1,text:"근거",boundingBox:[0.1,0.2,0.3,0.1],coordinateSystem:"RELATIVE_0_1"}} onRetry={noop} />);fireEvent.load(screen.getByRole("img",{name:"문서 원문 1페이지"}));expect(screen.getByRole("img",{name:"선택한 필드의 원문 위치"})).toHaveStyle({left:"9.6%"});await user.click(screen.getByRole("button",{name:"확대"}));expect(screen.getByText("125%")).toBeVisible();expect(screen.getByRole("img",{name:"선택한 필드의 원문 위치"})).toHaveStyle({left:"9.6%"});await user.click(screen.getByRole("button",{name:"다음 페이지"}));expect(screen.queryByRole("img",{name:"선택한 필드의 원문 위치"})).not.toBeInTheDocument();});
- it("confirms only a field without resending its value; null cannot be confirmed",async()=>{const {mount,mocks,user}=await setup();mount(<FieldsPanel fields={mocks.fields(15,101)} context={context} inputVersion={7} onSource={noop} onDirty={noop} dirty={false} />);const card=screen.getByRole("article",{name:"지급총액"});await user.click(within(card).getByRole("button",{name:"확인"}));await waitFor(()=>expect(mocks.requests.some(r=>r.method==="PATCH")).toBe(true));expect(mocks.requests.find(r=>r.method==="PATCH")?.body).toEqual({confirmed:true,expectedInputVersion:7});expect(within(screen.getByRole("article",{name:"공제액"})).getByRole("button",{name:"확인"})).toBeDisabled();});
- it("saves explicitly entered values with user confirmation and expected version",async()=>{const {mount,mocks,user}=await setup();const done=vi.fn();mount(<FieldEditor field={mocks.fields(15,101)[0]} scope="case" context={context} version={7} onClose={done} onDirty={noop} onSaved={noop} />);await user.clear(screen.getByLabelText("수정값"));await user.type(screen.getByLabelText("수정값"),"0");await user.click(screen.getByRole("button",{name:"수정값 저장"}));await waitFor(()=>expect(done).toHaveBeenCalled());expect(mocks.requests.find(r=>r.method==="PATCH")?.body).toEqual({value:0,confirmed:true,expectedInputVersion:7});expect(mocks.fields(15,101)[0].status).toBe("CONFIRMED");});
+ it("only highlights valid matching relative coordinates; rotated or absent coordinates fall back",()=>{const p={documentId:101,mediaType:"image/png",pageCount:2,coordinateSystem:"RELATIVE_0_1",rotationDegrees:0,supportsHighlight:true};const s={documentId:101,page:1,boundingBox:[0.1,0.2,0.3,0.1] as [number,number,number,number],coordinateSystem:"RELATIVE_0_1"};expect(highlightBox(p,s,1)).toEqual({left:"10%",top:"20%",width:"30%",height:"10%"});expect(highlightBox(p,s,2)).toBeUndefined();expect(highlightBox({...p,rotationDegrees:90},s,1)).toBeUndefined();expect(highlightBox(p,s,1,90)).toBeUndefined();expect(highlightBox(p,{...s,boundingBox:[0.9,0.2,0.4,0.1]},1)).toBeUndefined();expect(highlightBox(p,{...s,documentId:102},1)).toBeUndefined();});
+ it("keeps a relative overlay stable during zoom and page changes",async()=>{const {mount,user}=await setup();mount(<ViewerContent url="blob:local" preview={{documentId:101,mediaType:"image/png",pageCount:2,coordinateSystem:"RELATIVE_0_1",rotationDegrees:0,supportsHighlight:true}} source={{documentId:101,page:1,text:"근거",boundingBox:[0.1,0.2,0.3,0.1],coordinateSystem:"RELATIVE_0_1"}} onRetry={noop} />);fireEvent.load(screen.getByRole("img",{name:"문서 원문 1페이지"}));expect(screen.getByRole("img",{name:"선택한 필드의 원문 위치"})).toHaveStyle({left:"10%"});await user.click(screen.getByRole("button",{name:"확대"}));expect(screen.getByText("125%")).toBeVisible();expect(screen.getByRole("img",{name:"선택한 필드의 원문 위치"})).toHaveStyle({left:"10%"});await user.click(screen.getByRole("button",{name:"다음 페이지"}));expect(screen.queryByRole("img",{name:"선택한 필드의 원문 위치"})).not.toBeInTheDocument();});
+ it("confirms only a field without resending its value; null cannot be confirmed",async()=>{const {mount,mocks,user}=await setup();mount(<FieldsPanel fields={mocks.fields(15,101)} context={context} inputVersion={7} onSource={noop} onDirty={noop} dirty={false} />);const card=screen.getByRole("article",{name:"지급총액"});await user.click(within(card).getByRole("button",{name:"값만 확인"}));await waitFor(()=>expect(mocks.requests.some(r=>r.method==="PATCH")).toBe(true));expect(mocks.requests.find(r=>r.method==="PATCH")?.body).toEqual({confirmed:true,expectedInputVersion:7});expect(within(screen.getByRole("article",{name:"공제액"})).getByRole("button",{name:"값만 확인"})).toBeDisabled();});
+ it("saves value edits without implicit confirmation and carries expected version",async()=>{const {mount,mocks,user}=await setup();const done=vi.fn();mount(<FieldEditor field={mocks.fields(15,101)[0]} scope="case" context={context} version={7} onClose={done} onDirty={noop} onSaved={noop} />);await user.clear(screen.getByLabelText("수정값"));await user.type(screen.getByLabelText("수정값"),"0");await user.click(screen.getByRole("button",{name:"수정값 저장"}));await waitFor(()=>expect(done).toHaveBeenCalled());expect(mocks.requests.find(r=>r.method==="PATCH")?.body).toEqual({value:0,expectedInputVersion:7});expect(mocks.fields(15,101)[0].status).toBe("UNCONFIRMED");});
  it("confirms explicitly and reports unsupported unconfirmation without changing data",async()=>{const {app,mocks}=await setup();await reviewApi(app.api).patchCase(15,101,501,{value:2000000,confirmed:true},7);expect(mocks.fields(15,101)[0].status).toBe("CONFIRMED");await expect(reviewApi(app.api).patchCase(15,101,501,{confirmed:false},8)).rejects.toMatchObject({status:422,errorCode:"CANDIDATE_CONFIRMATION_INVALID"});expect(mocks.fields(15,101)[0].status).toBe("CONFIRMED");});
  it("handles 409 with preserved draft and explicit reload of latest values/version",async()=>{const {mount,mocks,m,user}=await setup();m.getCases()[0].inputVersion=8;mount(<FieldEditor field={mocks.fields(15,101)[0]} scope="case" context={context} version={7} onClose={noop} onDirty={noop} onSaved={noop} />);await user.clear(screen.getByLabelText("수정값"));await user.type(screen.getByLabelText("수정값"),"1");await user.click(screen.getByRole("button",{name:"수정값 저장"}));expect(await screen.findByText(/다른 변경이 먼저/)).toBeVisible();expect(screen.getByLabelText("수정값")).toHaveValue("1");expect(screen.getByRole("button",{name:"수정값 저장"})).toBeDisabled();await user.click(screen.getByRole("button",{name:"최신 값으로 초안 다시 불러오기"}));await waitFor(()=>expect(screen.getByLabelText("수정값")).toHaveValue("2300000"));await user.click(screen.getByRole("button",{name:"수정값 저장"}));await waitFor(()=>expect(mocks.requests.filter(r=>r.method==="PATCH").at(-1)?.body?.expectedInputVersion).toBe(8));});
  it.each(["DOCUMENT_STILL_PROCESSING","INVALID_FIELD_VALUE"])("surfaces %s and maps field errors",async code=>{const {mount,mocks,user}=await setup();server.use(http.patch(`${testApiUrl}/cases/15/documents/101/fields/501`,()=>apiResponse({errorCode:code,errors:[{field:"value",reason:"서버 값 검증 오류"}]},code==="DOCUMENT_STILL_PROCESSING"?409:422)));mount(<FieldEditor field={mocks.fields(15,101)[0]} scope="case" context={context} version={7} onClose={noop} onDirty={noop} onSaved={noop} />);await user.click(screen.getByRole("button",{name:"수정값 저장"}));if(code==="INVALID_FIELD_VALUE")expect(await screen.findByText("서버 값 검증 오류")).toBeVisible();else expect(await screen.findByText(/문서를 처리 중입니다/)).toBeVisible();});
@@ -283,13 +101,13 @@ describe("P0 document review via MSW",()=>{
  it("removes only the current Case override and returns to the shared value",async()=>{const {app,mocks,mount,user}=await setup();await reviewApi(app.api).patchCase(15,101,501,{value:500},7);await reviewApi(app.api).patchCase(16,101,501,{value:600},7);mount(<FieldsPanel fields={mocks.fields(15,101)} context={context} inputVersion={8} onSource={noop} onDirty={noop} dirty={false} />);await user.click(screen.getByRole("button",{name:"재정의 제거"}));await user.click(screen.getByRole("button",{name:"재정의 제거 확인"}));await waitFor(()=>expect(mocks.fields(15,101)[0].effectiveValueOrigin).toBe("SHARED_DEFAULT"));expect(mocks.fields(15,101)[0].value).toBe(2300000);expect(mocks.fields(16,101)[0].value).toBe(600);});
  it("paginates client history with null/zero, actor and scope",async()=>{const {mount,user}=await setup();mount(<FieldHistory caseId={15} documentId={101} fieldId={501} />);expect(await screen.findByText("값 없음 → 0")).toBeVisible();expect(screen.getAllByText(/기록되지 않음 · 범위: 이 내역의 재정의/)).toHaveLength(20);await user.click(screen.getByRole("button",{name:"다음"}));await screen.findByText("2 / 2 페이지 · 총 21개");});
  it("shows empty history and retryable errors",async()=>{const {mount,user}=await setup();server.use(http.get(`${testApiUrl}/cases/15/documents/101/fields/501/history`,()=>apiResponse({},500)));mount(<FieldHistory caseId={15} documentId={101} fieldId={501} />);await screen.findByRole("alert");server.use(http.get(`${testApiUrl}/cases/15/documents/101/fields/501/history`,()=>apiResponse({items:[],page:1,size:20,total:0})));await user.click(screen.getByRole("button",{name:"다시 시도"}));expect(await screen.findByText("수정 이력이 없습니다.")).toBeVisible();});
- it("blocks completion with pending required fields",async()=>{const {mount,mocks}=await setup();mount(<ReviewConfirmation context={context} version={7} fields={mocks.fields(15,101)} disabled={false} />);const button=await screen.findByRole("button",{name:createTranslation("ko").translate("documents.reviewConfirmation_document_review_complete_request")});expect(button).toBeDisabled();expect(mocks.requests.some(r=>r.method==="POST")).toBe(false);});
- it("accepts authoritative CONFIRMED review only after all fields are confirmed",async()=>{const {app,mocks,mount,user}=await setup();await reviewApi(app.api).patchCase(15,101,501,{confirmed:true},7);await reviewApi(app.api).patchCase(15,101,502,{value:0,confirmed:true},8);mount(<ReviewConfirmation context={context} version={9} fields={mocks.fields(15,101)} disabled={false} />);await user.click(await screen.findByRole("button",{name:"문서 검토 완료 요청"}));expect(await screen.findByText("검토 완료")).toBeVisible();});
- it("invalidates fields/history/readiness/results while retaining old result snapshots",async()=>{const {app,mocks,mount,user}=await setup();const g=app.session.getSnapshot().generation;const resultKey=[...businessKeys.case(g,15),"results"];const readinessKey=[...businessKeys.case(g,15),"readiness"];const hist=reviewKeys.history(g,15,101,501,1);[resultKey,readinessKey,hist].forEach(k=>app.queryClient.setQueryData(k,{snapshot:"previous"}));mount(<FieldsPanel fields={mocks.fields(15,101)} context={context} inputVersion={7} onSource={noop} onDirty={noop} dirty={false} />);await user.click(within(screen.getByRole("article",{name:"지급총액"})).getByRole("button",{name:"확인"}));await waitFor(()=>expect(app.queryClient.getQueryState(resultKey)?.isInvalidated).toBe(true));expect(app.queryClient.getQueryData(resultKey)).toEqual({snapshot:"previous"});expect(app.queryClient.getQueryState(readinessKey)?.isInvalidated).toBe(true);expect(app.queryClient.getQueryState(hist)?.isInvalidated).toBe(true);});
+ it("keeps review IN_PROGRESS with missing fields and uses P0 unconfirmedFieldIds",async()=>{const {mount,mocks,user}=await setup();mount(<ReviewConfirmation context={context} version={7} fields={mocks.fields(15,101)} disabled={false} />);await user.click(await screen.findByRole("button",{name:"문서 검토 완료 요청"}));expect(await screen.findByText(/연결 문서 검토: 검토 중/)).toBeVisible();expect(screen.getByText("미완료 항목: 지급총액, 공제액")).toBeVisible();expect(screen.getByText(/원본 진위·법적 검증 완료를 뜻하지 않습니다/)).toBeVisible();});
+ it("accepts authoritative CONFIRMED review only after all fields are confirmed",async()=>{const {app,mocks,mount,user}=await setup();await reviewApi(app.api).patchCase(15,101,501,{confirmed:true},7);await reviewApi(app.api).patchCase(15,101,502,{value:0,confirmed:true},8);mount(<ReviewConfirmation context={context} version={9} fields={mocks.fields(15,101)} disabled={false} />);await user.click(await screen.findByRole("button",{name:"문서 검토 완료 요청"}));expect(await screen.findByText(/연결 문서 검토: 검토 확인 완료/)).toBeVisible();});
+ it("invalidates fields/history/readiness/results while retaining old result snapshots",async()=>{const {app,mocks,mount,user}=await setup();const g=app.session.getSnapshot().generation;const resultKey=[...businessKeys.case(g,15),"results"];const readinessKey=[...businessKeys.case(g,15),"readiness"];const hist=reviewKeys.history(g,15,101,501,1);[resultKey,readinessKey,hist].forEach(k=>app.queryClient.setQueryData(k,{snapshot:"previous"}));mount(<FieldsPanel fields={mocks.fields(15,101)} context={context} inputVersion={7} onSource={noop} onDirty={noop} dirty={false} />);await user.click(within(screen.getByRole("article",{name:"지급총액"})).getByRole("button",{name:"값만 확인"}));await waitFor(()=>expect(app.queryClient.getQueryState(resultKey)?.isInvalidated).toBe(true));expect(app.queryClient.getQueryData(resultKey)).toEqual({snapshot:"previous"});expect(app.queryClient.getQueryState(readinessKey)?.isInvalidated).toBe(true);expect(app.queryClient.getQueryState(hist)?.isInvalidated).toBe(true);});
  it("starts replacement separately, preserves originals, and polls its own ID until ready",async()=>{const {mount,mocks,user,d}=await setup();const created=vi.fn();mount(<ReplacementPanel context={context} version={7} onCreated={created} onConfirmed={noop} onDirty={noop} disabled={false} />);await user.upload(screen.getByLabelText("교체할 새 파일"),new File(["image fixture"],"new.png",{type:"image/png"}));await user.click(screen.getByRole("button",{name:"새 원본 교체 요청"}));await waitFor(()=>expect(created).toHaveBeenCalledWith(1));expect(d.getDocuments().find(v=>v.documentId===101)?.linkedCaseIds).toEqual([15,16]);expect(mocks.requests.find(r=>r.method==="POST")?.path).toMatch(/\/documents\/101\/replace$/);});
  it("requires new source and field acknowledgement before second-step confirmation",async()=>{const {app,mount,mocks,user,d}=await setup();await reviewApi(app.api).replace(15,101,new File(["x"],"a.png",{type:"image/png"}),7);mocks.setReplacementReady();const confirmed=vi.fn();mount(<ReplacementPanel context={context} version={7} replacementId={1} onCreated={noop} onConfirmed={confirmed} onDirty={noop} disabled={false} />);await screen.findByRole("region",{name:"교체 후보 추출 필드"});expect(screen.getByRole("button",{name:"원본 교체 확정"})).toBeDisabled();fireEvent.load(await screen.findByRole("img",{name:"문서 원문 1페이지"}));await user.click(screen.getByRole("checkbox"));await user.click(screen.getByRole("button",{name:"원본 교체 확정"}));expect(screen.getByRole("dialog")).toHaveTextContent("다른 내역과 공유 원본은 유지");await user.click(screen.getByRole("button",{name:"새 원본으로 연결 교체 확인"}));await waitFor(()=>expect(confirmed).toHaveBeenCalledWith(901));expect(d.getDocuments().find(v=>v.documentId===101)?.linkedCaseIds).toEqual([16]);expect(mocks.requests.find(r=>r.path.endsWith("1/confirm"))?.body).toEqual({confirmed:true,expectedInputVersion:7});});
  it("handles REPLACEMENT_OVERRIDE_CONFLICT without changing the existing link",async()=>{const {app,mount,mocks,user,d}=await setup();await reviewApi(app.api).replace(15,101,new File(["x"],"a.png",{type:"image/png"}),7);mocks.setReplacementReady();mocks.setReplacementConflict(true);mount(<ReplacementPanel context={context} version={7} replacementId={1} onCreated={noop} onConfirmed={noop} onDirty={noop} disabled={false} />);await screen.findByRole("checkbox");fireEvent.load(await screen.findByRole("img",{name:"문서 원문 1페이지"}));await user.click(screen.getByRole("checkbox"));await user.click(screen.getByRole("button",{name:"원본 교체 확정"}));await user.click(screen.getByRole("button",{name:"새 원본으로 연결 교체 확인"}));expect(await screen.findByText(/기존 연결을 유지했습니다/)).toBeVisible();expect(d.getDocuments()[0].linkedCaseIds).toEqual([15,16]);expect(screen.getByRole("button",{name:"원본 교체 확정"})).toBeDisabled();});
- it("warns on unsaved edits and prevents navigation when discarded is declined",async()=>{const {mount,user}=await setup();vi.spyOn(window,"confirm").mockReturnValue(false);mount(<ReviewScreen id={15} initialDocumentId={101} />);const panel=await screen.findByRole("region",{name:"OCR 추출 필드"});await user.click(screen.getByRole("button",{name:/세부 항목 확인/}));await user.click(within(screen.getByRole("article",{name:"지급총액"})).getByRole("button",{name:"수정"}));await user.clear(screen.getByLabelText("수정값"));await user.type(screen.getByLabelText("수정값"),"1");expect(await screen.findByText(/저장하지 않은 변경이 있습니다/)).toBeVisible();await user.click(screen.getByRole("link",{name:"자료 등록·관리"}));expect(window.confirm).toHaveBeenCalled();expect(panel).toBeInTheDocument();});
+ it("warns on unsaved edits and prevents navigation when discarded is declined",async()=>{const {mount,user}=await setup();vi.spyOn(window,"confirm").mockReturnValue(false);mount(<ReviewScreen id={15} initialDocumentId={101} />);const panel=await screen.findByRole("region",{name:"OCR 추출 필드"});await user.click(screen.getByRole("button",{name:/세부 항목 확인/}));await user.click(within(screen.getByRole("article",{name:"지급총액"})).getByRole("button",{name:"이 내역 값 수정"}));await user.clear(screen.getByLabelText("수정값"));await user.type(screen.getByLabelText("수정값"),"1");expect(await screen.findByText(/저장하지 않은 변경이 있습니다/)).toBeVisible();await user.click(screen.getByRole("link",{name:"자료 등록·관리"}));expect(window.confirm).toHaveBeenCalled();expect(panel).toBeInTheDocument();});
  it("clears original resources and private review caches after session change",async()=>{const {mount,app}=await setup();mount(<ReviewScreen id={15} initialDocumentId={101} />);await screen.findByRole("region",{name:"OCR 추출 필드"});await screen.findByRole("img",{name:"문서 원문 1페이지"});const revoke=URL.revokeObjectURL;await act(async()=>app.session.clear());await waitFor(()=>expect(revoke).toHaveBeenCalled());expect(app.queryClient.getQueryCache().getAll().filter(q=>q.queryKey[0]==="session")).toHaveLength(0);});
  it("polls replacement status by replacementId and stops after terminal state",async()=>{const {app,mount,mocks}=await setup();await reviewApi(app.api).replace(15,101,new File(["x"],"a.png",{type:"image/png"}),7);mount(<ReplacementPanel context={context} version={7} replacementId={1} onCreated={noop} onConfirmed={noop} onDirty={noop} disabled={false} />);await screen.findByText(/새 문서 #901 · 처리 중/);
  await waitFor(()=>expect(mocks.requests.filter(r=>r.method==="GET"&&r.path.endsWith("/document-replacements/1"))).toHaveLength(1));mocks.setReplacementReady();
@@ -302,7 +120,7 @@ describe("P0 document review via MSW",()=>{
  it("keeps replacement confirmation disabled when its authenticated original cannot load",async()=>{const {app,mocks,mount}=await setup();await reviewApi(app.api).replace(15,101,new File(["x"],"a.png",{type:"image/png"}),7);mocks.setReplacementReady();server.use(http.get(`${testApiUrl}/workplaces/3/documents/901/file`,()=>apiResponse({},403)));mount(<ReplacementPanel context={context} version={7} replacementId={1} onCreated={noop} onConfirmed={noop} onDirty={noop} disabled={false} />);await screen.findByRole("alert");expect(screen.getByRole("checkbox")).toBeDisabled();expect(screen.getByRole("button",{name:"원본 교체 확정"})).toBeDisabled();});
  it("rejects a fields response for a different Case or document",async()=>{const {app,mocks}=await setup();server.use(http.get(`${testApiUrl}/cases/15/documents/101/fields`,()=>apiResponse({documentId:102,caseId:16,processingStatus:"READY",reviewStatus:"NOT_STARTED",fields:mocks.fields(15,101)})));await expect(reviewApi(app.api).fields(15,101)).rejects.toMatchObject({kind:"protocol"});});
  it("supports arrow-key navigation between mobile original and field tabs",async()=>{const {mount}=await setup();mount(<ReviewScreen id={15} initialDocumentId={101} />);const fieldsTab=await screen.findByRole("tab",{name:"추출 필드"});fieldsTab.focus();fireEvent.keyDown(fieldsTab,{key:"ArrowLeft"});expect(screen.getByRole("tab",{name:"원문"})).toHaveAttribute("aria-selected","true");expect(screen.getByRole("tab",{name:"원문"})).toHaveFocus();});
- it("requires explicit latest-state reload after a review version conflict",async()=>{const {mount,mocks,m,user}=await setup();m.getCases()[0].inputVersion=8;mocks.originals.get(101)!.forEach(f=>{f.status="CONFIRMED";f.value=1;});server.use(http.post(`${testApiUrl}/cases/15/documents/101/review/confirm`,()=>apiResponse({errorCode:"INPUT_VERSION_CONFLICT"},409)));mount(<ReviewConfirmation context={context} version={7} fields={mocks.fields(15,101)} disabled={false} />);await user.click(await screen.findByRole("button",{name:"문서 검토 완료 요청"}));expect(await screen.findByText(/다른 변경이 먼저/)).toBeVisible();expect(screen.getByRole("button",{name:"문서 검토 완료 요청"})).toBeDisabled();expect(screen.getByRole("button",{name:"최신 검토 상태와 버전 확인"})).toBeEnabled();});
+ it("requires explicit latest-state reload after a review version conflict",async()=>{const {mount,mocks,m,user}=await setup();m.getCases()[0].inputVersion=8;server.use(http.post(`${testApiUrl}/cases/15/documents/101/review/confirm`,()=>apiResponse({errorCode:"INPUT_VERSION_CONFLICT"},409)));mount(<ReviewConfirmation context={context} version={7} fields={mocks.fields(15,101)} disabled={false} />);await user.click(await screen.findByRole("button",{name:"문서 검토 완료 요청"}));expect(await screen.findByText(/다른 변경이 먼저/)).toBeVisible();expect(screen.getByRole("button",{name:"문서 검토 완료 요청"})).toBeDisabled();expect(screen.getByRole("button",{name:"최신 검토 상태와 버전 확인"})).toBeEnabled();});
 
  it("fits a rotated image into its true bounds and avoids speculative rotated highlights",async()=>{const {mount}=await setup();mount(<ViewerContent url="blob:local" preview={{documentId:101,mediaType:"image/png",pageCount:1,coordinateSystem:"RELATIVE_0_1",rotationDegrees:90,supportsHighlight:true}} source={{documentId:101,page:1,boundingBox:[0.1,0.2,0.3,0.1],coordinateSystem:"RELATIVE_0_1"}} onRetry={noop} />);const image=screen.getByRole("img",{name:"문서 원문 1페이지"});Object.defineProperty(image,"naturalWidth",{value:600});Object.defineProperty(image,"naturalHeight",{value:800});fireEvent.load(image);expect(image).toHaveStyle({position:"absolute",transform:"translate(-50%,-50%) rotate(90deg)"});expect(image.parentElement?.style.aspectRatio).toContain("800");expect(screen.queryByRole("img",{name:"선택한 필드의 원문 위치"})).not.toBeInTheDocument();});
 
@@ -315,9 +133,9 @@ describe("P0 document review via MSW",()=>{
  const fields=Array.from({length:13},(_,i)=>({...base,fieldId:701+i,label:`검토 항목 ${i+1}`}));
  mount(<FieldsPanel fields={fields} context={context} inputVersion={7} onSource={noop} onDirty={noop} dirty={false} />);
  expect(screen.getAllByRole("article").length).toBeGreaterThan(1);
- await user.click(within(screen.getByRole("article",{name:"검토 항목 1"})).getByRole("button",{name:"수정"}));
+ await user.click(within(screen.getByRole("article",{name:"검토 항목 1"})).getByRole("button",{name:"이 내역 값 수정"}));
  await user.clear(screen.getByLabelText("수정값"));await user.type(screen.getByLabelText("수정값"),"123");
- expect(within(screen.getByRole("article",{name:"검토 항목 2"})).getByRole("button",{name:"수정"})).toBeDisabled();
+ expect(within(screen.getByRole("article",{name:"검토 항목 2"})).getByRole("button",{name:"이 내역 값 수정"})).toBeDisabled();
  expect(screen.getByLabelText("수정값")).toHaveValue("123");expect(screen.getByRole("article",{name:"검토 항목 1"})).toBeVisible();
  const confirm=vi.spyOn(window,"confirm").mockReturnValue(false);await user.click(screen.getByRole("button",{name:"편집 닫기"}));expect(screen.getByLabelText("수정값")).toHaveValue("123");
  confirm.mockReturnValue(true);await user.click(screen.getByRole("button",{name:"편집 닫기"}));confirm.mockRestore();
@@ -341,49 +159,7 @@ it("N01 preserves an unknown review status and blocks confirmation/editing",asyn
  const {mount,mocks}=await setup();
  server.use(http.get(`${testApiUrl}/cases/15/documents/101/fields`,()=>apiResponse({documentId:101,caseId:15,processingStatus:"READY",reviewStatus:"OPAQUE_REVIEW",fields:mocks.fields(15,101)})));
  mount(<ReviewScreen id={15} initialDocumentId={101}/>);
- expect(document.querySelector("[data-review-status-header]")).toBeNull();
+ expect(await screen.findByText(/OPAQUE_REVIEW/)).toBeVisible();
  expect(await screen.findByRole("button",{name:"\uBB38\uC11C \uAC80\uD1A0 \uC644\uB8CC \uC694\uCCAD"})).toBeDisabled();
- for(const button of screen.getAllByRole("button",{name:"수정"})) expect(button).toBeDisabled();
-});
-
-it.each(["UNKNOWN","NOT_IN_DOCUMENT","NONE"] as const)("keeps %s dialog open after rejection, then closes on success",async resolution=>{
- const s=await setup();const t=createTranslation("ko").translate;
- if(resolution==="NONE")await reviewApi(s.app.api).patchCase(15,101,502,{reviewResolution:"UNKNOWN"},7);
- const fields=s.mocks.fields(15,101);const label=t(`documents.reviewPolicy_${resolution}`);
- s.mount(<FieldsPanel fields={fields} context={context} inputVersion={resolution==="NONE"?8:7} onSource={noop} onDirty={noop} dirty={false}/>);
- await s.user.click(screen.getByRole("button",{name:label}));
- server.use(http.patch(`${testApiUrl}/cases/:c/documents/:d/fields/:f`,()=>apiResponse({errorCode:"VALIDATION_ERROR"},422)));
- await s.user.click(within(screen.getByRole("dialog")).getByRole("button",{name:label}));
- await waitFor(()=>expect(within(screen.getByRole("dialog")).getByRole("alert")).toBeVisible());
- expect(screen.queryByText(t("documents.fieldsPanel_save",{value1:""}))).toBeNull();
- server.use(...s.mocks.handlers);
- await s.user.click(within(screen.getByRole("dialog")).getByRole("button",{name:label}));
- await waitFor(()=>expect(screen.queryByRole("dialog")).toBeNull());
-});
-
-it("renders confirmed review separately from processing and ignores a stale poll",async()=>{
- const {createLocalizedFeaturesDocumentsViewModels}=await import("../view-models");
- const {documentCard}=createLocalizedFeaturesDocumentsViewModels(createTranslation("ko"));
- const s=await setup();
- s.mocks.originals.get(101)!.forEach(f=>{f.value=1;f.status="CONFIRMED";});
- const confirmed=await reviewApi(s.app.api).confirmReview(15,101,7);
- expect(confirmed.reviewStatus).toBe("CONFIRMED");
- const dto=s.d.getDocuments().find(d=>d.documentId===101)!;
- const vm=documentCard({...dto,processingStatus:"REVIEW_REQUIRED"},{documentId:101,processingStatus:"REVIEW_REQUIRED",reviewStatus:"IN_PROGRESS"});
- expect(vm.reviewStatus).toBe("CONFIRMED");
- expect(vm.processingStatus).toBe("REVIEW_REQUIRED");
- expect(vm.statusLabel).not.toBe(createTranslation("ko").translate("common.reviewRequired"));
-});
-
-it("hides completion on CONFIRMED + REVIEW_REQUIRED with optional unconfirmed fields and restores it on IN_PROGRESS",async()=>{
- const {mount,mocks,app}=await setup();
- let reviewStatus="CONFIRMED";
- server.use(http.get(`${testApiUrl}/cases/15/documents/101/review`,()=>apiResponse({documentId:101,processingStatus:"REVIEW_REQUIRED",reviewStatus,canCompleteReview:true,pendingRequiredFieldIds:[],optionalUnconfirmedFieldIds:[503],unconfirmedFieldIds:[503]})));
- mount(<ReviewConfirmation context={context} version={7} fields={mocks.fields(15,101)} disabled={false}/>);
- const t=createTranslation("ko").translate;
- await waitFor(()=>expect(screen.getByRole("region",{name:t("documents.viewModels_review_confirm_complete")})).toBeVisible());
- expect(screen.queryByRole("button",{name:t("documents.reviewConfirmation_document_review_complete_request")})).not.toBeInTheDocument();
- reviewStatus="IN_PROGRESS";
- await act(()=>app.queryClient.invalidateQueries({queryKey:reviewKeys.review(app.session.getSnapshot().generation,15,101)}));
- expect(await screen.findByRole("button",{name:t("documents.reviewConfirmation_document_review_complete_request")})).toBeEnabled();
+ for(const button of screen.getAllByRole("button",{name:"\uC774 \uB0B4\uC5ED \uAC12 \uC218\uC815"})) expect(button).toBeDisabled();
 });

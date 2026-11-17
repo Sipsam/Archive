@@ -1,5 +1,4 @@
 "use client";
-import { useTranslation } from '@/i18n/use-translation';
 
 import Link from "next/link";
 import { Check, FileText, FolderOpen, Info, Plus } from "lucide-react";
@@ -14,23 +13,21 @@ import { CaseCards } from "./case-cards";
 import styles from "./case-explorer.module.css";
 
 export function CaseList({ workplaceId }: { workplaceId?: number }) {
- const {translate, locale: defaultLocale} = useTranslation();
-
   const [page, setPage] = useState(1);
   const query = useCases(page, 20, workplaceId);
   const createHref = workplaceId === undefined ? "/cases/new" : `/cases/new?workplaceId=${workplaceId}`;
   const standalone = workplaceId === undefined;
   const data = query.data;
   return (
-    <section className={standalone ? styles.explorer : "min-w-0 space-y-4"} aria-label={translate("cases.caseDetailScreen_wage_confirm_case")}>
+    <section className={standalone ? styles.explorer : "min-w-0 space-y-4"} aria-label="급여 확인 내역">
       {standalone && (
         <header className={styles.header}>
           <div className={styles.heroCopy}>
-            <p className={styles.eyebrow}><span aria-hidden="true" />{translate("cases.caseList_wage")}</p>
-            <h1>{translate("cases.caseDetailScreen_wage_confirm_case")}</h1>
-            <p className={styles.intro}>{translate("cases.caseList_wage_2")}<br />{translate("cases.caseList_review")}</p>
+            <p className={styles.eyebrow}><span aria-hidden="true" />나의 급여 기록</p>
+            <h1>급여 확인 내역</h1>
+            <p className={styles.intro}>흩어진 급여 기록을 한곳에.<br />하던 검토를 가볍게 이어가세요.</p>
             {(!data || data.total > 0) && (
-              <Link href={createHref} className={styles.heroCreate}><Plus size={18} aria-hidden="true" />{translate("cases.caseList_new_case_start")}</Link>
+              <Link href={createHref} className={styles.heroCreate}><Plus size={18} aria-hidden="true" />새 내역 시작</Link>
             )}
           </div>
           <div className={styles.heroArt} aria-hidden="true">
@@ -38,7 +35,7 @@ export function CaseList({ workplaceId }: { workplaceId?: number }) {
             <div className={styles.paperBack} />
             <div className={styles.paper}>
               <span className={styles.paperIcon}><FileText size={28} strokeWidth={1.8} /></span>
-              <span className={styles.paperTitle}>{translate("cases.caseList_wage")}</span>
+              <span className={styles.paperTitle}>나의 급여 기록</span>
               <div className={styles.paperLines}><i /><i /><i /></div>
               <div className={styles.paperBottom}><span /><span /></div>
             </div>
@@ -55,18 +52,18 @@ export function CaseList({ workplaceId }: { workplaceId?: number }) {
         <div className={standalone ? styles.panel : "space-y-4"}>
           {standalone && (
             <div className={styles.listHeading}>
-              <h2>{translate("cases.caseList_all_case")}<span>{translate("cases.caseList_h22", { value1: data.total.toLocaleString(defaultLocale) })}</span></h2>
-              <p>{translate("cases.caseList_case_select")}</p>
+              <h2>전체 내역 <span>{data.total.toLocaleString("ko-KR")}건</span></h2>
+              <p>살펴볼 내역을 선택해 주세요</p>
             </div>
           )}
           {standalone && data.items.length === 0 && data.total > 0 ? (
-            <p className={styles.empty}>{translate("cases.caseList_page_case_empty")}</p>
+            <p className={styles.empty}>이 페이지에는 표시할 내역이 없어요.</p>
           ) : data.items.length === 0 ? (
             <div className={standalone ? styles.empty : cardStyle}>
               {standalone && <span className={styles.emptyIcon}><FolderOpen aria-hidden="true" size={30} strokeWidth={1.7} /></span>}
-              <h2 className="text-title font-bold">{translate("cases.caseList_create_wageCase_empty")}</h2>
-              <p className="my-4 text-body text-muted">{translate("cases.caseList_workplace_wagePeriod_select_case_start")}</p>
-              <Link href={createHref} className={standalone ? styles.create : primaryButton}>{translate("cases.caseList_case_start")}</Link>
+              <h2 className="text-title font-bold">등록된 급여 내역이 없습니다</h2>
+              <p className="my-4 text-body text-muted">근무지와 산정기간을 선택해 첫 내역을 시작하세요.</p>
+              <Link href={createHref} className={standalone ? styles.create : primaryButton}>내역 시작하기</Link>
             </div>
           ) : <CaseCards items={data.items} variant={standalone ? "explorer" : "workplace"} />}
           {(standalone ? data.total > 0 || data.page > 1 : data.total > data.size || data.page > 1) && (
@@ -75,7 +72,7 @@ export function CaseList({ workplaceId }: { workplaceId?: number }) {
         </div>
       )}
       {standalone && data && data.total > 0 && (
-        <p className={styles.note}><Info size={16} aria-hidden="true" />{translate("cases.caseList_case_status_review_progress")}</p>
+        <p className={styles.note}><Info size={16} aria-hidden="true" />내역 상태는 검토 진행 상황을 나타내요.</p>
       )}
     </section>
   );
