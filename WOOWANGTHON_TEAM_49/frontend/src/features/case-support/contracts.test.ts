@@ -8,7 +8,8 @@ describe("support response adapters",()=>{
 });
 
 import { reportPdf,snapshotZip } from "@/mocks/shared/report-files";
+import { writeFileSync,mkdirSync } from "node:fs";
 it("produces inspectable synthetic PDF and ZIP artifacts for a fixed snapshot",()=>{
  const r={reportId:90,version:1,status:"READY" as const,basedOnInputVersion:7,referencedSnapshots: {calculation:{snapshotId:1,version:1,inputVersion:1,createdAt:null,freshness:"CURRENT" as const}},selectedDocumentIds:[],createdAt:"2026-11-10",isCurrent:true};
- const pdf=reportPdf(r),zip=snapshotZip(r);expect(new TextDecoder().decode(pdf)).toContain("Input version 7");expect(new DataView(zip.buffer).getUint32(0,true)).toBe(0x04034b50);
+ const pdf=reportPdf(r),zip=snapshotZip(r);expect(new TextDecoder().decode(pdf)).toContain("Input version 7");expect(new DataView(zip.buffer).getUint32(0,true)).toBe(0x04034b50);mkdirSync("test-results",{recursive:true});writeFileSync("test-results/report-sample.pdf",pdf);writeFileSync("test-results/report-sample.zip",zip);
 });

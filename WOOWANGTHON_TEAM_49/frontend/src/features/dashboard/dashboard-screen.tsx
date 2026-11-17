@@ -1,8 +1,4 @@
 "use client";
-import {useLocalized} from '@/i18n/use-translation';
-import {createLocalizedFeaturesCasesViewModels} from '@/features/cases/view-models';
-
-import { useTranslation } from '@/i18n/use-translation';
 
 import Link from "next/link";
 import { ArrowRight, Building2, CalendarDays, ChevronRight, ClipboardList, Files, FolderOpen, Plus } from "lucide-react";
@@ -11,18 +7,13 @@ import { useState } from "react";
 import { QueryFeedback } from "@/components/ui/query-feedback";
 import { CaseCards, caseTaskHref } from "@/features/cases/components/case-cards";
 import { useCases } from "@/features/cases/queries";
-
+import { caseCard } from "@/features/cases/view-models";
 import { useWorkplaces } from "@/features/workplaces/queries";
 
 import styles from "./dashboard.module.css";
-import { useCaseProgress } from "@/features/cases/use-case-progress";
 import { WorkflowProgress } from "./workflow-progress";
 
 export function DashboardScreen() {
-const {caseCard} = useLocalized(createLocalizedFeaturesCasesViewModels);
-
- const {translate} = useTranslation();
-
   const [attentionLimit, setAttentionLimit] = useState(3);
   const workplaces = useWorkplaces();
   const cases = useCases();
@@ -32,9 +23,7 @@ const {caseCard} = useLocalized(createLocalizedFeaturesCasesViewModels);
   const recent = sorted?.slice(0, 6);
   const attention = cases.data?.items.filter((item) => item.attentionRequired === true);
   const knownAttention = cases.data?.items.filter((item) => item.attentionRequired !== undefined).length;
-  const candidate = sorted?.find((item) => item.status === "IN_PROGRESS" || item.status === "CREATED");
-  const progress = useCaseProgress(candidate);
-  const current = candidate && {...candidate, currentStep: progress?.next ?? candidate.currentStep};
+  const current = sorted?.find((item) => item.status === "IN_PROGRESS" || item.status === "CREATED");
   const card = current && caseCard(current);
   const firstWorkplace = workplaces.isSuccess && workplaces.data.total === 0;
   const showOnboarding = firstWorkplace && !current;
@@ -42,9 +31,10 @@ const {caseCard} = useLocalized(createLocalizedFeaturesCasesViewModels);
   return (
     <div className={styles.screen}>
       <header className={styles.header}>
-        <h1>{current ? translate("dashboard.dashboardScreen_wage_continue") : translate("dashboard.dashboardScreen_wage_review")}</h1>
+        <h1>{current ? "내 급여, 이어서 살펴볼까요" : "내 급여 검토"}</h1>
         <Link href="/cases/new" className={styles.secondaryButton}>
-          <Plus size={16} aria-hidden="true" />{translate("dashboard.dashboardScreen_newWage_review")}</Link>
+          <Plus size={16} aria-hidden="true" />새 급여 검토
+        </Link>
       </header>
 
       {cases.isPending && <QueryFeedback pending />}
@@ -55,10 +45,10 @@ const {caseCard} = useLocalized(createLocalizedFeaturesCasesViewModels);
       {showOnboarding && (
         <section className={styles.spotlight} aria-labelledby="first-workplace">
           <div className={styles.caseInfo}>
-            <h2 id="first-workplace" className={styles.heroTitle}>{translate("dashboard.dashboardScreen_workplace_create")}</h2>
-            <p className={styles.heroDescription}>{translate("dashboard.dashboardScreen_workplace_create_wagePeriod_wage_record_count")}</p>
+            <h2 id="first-workplace" className={styles.heroTitle}>첫 근무지를 등록해 주세요</h2>
+            <p className={styles.heroDescription}>근무지를 등록한 뒤 산정기간별로 급여 자료를 모을 수 있어요.</p>
             <Link href="/workplaces/new" className={styles.primaryButton}>
-              {translate("dashboard.dashboardScreen_workplace_create_2")}<ArrowRight size={17} aria-hidden="true" />
+              첫 근무지 등록 <ArrowRight size={17} aria-hidden="true" />
             </Link>
           </div>
           <div className={styles.emptyIllustration} aria-hidden="true"><Building2 strokeWidth={1.25} /></div>
@@ -69,88 +59,91 @@ const {caseCard} = useLocalized(createLocalizedFeaturesCasesViewModels);
         <section className={styles.spotlight} aria-labelledby="current-review">
           <div className={styles.caseInfo}>
             <h2 id="current-review" className={styles.heroLabel}>
-              <FolderOpen size={18} aria-hidden="true" />{translate("dashboard.dashboardScreen_current_review")}</h2>
+              <FolderOpen size={18} aria-hidden="true" />현재 검토
+            </h2>
             <h3 className={styles.heroTitle}>{card.workplaceName}</h3>
             <p className={styles.period}><CalendarDays size={16} aria-hidden="true" />{card.period}</p>
             <p className={styles.caseStatus}><strong>{card.status}</strong><span>{card.payType}</span></p>
             <Link href={caseTaskHref(current)} className={styles.primaryButton}>
-              {translate("dashboard.dashboardScreen_current_case")}<ArrowRight size={17} aria-hidden="true" />
+              현재 내역 이어가기 <ArrowRight size={17} aria-hidden="true" />
             </Link>
           </div>
           <div className={styles.stepsPanel}>
-            <p className={styles.stepHeading}>{translate("dashboard.dashboardScreen_review_step")}</p>
+            <p className={styles.stepHeading}>검토 단계</p>
             <WorkflowProgress item={current} />
-            <p className={styles.stepNote}>{translate("dashboard.dashboardScreen_step_check_complete_result_match")}</p>
+            <p className={styles.stepNote}>작업 단계는 검사 완료나 결과 일치를 의미하지 않습니다.</p>
           </div>
         </section>
       ) : cases.data && workplaces.isSuccess && !firstWorkplace && (
         <section className={styles.quietPanel}>
-          <h2>{translate("dashboard.dashboardScreen_current_review")}</h2>
-          <p>{translate("dashboard.dashboardScreen_scope_progress_case_empty")}</p>
+          <h2>현재 검토</h2>
+          <p>조회 범위에 진행 중인 내역이 없습니다.</p>
         </section>
       )}
 
       <div className={styles.overview}>
         <section className={styles.panel} aria-labelledby="attention-heading">
           <div className={styles.sectionHead}>
-            <h2 id="attention-heading">{translate("dashboard.dashboardScreen_confirm")}</h2>
-            {!!attention?.length && <span className={styles.attentionCount}>{translate("dashboard.dashboardScreen_reviewCount", { value1: attention.length })}</span>}
+            <h2 id="attention-heading">확인할 작업</h2>
+            {!!attention?.length && <span className={styles.attentionCount}>{attention.length}건</span>}
           </div>
           {attention?.length ? (
             <div className={styles.attentionList}>
               <CaseCards items={attention.slice(0, attentionLimit)} compact />
               {attentionLimit < attention.length && (
-                <button type="button" className={styles.more} onClick={() => setAttentionLimit(n => n + 3)}>{translate("dashboard.dashboardScreen_showMore", { value1: Math.min(attentionLimit, attention.length), value2: attention.length })}</button>
+                <button type="button" className={styles.more} onClick={() => setAttentionLimit(n => n + 3)}>
+                  더 보기 ({Math.min(attentionLimit, attention.length)}/{attention.length})
+                </button>
               )}
             </div>
           ) : cases.data && (
             <p className={styles.emptyNote}>
-              {knownAttention ? translate("dashboard.dashboardScreen_scope_add_confirm_request_empty") : translate("dashboard.dashboardScreen_confirm_required_information_notProvided")}
+              {knownAttention ? "조회 범위에 추가 확인 요청이 없습니다." : "확인 필요 정보가 제공되지 않았습니다."}
             </p>
           )}
         </section>
 
         <section className={styles.panel} aria-labelledby="overview-heading">
-          <h2 id="overview-heading">{translate("dashboard.dashboardScreen_review")}</h2>
+          <h2 id="overview-heading">검토 현황</h2>
           <div className={styles.stat}>
-            <Building2 aria-hidden="true" /><h3>{translate("dashboard.dashboardScreen_all_workplace")}</h3>
-            <strong>{workplaces.data ? translate("dashboard.dashboardScreen_itemCount", { value1: workplaces.data.total }) : "—"}</strong>
+            <Building2 aria-hidden="true" /><h3>전체 근무지</h3>
+            <strong>{workplaces.data ? `${workplaces.data.total}개` : "—"}</strong>
           </div>
           <div className={styles.stat}>
-            <Files aria-hidden="true" /><h3>{translate("dashboard.dashboardScreen_all_wageCase")}</h3>
-            <strong>{cases.data ? translate("dashboard.dashboardScreen_itemCount", { value1: cases.data.total }) : "—"}</strong>
+            <Files aria-hidden="true" /><h3>전체 급여 내역</h3>
+            <strong>{cases.data ? `${cases.data.total}개` : "—"}</strong>
           </div>
           <div className={styles.stat}>
-            <ClipboardList aria-hidden="true" /><h3>{translate("dashboard.dashboardScreen_case_confirm_required")}</h3>
-            <strong>{knownAttention ? translate("dashboard.dashboardScreen_itemCount", { value1: attention?.length }) : translate("dashboard.dashboardScreen_information_none")}</strong>
+            <ClipboardList aria-hidden="true" /><h3>조회한 내역 중 확인 필요</h3>
+            <strong>{knownAttention ? `${attention?.length}개` : "정보 없음"}</strong>
           </div>
-          {cases.data && <p className={styles.note}>{translate("dashboard.dashboardScreen_confirm_required_provided_basis", { value1: knownAttention })}</p>}
+          {cases.data && <p className={styles.note}>확인 필요 여부가 제공된 {knownAttention}건 기준</p>}
         </section>
       </div>
 
       <section className={styles.panel} aria-labelledby="recent-heading">
         <div className={styles.sectionHead}>
-          <h2 id="recent-heading">{translate("dashboard.dashboardScreen_case")}</h2>
-          <Link href="/cases" className={styles.textLink}>{translate("dashboard.dashboardScreen_all_case")}<ChevronRight size={16} aria-hidden="true" /></Link>
+          <h2 id="recent-heading">최근 업데이트한 내역</h2>
+          <Link href="/cases" className={styles.textLink}>모든 내역 보기 <ChevronRight size={16} aria-hidden="true" /></Link>
         </div>
         {recent?.length ? (
           <div className={styles.recentList}><CaseCards items={recent} /></div>
         ) : cases.data && (
           <div className={styles.quietPanel}>
-            <h3>{translate("dashboard.dashboardScreen_wageCase_empty")}</h3>
-            <p>{translate("dashboard.dashboardScreen_wagePeriod_wage_record")}</p>
+            <h3>아직 급여 내역이 없습니다</h3>
+            <p>산정기간을 정해 급여 자료를 모아 보세요.</p>
             <Link href={workplaces.data?.total === 0 ? "/workplaces/new" : "/cases/new"} className={styles.textLink}>
-              {translate("dashboard.dashboardScreen_case_2")}<ArrowRight size={16} aria-hidden="true" />
+              첫 내역 준비하기 <ArrowRight size={16} aria-hidden="true" />
             </Link>
           </div>
         )}
         <details className={styles.scope}>
-          <summary>{translate("dashboard.dashboardScreen_list_scope")}</summary>
-          <p>{translate("dashboard.dashboardScreen_page_maximum_confirm_list_case_count")}</p>
-          <p>{translate("dashboard.dashboardScreen_all_workplace_case_count_provided_complete_status")}</p>
+          <summary>목록과 통계의 조회 범위</summary>
+          <p>첫 페이지에 조회된 최대 20건 중 업데이트 순서입니다. 확인할 작업과 최근 목록에는 같은 내역이 표시될 수 있습니다.</p>
+          <p>전체 근무지와 전체 내역 수는 서버에서 제공한 총계입니다. 작업 완료 상태가 검사 일치를 뜻하지는 않습니다.</p>
         </details>
       </section>
-      <footer><Link href="/settings" className={styles.textLink}>{translate("dashboard.dashboardScreen_account_settings")}<ChevronRight size={15} aria-hidden="true" /></Link></footer>
+      <footer><Link href="/settings" className={styles.textLink}>계정 설정 <ChevronRight size={15} aria-hidden="true" /></Link></footer>
     </div>
   );
 }

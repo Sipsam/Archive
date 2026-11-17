@@ -1,6 +1,4 @@
 "use client";
-import { LanguageProvider } from "@/i18n/language-provider";
-import { TranslationLocaleContext } from "@/i18n/use-translation";
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
@@ -13,13 +11,13 @@ import { mockEnabled } from "@/lib/config/mock";
 const MockBoundary = process.env.NODE_ENV === "development"
   ? dynamic(() => import("@/mocks/mock-boundary"), { ssr: false }) : null;
 
-export function AppProviders({ children, initialLocale = "ko" }: { children: ReactNode; initialLocale?: import("@/i18n/config").Locale }) {
-  return <TranslationLocaleContext value={initialLocale}>{mockEnabled && MockBoundary
-    ? <MockBoundary><ServicesProvider initialLocale={initialLocale}>{children}</ServicesProvider></MockBoundary>
-    : <ServicesProvider initialLocale={initialLocale}>{children}</ServicesProvider>}</TranslationLocaleContext>;
+export function AppProviders({ children }: { children: ReactNode }) {
+  return mockEnabled && MockBoundary
+    ? <MockBoundary><ServicesProvider>{children}</ServicesProvider></MockBoundary>
+    : <ServicesProvider>{children}</ServicesProvider>;
 }
 
-function ServicesProvider({ children, initialLocale }: { children: ReactNode; initialLocale: import("@/i18n/config").Locale }) {
+function ServicesProvider({ children }: { children: ReactNode }) {
   // Per-tree construction also isolates SSR requests; no module-level user state.
   const [services] = useState(createAppServices);
 
@@ -30,7 +28,7 @@ function ServicesProvider({ children, initialLocale }: { children: ReactNode; in
   return (
     <AppServicesContext value={services}>
       <QueryClientProvider client={services.queryClient}>
-        <LanguageProvider initialLocale={initialLocale}>{children}</LanguageProvider>
+        {children}
       </QueryClientProvider>
     </AppServicesContext>
   );

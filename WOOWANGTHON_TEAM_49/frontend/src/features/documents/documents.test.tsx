@@ -1,4 +1,3 @@
-import {createTranslation} from '@/i18n/translate';
 import { caseDocumentResponse } from "@/mocks/shared/document-handlers";
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
@@ -23,10 +22,8 @@ import { LinkForm } from "./components/link-form";
 import { documentApi } from "./api";
 import { documentKeys, useRecomputeStatus } from "./queries";
 import { revokeDocumentScope } from "./cache";
-import {createLocalizedFeaturesDocumentsFileValidation} from './file-validation';
+import { MAX_FILE_SIZE, validateFile, validateImageDimensions } from "./file-validation";
 import { caseDocumentSchema, documentSchema } from "./schemas";
-
-const {MAX_FILE_SIZE, validateFile, validateImageDimensions} = createLocalizedFeaturesDocumentsFileValidation(createTranslation('ko'));
 const nav = vi.hoisted(() => ({replace: vi.fn()}));
 vi.mock("next/navigation", () => ({useRouter: () => nav, usePathname: () => "/library", useSearchParams: () => new URLSearchParams()}));
 const apps: AppServices[] = [];
@@ -47,21 +44,6 @@ async function setup() {
 }
 const pdf = () => new File(["%PDF-1.7 test fixture"], "새자료.pdf", {type: "application/pdf"});
 describe("document flows with MSW, never a live backend", () => {
-  it("places workplace reset after registration and clears only the workplace selection", async () => {
-    const {mount,user,mocks}=await setup();mount(<LibraryScreen />);
-    await screen.findByRole("article",{name:"근로계약서.pdf"});
-    await user.click(screen.getByText("근무지 필터 · 전체 근무지"));
-    const picker=screen.getByText("근무지 필터 · 전체 근무지").closest("details")!;
-    const reset=within(picker).getByRole("button",{name:"필터 초기화"});
-    expect(within(picker).queryByRole("button",{name:"전체 근무지"})).not.toBeInTheDocument();
-    expect(within(picker).getByRole("link",{name:"새 근무지 등록"}).nextElementSibling).toBe(reset);
-    await user.click(await within(picker).findByRole("radio",{name:"카페 나무"}));
-    await waitFor(()=>expect(mocks.requests.some(r=>r.path.includes("workplaceId=3"))).toBe(true));
-    await user.click(picker.querySelector("summary")!);
-    await user.click(reset);
-    expect(screen.getByText("근무지 필터 · 전체 근무지")).toHaveFocus();
-    expect(await screen.findByRole("article",{name:"근로계약서.pdf"})).toBeVisible();
-  });
   it("lists original documents, filters on the server and paginates", async () => {
     const {mount, user, mocks} = await setup(); mount(<LibraryScreen />);
     expect(await screen.findByRole("article", {name: "근로계약서.pdf"})).toBeVisible();
@@ -88,7 +70,7 @@ describe("document flows with MSW, never a live backend", () => {
     expect(workplaceFilter).toHaveFocus();
     await user.selectOptions(screen.getByLabelText("문서 유형 필터"), "PAYSLIP");
     await user.selectOptions(screen.getByLabelText("처리 상태 필터"), "READY");
-    await user.click(screen.getAllByRole("button", {name: "필터 초기화"}).find(button=>!button.closest("details"))!);
+    await user.click(screen.getByRole("button", {name: "필터 초기화"}));
     expect(screen.getByLabelText("문서 유형 필터")).toHaveValue("");
     expect(screen.getByLabelText("처리 상태 필터")).toHaveValue("");
     expect(screen.getByLabelText("현재 페이지 파일명 검색")).toHaveValue("");
@@ -385,6 +367,7 @@ it("keeps compact row metadata separate and reveals linked cases five at a time"
  expect(screen.getByRole("link",{name:"내역 #6"})).toBeVisible();
  expect(mocks.requests.filter(r=>r.method!=="GET")).toHaveLength(0);
 });
+
 
 it.each([null, 777])("A05 lists and opens details without a nested link (%s)", async linkId => {
   const {app,mount,user,mocks} = await setup();
