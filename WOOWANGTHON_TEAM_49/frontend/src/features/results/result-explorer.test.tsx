@@ -1,14 +1,12 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { ResultExplorer, createResultPresentation } from "./result-explorer";
+import { ResultExplorer, resultGroups } from "./result-explorer";
 import { ResultCarousel } from "@/components/ui/result-carousel";
 import { buildResultScenario } from "@/mocks/shared/result-scenario";
 import type { CaseDetailDto } from "@/features/cases/schemas";
-import {createTranslation} from '@/i18n/translate';
-const {resultGroups}=createResultPresentation(createTranslation('ko'));
 const fixture = () => buildResultScenario({caseId:15,inputVersion:7,periodStart:"2026-01-01",periodEnd:"2026-01-31"} as CaseDetailDto,2,[],[],[]);
 afterEach(cleanup);
 it("groups actual response sections without inferring titles or altering values", () => {
@@ -56,7 +54,7 @@ it("keeps independent statuses, zero and null, and warning shortcuts visible out
  const carousel=screen.getByLabelText("명세서 내부 합계 검사 1 / 3");
  fireEvent.keyDown(carousel,{key:"End"});
  expect(screen.getByRole("heading",{name:"실수령액"})).toBeVisible();
- expect(screen.getAllByText("미확정").length).toBeGreaterThan(0);
+ expect(screen.getAllByText("미확정·확정 불가").length).toBeGreaterThan(0);
  expect(screen.getByRole("button",{name:"다음 카드"})).toBeDisabled();
  expect(screen.getByRole("button",{name:/차이 \d+개/})).toBeVisible();
 });
@@ -74,7 +72,7 @@ it("shows official deposit amounts with units, preserving null and zero",async()
  render(<ResultExplorer data={d} compare/>);
  await u.click(screen.getByRole("tab",{name:"입금 대조"}));
  expect(within(screen.getByRole("tabpanel")).getAllByText("0 원")[0]).toBeVisible();
- expect(screen.getAllByText("미확정").length).toBeGreaterThan(0);
+ expect(screen.getAllByText("미확정·확정 불가").length).toBeGreaterThan(0);
  expect(screen.queryByRole("button",{name:"다음 카드"})).not.toBeInTheDocument();
 });
 it.each([0,1,3])("carousel handles %s results without looping",count=>{

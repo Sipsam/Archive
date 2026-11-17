@@ -1,4 +1,5 @@
 .screen { width:100%; min-width:0; margin:28px auto 0; padding:36px 40px 22px; border-radius:28px; background:var(--color-surface); }
+.screen.screen { max-width:620px; }
 .screen form { min-width:0; }
 .header { margin-bottom:32px; }
 .eyebrow { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; color:var(--color-nav-foreground); font-size:13px; font-weight:700; margin-bottom:20px; }
@@ -65,16 +66,3 @@
   .timeFields input { padding:12px; font-size:20px; }
   .answerList > li { gap:8px; }
 }
-
-.depositStep { min-width: 0; border-bottom: 1px solid var(--color-border); overflow-wrap: anywhere; }
-.depositSummary { display: flex; align-items: center; justify-content: space-between; min-height: 64px; padding-block: 20px; cursor: pointer; }
-
-.depositStep { padding-block:20px; display:grid; gap:16px; }
-.depositSummary { padding:0; min-height:44px; cursor:default; gap:12px; }
-.depositTitle { font-size:24px; line-height:1.5; font-weight:750; overflow-wrap:anywhere; }
-.depositList { max-height:440px; overflow-y:auto; border:1px solid var(--color-border); border-radius:16px; min-width:0; }
-.depositItem { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:14px; min-height:88px; border-bottom:1px solid var(--color-border); }
-.depositItem > div { min-width:0; overflow-wrap:anywhere; }
-.screen select:focus-visible, .depositList:focus-visible { outline:3px solid var(--color-accent); outline-offset:3px; }
-
-.divider { border: 0; border-top: 1px solid #dfe5ec; width: 100%; margin: 24px 0 0; }

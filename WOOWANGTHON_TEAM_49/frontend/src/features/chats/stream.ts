@@ -1,5 +1,3 @@
-import {MessageError} from '@/i18n/message-error';
-
 ﻿import { z } from 'zod';
 import { ApiError } from '@/lib/api/error';
 import { decodeWith } from '@/lib/api/schema';
@@ -29,7 +27,7 @@ export async function consumeChat(stream:ReadableStream<Uint8Array>,onEvent:(eve
   onEvent({event,data:value} as ChatEvent);
   if(event==='message_done'||event==='error')return;
  }
- throw new MessageError("chats.stream_link_answer_complete_confirm_save_status_retry");
+ throw new Error('연결이 종료되었지만 답변 완료는 확인되지 않았습니다. 저장 상태를 다시 확인하세요.');
  } catch (error) {
   if(error instanceof Error && error.name==="AbortError") throw error;
   const failure = protocolError(200,"sse");

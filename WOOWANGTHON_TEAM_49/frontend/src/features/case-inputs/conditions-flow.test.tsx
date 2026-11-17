@@ -39,31 +39,16 @@ async function setup() {
 }
 
 type User = ReturnType<typeof userEvent.setup>;
-it("keeps the review notice after deposits and divider, before the result action, without nested forms", async () => {
-  const { mount, only, user } = await setup();
-  const initial = only("base_scope_confirmed");
-  initial.conditions = initial.conditions.map(c => ({...c, status: "ANSWERED", value: true}));
-  const ui = mount(<ConditionsForm caseId={15} initial={initial} reload={async () => initial} />);
-  await user.click(screen.getByRole("button", {name: "답변 검토하기"}));
-  const note = screen.getByText(/모든 질문에 답해도/);
-  const divider = ui.container.querySelector("hr")!;
-  const deposit = await screen.findByText("실제 입금된 금액을 입력해주세요.");
-  const result = screen.getByRole("link", {name: "결과 확인"});
-  expect(deposit.compareDocumentPosition(divider) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(divider.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(note.compareDocumentPosition(result) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(ui.container.querySelector("form form")).toBeNull();
-});
 const begin = async (user: User) => {
-  await waitFor(() => expect(screen.queryByRole("button", { name: "조건 확인하기" }) ?? screen.queryAllByRole("radio")[0] ?? screen.queryByRole("textbox", { name: "기본급 산정시간 (시간)" })).not.toBeNull());
+  await waitFor(() => expect(screen.queryByRole("button", { name: "조건 확인하기" }) ?? screen.queryAllByRole("radio")[0] ?? screen.queryByRole("textbox", { name: "약정 근로시간 (시간)" })).not.toBeNull());
   const start = screen.queryByRole("button", { name: "조건 확인하기" });
   if (start) await user.click(start);
 };
 const next = async (user: User) => user.click(screen.getByRole("button", { name: "다음" }));
 const review = async (user: User) => user.click(screen.getByRole("button", { name: "답변 검토하기" }));
 const save = async (user: User) => user.click(screen.getByRole("button", { name: "답변 저장하고 결과 보기" }));
-const hours = () => screen.getByRole("textbox", { name: "기본급 산정시간 (시간)" });
-const minutes = () => screen.getByRole("textbox", { name: "기본급 산정시간 (분)" });
+const hours = () => screen.getByRole("textbox", { name: "약정 근로시간 (시간)" });
+const minutes = () => screen.getByRole("textbox", { name: "약정 근로시간 (분)" });
 
 describe("focused calculation condition flow", () => {
   it("starts with a summary and keeps question navigation free of mutations", async () => {
@@ -96,7 +81,7 @@ describe("focused calculation condition flow", () => {
     await user.click(screen.getByRole("radio", { name: /아니요/ }));
     await review(user);
     expect(mock.requests).toHaveLength(0);
-    expect(screen.getByText("아직 저장하지 않은 답변이 있어요. 질문을 이동해도 저장되지 않으니 마지막에 저장해 주세요.")).toBeVisible();
+    expect(screen.getByText("미저장 답변이 있어요. 질문 이동은 저장하지 않아요.")).toBeVisible();
     await save(user);
     await waitFor(() => expect(navigation.push).toHaveBeenCalledWith("/cases/15/result"));
     expect(mock.requests.filter(request => request.method === "PUT")).toEqual([{
@@ -201,7 +186,7 @@ describe("focused calculation condition flow", () => {
     mount(<ConditionsForm caseId={15} initial={only("regular_minutes")} reload={() => api.conditions(15)} />);
     await begin(user); await user.type(hours(), "0"); await review(user);
     await user.click(screen.getByRole("button", { name: "조건만 저장" }));
-    await screen.findByText("답변을 저장했어요. 관련 계산과 자료 대조 결과가 자동으로 갱신돼요.");
+    await screen.findByText("변경된 조건을 저장했습니다. 서버가 관련 검사 상태를 자동 갱신합니다.");
     expect(navigation.push).not.toHaveBeenCalled();
     expect(mock.requests.filter(request => request.method === "PUT")).toHaveLength(1);
     expect(screen.queryByText("모든 계산이 완료됐어요")).not.toBeInTheDocument();
@@ -262,7 +247,7 @@ describe("focused calculation condition flow", () => {
     expect(time).toHaveValue("1");
     expect(navigation.push).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "지금까지 답변 검토" }));
-    await user.click(screen.getByRole("button", { name: "등록한 기본급의 산정 기준이 이번 급여 계산에 맞나요? 수정" }));
+    await user.click(screen.getByRole("button", { name: /임금의 기본 적용 범위를 확인했나요\? 수정/ }));
     expect(screen.getByRole("radio", { name: /아니요/ })).toBeChecked();
     expect(screen.getByText("적용 범위를 다시 확인해 주세요")).toBeVisible();
   });
@@ -324,7 +309,7 @@ describe("focused calculation condition flow", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     await user.click(screen.getByRole("button", { name: "최신 질문·답변 다시 불러오기" }));
     await screen.findByText("최신 질문과 답변을 불러왔습니다.");
-    await user.click(screen.getByRole("button", { name: "기본급 계산에 사용할 이번 산정기간의 총시간을 알려주세요 수정" }));
+    await user.click(screen.getByRole("button", { name: "이 기간에 일하기로 한 시간을 알려주세요 수정" }));
     expect(hours()).toHaveValue("");
     expect(minutes()).toHaveValue("");
     expect(navigation.push).not.toHaveBeenCalled();

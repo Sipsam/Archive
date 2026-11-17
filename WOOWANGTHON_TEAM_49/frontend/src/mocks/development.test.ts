@@ -1,26 +1,17 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from "vitest";
 import { server, testApiUrl } from "@/test/server";
-import { clearMockSession, clearMockLanguages, createDevelopmentScenario, demoAccount, demoProfile } from "./development";
+import { clearMockSession, createDevelopmentScenario, demoAccount, demoProfile } from "./development";
 
 describe("browser development scenario through the existing MSW infrastructure", () => {
   let token: string;
   beforeEach(async () => {
     clearMockSession();
-    clearMockLanguages();
     server.use(...createDevelopmentScenario(testApiUrl).handlers);
     const response = await fetch(`${testApiUrl}/auth/login`, { method: "POST", body: JSON.stringify(demoAccount) });
     token = (await response.json()).data.accessToken;
   });
   const request = (path: string, token: string, method = "GET", body?: unknown) => fetch(`${testApiUrl}${path}`, { method, headers: { Authorization: `Bearer ${token}` }, ...(body ? { body: JSON.stringify(body) } : {}) });
-  it.each(['en','zh','vi','km'])('restores saved %s after a page reload scenario', async language => {
-    expect((await request('/users/me/language',token,'PATCH',{language})).status).toBe(200);
-    server.use(...createDevelopmentScenario(testApiUrl).handlers);
-    const restored = await (await fetch(`${testApiUrl}/auth/refresh`,{method:'POST'})).json();
-    expect(restored.data.user.language).toBe(language);
-    const response = await request('/users/me',restored.data.accessToken);
-    expect((await response.json()).data.language).toBe(language);
-  });
   it("restores the demo session and revokes refresh on 204 logout", async () => {
     expect((await fetch(`${testApiUrl}/auth/refresh`, { method: "POST" })).status).toBe(200);
     const result = await request("/auth/logout", token, "POST");
@@ -47,13 +38,6 @@ describe("browser development scenario through the existing MSW infrastructure",
       expect(fields.find((f: { fieldId: number }) => f.fieldId === 502).value).toBe(0);
     }
     expect((await request("/cases/15/documents/101/fields/501", token, "PATCH", { value: 1, expectedInputVersion: 7 })).status).toBe(409);
-  });
-  it.each(["2300000", 0, false])("preserves selected JSON type %j in both field scopes", async value => {
-    expect((await request("/workplaces/3/documents/101/fields/502", token, "PATCH", {value})).status).toBe(200);
-    const version = (await (await request("/cases/15", token)).json()).data.inputVersion;
-    expect((await request("/cases/15/documents/101/fields/501", token, "PATCH", {value, confirmed:true, expectedInputVersion:version})).status).toBe(200);
-    const fields = (await (await request("/cases/15/documents/101/fields", token)).json()).data.fields;
-    for (const fieldId of [501,502]) expect(fields.find((f:{fieldId:number})=>f.fieldId===fieldId).value).toBe(value);
   });
   it("returns a PDF Blob without JSON wrapping and blocks unsupported APIs", async () => {
     const response = await request("/workplaces/3/documents/101/file", token);
