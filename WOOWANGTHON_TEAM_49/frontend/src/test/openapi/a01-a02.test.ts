@@ -62,3 +62,4 @@ it('captures real FE requests and checks P0 independently',async()=>{
  for(const input of seen) expect(contract.request(input as Parameters<typeof contract.request>[0]),JSON.stringify(input)).toMatchObject({valid:true});}
  finally{server.events.removeListener('request:start',listener);}
 });
+

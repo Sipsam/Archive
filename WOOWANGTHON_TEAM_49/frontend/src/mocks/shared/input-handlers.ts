@@ -2,9 +2,7 @@ import { paymentMocks } from "./payment-handlers";
 import { http, HttpResponse } from "msw";
 import type { CaseDetailDto } from "@/features/cases/schemas";
 import { conditionsPutSchema, manualInputSchema, checkTypes, type Condition, type ManualRecord, type RecordType } from "@/features/case-inputs/schemas";
-import {createLocalizedFeaturesCaseInputsManualFields} from "@/features/case-inputs/manual-fields";
-import {createTranslation} from "@/i18n/translate";
-const {manualDefaults, manualFormSchema} = createLocalizedFeaturesCaseInputsManualFields(createTranslation("ko"));
+import { manualDefaults, manualFormSchema } from "@/features/case-inputs/manual-fields";
 import { buildResultScenario, type MockEvidence } from "./result-scenario";
 import type { DepositComparison } from "@/features/payments/comparison-schemas";
 import type { Results } from "@/features/results/schemas";
@@ -108,9 +106,8 @@ export function inputMocks(getCases: () => CaseDetailDto[], baseUrl = "http://12
     const evidenceValues=getEvidence(c.caseId).flatMap(e=>e.fields).filter(f=>f.key==="netPay"&&f.status==="CONFIRMED");const evidence=evidenceValues.length===1?evidenceValues[0]:undefined;
     const net=typeof payslip?.data.netPay==="number"?payslip.data.netPay:typeof evidence?.value==="number"?evidence.value:null;
     const total=(method:string)=>links.filter(a=>payments.transactions.find(t=>t.transactionId===a.transactionId)?.paymentMethod===method).reduce((sum,a)=>sum+a.allocatedAmount,0);
-    const unconfirmed=links.some(a=>payments.transactions.find(t=>t.transactionId===a.transactionId)?.confirmationStatus!=="USER_CONFIRMED");
-    const bank=links.length&&!unconfirmed?total("BANK_TRANSFER"):null,cash=links.length&&!unconfirmed?total("CASH"):null,linked=bank===null||cash===null?null:bank+cash;
-    const review=(!payslip && evidenceValues.length>1) || unconfirmed;
+    const bank=links.length?total("BANK_TRANSFER"):null,cash=links.length?total("CASH"):null,linked=bank===null||cash===null?null:bank+cash;
+    const review=(!payslip && evidenceValues.length>1) || links.some(a=>!["USER_REPORTED","DOCUMENT_SUPPORTED"].includes(payments.transactions.find(t=>t.transactionId===a.transactionId)?.confirmationStatus??""));
     const difference=net===null||linked===null?null:net-linked;
     const version=depositHistory(c).length+1;
     return {depositComparisonId:c.caseId*10000+version,version,basedOnInputVersion:c.inputVersion,createdAt:new Date().toISOString(),freshness:"CURRENT",payslipNetPay:net,linkedBankDepositTotal:bank,linkedCashPaymentTotal:cash,linkedPaymentTotal:linked,difference,status:review?"REVIEW_REQUIRED":difference===null?"INSUFFICIENT_INFORMATION":difference===0?"MATCH":"DIFFERENCE"};
@@ -184,5 +181,5 @@ export function inputMocks(getCases: () => CaseDetailDto[], baseUrl = "http://12
       return apiResponse({caseId:c.caseId,currentInputVersion:c.inputVersion,pending:s.job?.status==="PENDING"?1:0,running:s.job?.status==="RUNNING"?1:0,activeJob:active?s.job:null,latestJob:s.job,results:refs.versions});
     }),
   ];
-  return { handlers, requests, state, depositCandidates:payments.candidates, getResult(caseId:number) { const c=current(caseId); return c?structuredClone(result(c)):undefined; }, notifyInputChange(c:number) {const owner=current(c);if(!owner)throw new Error("Unknown mock Case");return schedule(owner,false).recompute;}, setJobStatus(c: number, status: string) { const owner = current(c); if (!owner) return; const s = state(owner); if (!s.job) schedule(owner, false); s.job!.status = status; if(["PARTIAL","SUCCEEDED"].includes(status))publish(owner); } };
+  return { handlers, requests, state, getResult(caseId:number) { const c=current(caseId); return c?structuredClone(result(c)):undefined; }, notifyInputChange(c:number) {const owner=current(c);if(!owner)throw new Error("Unknown mock Case");return schedule(owner,false).recompute;}, setJobStatus(c: number, status: string) { const owner = current(c); if (!owner) return; const s = state(owner); if (!s.job) schedule(owner, false); s.job!.status = status; if(["PARTIAL","SUCCEEDED"].includes(status))publish(owner); } };
 }

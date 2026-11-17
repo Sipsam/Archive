@@ -8,6 +8,5 @@ export type CurrentUser = z.infer<typeof userSchema>;
 export type AuthStatus = "restoring" | "authenticated" | "anonymous" | "signing-out" | "deletion-accepted";
 export interface AuthSnapshot {
   status: AuthStatus;
-  notice: import("@/i18n/translate").MessageKey | null;
-  signedOut?: boolean;
+  notice: string | null;
 }

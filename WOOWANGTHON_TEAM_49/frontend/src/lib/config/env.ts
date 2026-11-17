@@ -1,5 +1,3 @@
-import {MessageError} from '@/i18n/message-error';
-
 export function parseApiBaseUrl(value: string): string {
   const url = new URL(value);
 
@@ -10,7 +8,7 @@ export function parseApiBaseUrl(value: string): string {
     url.search ||
     url.hash
   ) {
-    throw new MessageError("common.env_authentication_information_none");
+    throw new Error("API Base URL은 인증 정보·쿼리·해시가 없는 HTTP(S) URL이어야 합니다.");
   }
 
   return url.toString().replace(/\/+$/, "");

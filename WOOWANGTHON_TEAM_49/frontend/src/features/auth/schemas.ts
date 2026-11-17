@@ -1,42 +1,36 @@
-
-import {message as describeMessage} from '@/i18n/message';
 import { z } from "zod";
-import {createTranslation, type Translation} from '@/i18n/translate';
-import {defaultLocale} from '@/i18n/config';
 
-export function createLocalizedFeaturesAuthSchemas(translation: Translation) {
-  const {} = translation;
-const loginRequestSchema = z.object({
-  email: z.string().trim().pipe(z.email(describeMessage("auth.schemas_valid_email_address_input"))),
+export const loginRequestSchema = z.object({
+  email: z.string().trim().pipe(z.email("올바른 이메일 주소를 입력해 주세요.")),
   // P0 does not specify length/complexity rules. The server remains authoritative.
-  password: z.string().min(1, describeMessage("auth.schemas_password_input")),
+  password: z.string().min(1, "비밀번호를 입력해 주세요."),
 });
-const email = z.string().min(3, describeMessage("auth.schemas_input_length_format_confirm")).max(254, describeMessage("auth.schemas_input_length_format_confirm")).regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, describeMessage("auth.schemas_input_length_format_confirm"));
-const password = z.string().min(8, describeMessage("auth.schemas_input_length_format_confirm")).max(128, describeMessage("auth.schemas_input_length_format_confirm"));
-const signupRequestSchema = z.strictObject({
-  email, password, name: z.string().min(1, describeMessage("auth.schemas_name_input")).max(100, describeMessage("auth.schemas_input_length_format_confirm")),
+
+// Request DTOs preserve P0 values; form normalization is separate.
+const email = z.string().min(3, "입력 길이 또는 형식을 확인해 주세요.").max(254, "입력 길이 또는 형식을 확인해 주세요.").regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "입력 길이 또는 형식을 확인해 주세요.");
+const password = z.string().min(8, "입력 길이 또는 형식을 확인해 주세요.").max(128, "입력 길이 또는 형식을 확인해 주세요.");
+export const signupRequestSchema = z.strictObject({
+  email, password, name: z.string().min(1, "이름을 입력해 주세요.").max(100, "입력 길이 또는 형식을 확인해 주세요."),
 });
-const signupFormSchema = signupRequestSchema.extend({
+export const signupFormSchema = signupRequestSchema.extend({
   email: z.string().trim().pipe(email), name: z.string().trim().pipe(signupRequestSchema.shape.name),
 });
-const forgotPasswordRequestSchema = z.strictObject({ email });
-const resetPasswordRequestSchema = z.strictObject({
-  token: z.string().min(20, describeMessage("auth.schemas_input_length_format_confirm")).max(200, describeMessage("auth.schemas_input_length_format_confirm")),
+export const forgotPasswordRequestSchema = z.strictObject({ email });
+export const resetPasswordRequestSchema = z.strictObject({
+  token: z.string().min(20, "입력 길이 또는 형식을 확인해 주세요.").max(200, "입력 길이 또는 형식을 확인해 주세요."),
   newPassword: password,
 });
-const userSchema = z.object({
-  language: z.string().nullish(),
+
+/** P0 login user fields only; createdAt and other P4 fields are not assumed. */
+export const userSchema = z.object({
   userId: z.number().int(),
   email: z.string(),
   name: z.string(),
 });
-const loginResponseSchema = z.object({
+
+export const loginResponseSchema = z.object({
   accessToken: z.string(),
   tokenType: z.literal("Bearer"),
   expiresIn: z.number().int(),
   user: userSchema,
 });
-return {loginRequestSchema, signupRequestSchema, signupFormSchema, forgotPasswordRequestSchema, resetPasswordRequestSchema, userSchema, loginResponseSchema};
-}
-
-export const {loginRequestSchema, signupRequestSchema, signupFormSchema, forgotPasswordRequestSchema, resetPasswordRequestSchema, userSchema, loginResponseSchema} = createLocalizedFeaturesAuthSchemas(createTranslation(defaultLocale));
