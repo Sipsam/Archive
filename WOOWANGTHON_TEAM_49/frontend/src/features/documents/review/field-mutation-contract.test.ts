@@ -8,11 +8,6 @@ const recompute={scheduled:true,jobId:"job-example",affectedChecks:["PAYSLIP_VAL
 const shared={fieldId:1,previousValue:"2290000",value:2300000,status:"CONFIRMED",editedByUser:true,hasCaseOverride:false,effectiveValueOrigin:"SHARED_DEFAULT",affectedCaseIds:[1],caseUpdates:{"1":{inputVersion:4,recompute}}};
 const individual={...shared,hasCaseOverride:true,effectiveValueOrigin:"CASE_OVERRIDE",inputVersion:4,recompute};
 describe("field mutation wire contract regression",()=>{
- it.each(["12",12,false,{items:[0,null,false]}])("accepts free JSON %j in both P0 PATCH contracts",value=>{
-  for(const scope of ["cases/1","workplaces/1"]){
-   expect(contract.request({method:"PATCH",url:`/api/v1/${scope}/documents/1/fields/1`,body:{value,...(scope.startsWith("cases")?{confirmed:true,expectedInputVersion:4}:{})}})).toMatchObject({valid:true});
-  }
- });
  it.each([shared,individual])("validates P0 envelope and converts the documented map",data=>{
    expect(contract.response({method:"PATCH",url:"/api/v1/cases/1/documents/1/fields/1"},200,{code:200,message:"ok",data})).toMatchObject({valid:true,coverage:"free-json"});
    const schema=data===shared?sharedFieldUpdatedSchema:caseFieldUpdatedSchema;

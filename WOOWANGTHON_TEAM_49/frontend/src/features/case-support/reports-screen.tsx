@@ -17,7 +17,6 @@ import { useCreateReport, useReportDocuments, useReports } from './queries';
 import { ReportCard } from './report-card';
 import type { Report } from './schemas';
 import styles from './reports-screen.module.css';
-import {ConsultationEditor,useConsultationDraft} from './consultation-editor';
 
 export function ReportsScreen({caseId}:{caseId:number}) {
   const generation=useSessionGeneration();
@@ -30,7 +29,6 @@ function ReportsContent({caseId}:{caseId:number}) {
   const [ids,setIds]=useState<number[]>([]),[ack,setAck]=useState(false);
   const [tracking,setTracking]=useState<Report|null>(null),[selectedReport,setSelectedReport]=useState<Report|null>(null);
   const lock=useRef(false);
-  const preparation=useConsultationDraft(caseId,ids,setIds);
   useRecomputeStatus(caseId);
   const results=useResults(caseId,true), docs=useReportDocuments(caseId);
   // Keep recent files available while browsing older history.
@@ -43,7 +41,7 @@ function ReportsContent({caseId}:{caseId:number}) {
   const basis=freshness==='CURRENT'?'caseSupport.bundle_current':freshness==='STALE'?'caseSupport.bundle_stale':freshness==='UPDATING'?'caseSupport.bundle_updating':'caseSupport.bundle_unknown';
   const create=useCreateReport(caseId,docs.data?.items.map(document=>document.documentId)??[],report=>{
     setTracking(report);setSelectedReport(null);setAck(false);
-  },{save:()=>preparation.save.mutateAsync(),fingerprint:JSON.stringify({inputVersion:results.data?.currentInputVersion,snapshots:results.data?.versions})});
+  });
   async function generate() {
     if(lock.current)return;
     lock.current=true;
@@ -61,7 +59,6 @@ function ReportsContent({caseId}:{caseId:number}) {
       <span className={styles.basis} data-current={freshness==='CURRENT'}>{translate(basis)}</span>
     </section>
     {detail.isError&&<QueryFeedback error={detail.error} retry={()=>void detail.refetch()}/>}
-    <ConsultationEditor preparation={preparation} disabled={create.isPending} onEdit={()=>setAck(false)}/>
     {latest.isPending&&!active&&<QueryFeedback pending/>}
     {latest.isError&&<QueryFeedback error={latest.error} retry={()=>void latest.refetch()}/>}
     {active&&<section aria-label={translate(selectedReport?'caseSupport.screens_select_report':tracking?'caseSupport.screens_current_request':'caseSupport.bundle_latest')}><h2 className={styles.sectionTitle}>{translate(selectedReport?'caseSupport.screens_select_report':tracking?'caseSupport.screens_current_request':'caseSupport.bundle_latest')}</h2><ReportCard key={active.reportId} caseId={caseId} initial={active}/></section>}
@@ -69,7 +66,7 @@ function ReportsContent({caseId}:{caseId:number}) {
     <section aria-labelledby="bundle-create-title" className={styles.newBundle}>
       <div className={styles.sectionHeading}><span className={styles.step}>1</span><div><h2 id="bundle-create-title">{translate('caseSupport.bundle_prepare')}</h2><p>{translate('caseSupport.bundle_optional')}</p></div></div>
       <div className={styles.builder}>
-        <ReportDocuments caseId={caseId} query={docs} ids={ids} pending={create.isPending||preparation.save.isPending||preparation.q.isPending||preparation.q.isError} onSelect={select}/>
+        <ReportDocuments caseId={caseId} query={docs} ids={ids} pending={create.isPending} onSelect={select}/>
         <aside className={styles.summary} aria-labelledby="bundle-summary-title">
           <div className={styles.sectionHeading}><span className={styles.step}>2</span><h2 id="bundle-summary-title">{translate('caseSupport.bundle_summary')}</h2></div>
           <div className={styles.summaryFile}><span><FileCheck2 size={25} aria-hidden="true"/></span><div><strong>{translate('caseSupport.reportPresentation_consultation_report')}</strong><p>{translate('caseSupport.bundle_pdfHint')}</p></div><b>PDF</b></div>
@@ -77,11 +74,10 @@ function ReportsContent({caseId}:{caseId:number}) {
           <p className={styles.separateNote}>{translate('caseSupport.bundle_separateFiles')}</p>
           <details className={styles.resultDetails}><summary>{translate('caseSupport.screens_result_basis_detail')}</summary><p>{translate('caseSupport.screens_current_input_version_result',{value1:results.data?.currentInputVersion??translate('common.notProvided'),value2:results.data?.resultVersion??translate('caseSupport.reportPresentation_none')})}</p><p>{translate('caseSupport.screens_answer_calculation_current_result_report_request')}</p></details>
           {results.isError&&<QueryFeedback error={results.error} retry={()=>void results.refetch()}/>}
-          {!freshness&&!results.isPending&&!results.isError&&<p className={styles.warning}>{translate('caseSupport.prepResultRequired')}</p>}
           {freshness&&freshness!=='CURRENT'&&<p className={styles.warning}>{translate('caseSupport.bundle_refreshHelp')} <Link href={`/cases/${caseId}/result`}>{translate('caseSupport.bundle_viewResults')}</Link></p>}
           <p className={styles.help}><ShieldCheck size={17} aria-hidden="true"/>{translate('caseSupport.reportConfirmation')}</p>
           <label className={styles.ack}><input type="checkbox" checked={ack} disabled={create.isPending} onChange={e=>setAck(e.target.checked)}/><span>{translate('caseSupport.screens_select_document_current_result_report_request')}</span></label>
-          <button className={styles.createButton} disabled={!ack||preparation.q.isPending||preparation.q.isError||preparation.save.isPending||!!preparation.conflict||freshness!=='CURRENT'||create.isPending||results.isPending||results.isError||docs.isPending||docs.isError||removed.pending||removed.removed} onClick={()=>void generate()}>{translate(create.isPending?'caseSupport.bundle_creating':'caseSupport.screens_report_request')}</button>
+          <button className={styles.createButton} disabled={!ack||create.isPending||results.isPending||results.isError||docs.isPending||docs.isError||removed.pending||removed.removed} onClick={()=>void generate()}>{translate(create.isPending?'caseSupport.bundle_creating':'caseSupport.screens_report_request')}</button>
         </aside>
       </div>
     </section>

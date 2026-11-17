@@ -171,7 +171,6 @@
   "manualScreen_manual_delete": "Delete handwritten records",
   "manualScreen_manual_delete_confirm": "Confirm deletion of handwritten records",
   "manualScreen_user_input_delete_check_retry_update": "Deletes the history of this user input. The relevant checks are updated again on the server.",
-  "conditionPresentation_base_scope": "Does the basis of the recorded base pay apply to this wage calculation?",
   "conditionPresentation_workplace_work": "How many full-time workers are there at your workplace?",
   "conditionPresentation_period_time": "Please tell us how many hours you plan to work during this period",
   "conditionPresentation_record_hourlyWage_period_basis": "Do the hourly rates in the two data refer to the same period and standard?",

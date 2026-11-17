@@ -133,6 +133,7 @@
   "fieldEditor_message3": "Yes/No",
   "fieldEditor_div": "Structured Value (JSON)",
   "fieldEditor_save": "Stores the array/object structure and nulls and 0s.",
+  "fieldEditor_valid_input": "Please enter the correct JSON value.",
   "fieldEditor_edit": "Correction value",
   "fieldEditor_select": "Please select",
   "fieldEditor_current_draft_retry_load": "Reload draft with latest values",
