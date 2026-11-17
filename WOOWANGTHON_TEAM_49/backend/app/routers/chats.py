@@ -6,10 +6,8 @@ from dataclasses import dataclass, field
 from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import StreamingResponse
 
-from app.chat_memory import open_chats, other_chats, own_summary, refresh_before_answer, schedule_summary
 from app.db import dump, load, now
 from app.engine import effective_fields, results
-from app.i18n import user_language
 from app.errors import ApiError, ok
 from app.routers.workspaces import page_data
 from app.schemas import ChatCreate, ChatPatch, MessageCreate
@@ -17,7 +15,6 @@ from app.security import case, current_user, workplace
 
 router = APIRouter(tags=["AI Chat"])
 SOURCE_ACCESS_VERSION = 1
-HISTORY_LIMIT = 20
 
 
 @dataclass
@@ -263,8 +260,6 @@ def delete_chat(workplace_id: int, chat_id: int, request: Request, user=Depends(
         ).fetchone():
             raise ApiError(409, "CHAT_RUN_IN_PROGRESS")
         con.execute("DELETE FROM messages WHERE chat_id=?", (chat_id,))
-        # Deleting a chat also removes it from what other chats may recall.
-        con.execute("DELETE FROM chat_summaries WHERE chat_id=?", (chat_id,))
         con.execute("DELETE FROM chats WHERE id=?", (chat_id,))
     return Response(status_code=204)
 
@@ -490,9 +485,7 @@ async def start_message(workplace_id, chat_id, body, request, user, retry_of=Non
             visible = message_dto(con, previous, workplace_id)
             if (retry_user is None or previous["id"] != retry_user["id"]) and visible is not None:
                 history_rows.append(visible)
-        # Turns that left the window survive as this chat's summary (see call_model).
-        left_window = history_rows[-HISTORY_LIMIT - 1]["messageId"] if len(history_rows) > HISTORY_LIMIT else None
-        history_rows = history_rows[-HISTORY_LIMIT:]
+        history_rows = history_rows[-20:]
         history = [{"role": previous["role"], "content": previous["content"]} for previous in history_rows]
         context_links = [
             {"caseId": c["case_id"], "documentId": d["document_id"], "linkId": d["link_id"]}
@@ -535,10 +528,7 @@ async def start_message(workplace_id, chat_id, body, request, user, retry_of=Non
         "content": body.content,
         "history": history,
         "context": context,
-        # Read per request: a changed preference applies from the next message on.
-        "language": user_language(user),
     }
-    memory = {"offered": [], "opened": []}
     control = RunControl()
     state.chat_runs[run_id] = control
 
@@ -556,31 +546,7 @@ async def start_message(workplace_id, chat_id, body, request, user, retry_of=Non
         # Recheck at actual execution, immediately before external transmission.
         with state.db.connect() as con:
             live_access(con)
-        # Other chats of this scope are offered as summaries; bring late ones up to date first.
-        await refresh_before_answer(state, workplace_id, chat_id, scope, left_window)
-        with state.db.connect() as con:
-            live_access(con)
-            recallable, recalled_links, _ = other_chats(con, workplace_id, chat_id, scope)
-            earlier = own_summary(con, workplace_id, chat_id, scope) if left_window is not None else None
-        if earlier:
-            payload["conversation_summary"] = earlier
-        if recallable:
-            payload["other_chats"] = recallable
-            memory["offered"] = [entry["chat_id"] for entry in recallable]
-            # This answer is revoked together with the sources of the chats it was shown.
-            metadata["sourceLinks"] = merge_source_links(metadata["sourceLinks"], *recalled_links)
-            metadata["documentIds"] = sorted({source["documentId"] for source in metadata["sourceLinks"]})
-
-        async def read_past(chat_ids):
-            # Opened on the model's request; rechecked against live access like everything else sent out.
-            with state.db.connect() as con:
-                live_access(con)
-                opened = open_chats(con, workplace_id, chat_id, scope, chat_ids)
-            memory["opened"].extend(item["chat_id"] for item in opened)
-            return opened
-
-        # Without other chats to open, the call is exactly what it was before this feature.
-        return await (state.ai.chat(payload, read_past) if recallable else state.ai.chat(payload))
+        return await state.ai.chat(payload)
 
     async def stream():
         completed = False
@@ -666,11 +632,6 @@ async def start_message(workplace_id, chat_id, body, request, user, retry_of=Non
                 if ref["snapshotId"] is not None
             ]
             metadata.update(sources=sources, resultRefs=refs, upstreamThreadId=answer.thread_id)
-            if memory["offered"]:
-                metadata["memory"] = {
-                    "offeredChatIds": memory["offered"],
-                    "openedChatIds": sorted(set(memory["opened"])),
-                }
             with state.db.connect(write=True) as con:
                 live_access(con)
                 updated = con.execute(
@@ -681,7 +642,6 @@ async def start_message(workplace_id, chat_id, body, request, user, retry_of=Non
                 yield event("message_done", {"runId": run_id, "messageId": message_id, "status": "CANCELLED"})
                 return
             completed = True
-            schedule_summary(state, workplace_id, chat_id, scope)
             with state.db.connect() as con:
                 live_access(con)
             yield event("sources", {"sources": sources, "resultRefs": refs})

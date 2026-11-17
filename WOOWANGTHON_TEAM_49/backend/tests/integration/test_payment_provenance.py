@@ -30,9 +30,6 @@ async def test_document_row_provenance_reaches_real_bank_comparison(h):
     quote = "2026-04-30 PAYROLL-REF-001 1800000 KRW"
     doc_id = h.document(pdf_bytes(["SYNTHETIC BANK DEPOSIT", quote]), cid=1)
 
-    with h.db.connect(write=True) as con:
-        con.execute("UPDATE documents SET document_type='DEPOSIT' WHERE id=?", (doc_id,))
-
     class DepositProvider:
         async def invoke(self, operation, data):
             assert operation == "extract"
@@ -49,12 +46,6 @@ async def test_document_row_provenance_reaches_real_bank_comparison(h):
     candidate = load(extraction["output_json"])
     row_fields = {item["field_id"]: item for item in candidate["candidate"]["fields"]}
     assert row_fields["transaction_1_deposit_amount"]["validation_status"] == "valid", row_fields
-    from app.routers.payments import deposit_candidates
-    query = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(db=h.db)))
-    candidates = json.loads(deposit_candidates(1, query, user={"id": 1}).body)['data']['items']
-    assert len(candidates) == 1 and candidates[0]['registerable']
-    assert candidates[0]['registration']['confirmationStatus'] == 'USER_REPORTED'
-    assert candidates[0]['requiresUserConfirmation'] and candidates[0]['requiresCaseAllocation']
     data = {"paymentMethod": "BANK_TRANSFER", "transactionDate": "2026-04-30", "amount": 1800000,
         "source": "DOCUMENT", "confirmationStatus": "USER_CONFIRMED", "sourceDocumentId": doc_id,
         "sourceCandidateId": candidate["candidate_id"], "sourceRowId": "transaction_1"}
@@ -138,28 +129,3 @@ async def test_distinct_confirmed_bank_references_separate_same_date_amount(h):
     result, snapshot, _ = await h.analysis("distinct-references")
     assert not any(item["duplicate"] for item in snapshot["transaction_allocations"])
     assert next(item for item in result.comparisons if item.rule_id == "R-06").status == "match"
-
-
-async def test_duplicate_exclusions_preserve_normal_total_and_projection(h):
-    from app.db import dump
-    from app.compatibility import enqueue_current
-    from app.engine import results
-    ids = []
-    with h.db.connect(write=True) as con:
-        for amount, reference in ((100, 'duplicate-a'), (100, 'duplicate-b'), (1800000, 'normal')):
-            tid = insert_transaction(con, 1, {"paymentMethod": "BANK_TRANSFER", "transactionDate": "2026-04-30",
-                "amount": amount, "source": "USER_INPUT", "confirmationStatus": "USER_CONFIRMED", "bankReference": reference})
-            insert_allocation(con, 1, tid, amount)
-            ids.append(tid)
-        # Simulate historical duplicate rows that predate registration guards.
-        con.execute('UPDATE payment_transactions SET provenance_json=? WHERE id IN (?,?)',
-                    (dump({'kind': 'manual', 'bank_reference': 'same-transfer'}), *ids[:2]))
-    h.group('default-1', payment_confirmation(ids))
-    with h.db.connect(write=True) as con:
-        jid = enqueue_current(con, h.service, 1)
-    job = await h.execute(jid)
-    assert job['status'] == 'COMPLETED', job
-    with h.db.connect() as con:
-        view = results(con, 1)['depositComparison']
-        assert view['status'] == 'MATCH'
-        assert view['linkedPaymentTotal'] == view['linkedBankDepositTotal'] == 1800000

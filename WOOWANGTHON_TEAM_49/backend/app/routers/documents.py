@@ -14,28 +14,15 @@ from pypdf import PdfReader
 from app.ai import validate_field_value
 from app.db import dump, load, now
 from app.engine import effective_fields, schedule
-from app.field_labels import localize_fields
-from app.i18n import user_language
 from app.compatibility import public_field
 from app.errors import ApiError, ok
-from app.integration_store import source_ref
-from app.outputs import API, DocumentDTO, FieldsDTO, Page, ReviewDTO, FieldMutationDTO, StatementScopeDTO
+from app.outputs import API, DocumentDTO, FieldsDTO, Page
 from app.routers.workspaces import page_data
-from app.schemas import StatementScopePatch, DocumentTypePatch, Execute, FieldPatch, LinkCreate, LinkPatch, UploadDocType
+from app.schemas import DocType, Execute, FieldPatch, LinkCreate, LinkPatch
 from app.security import case, case_document, check_version, current_user, document, workplace
 
 router = APIRouter(tags=["Documents & Review"])
 MEDIA = {".pdf": "application/pdf", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
-
-
-def public_processing_status(row):
-    """READ_READY is internal: a legacy upload is extracted right after reading.
-
-    Report that hand-off as PROCESSING so clients keep polling instead of showing
-    an empty review; without legacy auto-extraction it awaits the user's review.
-    """
-    from app.review_policy import processing_status
-    return processing_status(row)
 
 
 def doc_dto(con, row, case_id=None):
@@ -46,7 +33,9 @@ def doc_dto(con, row, case_id=None):
         "workplaceId": row["workplace_id"],
         "documentType": row["document_type"],
         "fileName": row["file_name"],
-        "processingStatus": public_processing_status(row),
+        "processingStatus": "REVIEW_REQUIRED"
+        if row["processing_status"] == "READ_READY"
+        else row["processing_status"],
         "progress": row["progress"],
         "reviewStatus": link["review_status"] if link else "NOT_STARTED",
         "linkId": link["id"] if link else None,
@@ -222,7 +211,7 @@ async def upload_workplace(
     workplace_id: int,
     request: Request,
     file: UploadFile = File(...),
-    documentType: UploadDocType = Form(...),
+    documentType: DocType = Form(...),
     source: Literal["USER_UPLOAD"] = Form("USER_UPLOAD"),
     applicableFrom: date | None = Form(None),
     applicableTo: date | None = Form(None),
@@ -247,7 +236,7 @@ async def upload_case(
     case_id: int,
     request: Request,
     file: UploadFile = File(...),
-    documentType: UploadDocType = Form(...),
+    documentType: DocType = Form(...),
     source: Literal["USER_UPLOAD"] = Form("USER_UPLOAD"),
     user=Depends(current_user),
 ):
@@ -298,15 +287,15 @@ def replacement_row(con, case_id, replacement_id, user_id):
 def get_replacement(case_id: int, replacement_id: int, request: Request, user=Depends(current_user)):
     with request.app.state.db.connect() as con:
         row, original, candidate = replacement_row(con, case_id, replacement_id, user["id"])
-        body = {
-            "replacementId": replacement_id,
-            "status": row["status"],
-            "original": doc_dto(con, original, case_id),
-            "candidate": doc_dto(con, candidate, case_id),
-            "fields": effective_fields(con, case_id, candidate["id"]),
-        }
-    body["fields"] = localize_fields(body["fields"], user_language(user), request.app.state.localizer)
-    return ok(body)
+        return ok(
+            {
+                "replacementId": replacement_id,
+                "status": row["status"],
+                "original": doc_dto(con, original, case_id),
+                "candidate": doc_dto(con, candidate, case_id),
+                "fields": effective_fields(con, case_id, candidate["id"]),
+            }
+        )
 
 
 @router.post("/cases/{case_id}/document-replacements/{replacement_id}/confirm", response_model=Envelope)
@@ -381,7 +370,7 @@ def confirm_replacement(
             }
             con.execute(
                 "INSERT INTO field_overrides(case_id,field_id,value_json,status,confirmed_at,source_json) VALUES(?,?,?,?,?,?)",
-                (case_id, target["id"], old["override_value"], "NEEDS_RECONFIRMATION", None, dump(source)),
+                (case_id, target["id"], old["override_value"], "UNCONFIRMED", None, dump(source)),
             )
             con.execute(
                 "INSERT INTO field_history(field_id,case_id,user_id,previous_json,new_json,created_at) VALUES(?,?,?,?,?,?)",
@@ -393,7 +382,7 @@ def confirm_replacement(
                     dump(
                         {
                             "value": load(old["override_value"]),
-                            "status": "NEEDS_RECONFIRMATION",
+                            "status": "UNCONFIRMED",
                             "origin": "REPLACEMENT_CARRY_FORWARD",
                             "originalDocumentId": original["id"],
                         }
@@ -401,8 +390,6 @@ def confirm_replacement(
                     now(),
                 ),
             )
-        con.execute("INSERT INTO field_history(field_id,case_id,user_id,previous_json,new_json,created_at) SELECT r.field_id,r.case_id,?,json_object('reviewResolution',r.resolution),json_object('reviewResolution','NONE'),? FROM field_review_resolutions r JOIN fields f ON f.id=r.field_id WHERE r.case_id=? AND f.document_id=?", (user["id"], now(), case_id, original["id"]))
-        con.execute("DELETE FROM field_review_resolutions WHERE case_id=? AND field_id IN (SELECT id FROM fields WHERE document_id=?)", (case_id, original["id"]))
         con.execute(
             "UPDATE document_links SET document_id=?,link_version=link_version+1,review_status='IN_PROGRESS' WHERE id=?",
             (candidate["id"], link["id"]),
@@ -446,7 +433,7 @@ def confirm_replacement(
 def library(
     request: Request,
     workplaceId: int | None = None,
-    documentType: UploadDocType | None = None,
+    documentType: DocType | None = None,
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     user=Depends(current_user),
@@ -499,75 +486,6 @@ def case_documents(
 def original(workplace_id: int, document_id: int, request: Request, user=Depends(current_user)):
     with request.app.state.db.connect() as con:
         return ok(doc_dto(con, document(con, workplace_id, document_id, user["id"])))
-
-
-@router.patch("/workplaces/{workplace_id}/documents/{document_id}", status_code=202, response_model=API[DocumentDTO])
-def change_document_type(
-    workplace_id: int, document_id: int, body: DocumentTypePatch, request: Request, user=Depends(current_user)
-):
-    """Set the document type (or AUTO) and extract again with it.
-
-    Used after DOCUMENT_TYPE_MISMATCH / DOCUMENT_TYPE_UNRESOLVED. Refused once the
-    user has reviewed any value, so no confirmation or edit is ever discarded.
-    """
-    with request.app.state.db.connect(write=True) as con:
-        doc = document(con, workplace_id, document_id, user["id"])
-        running = con.execute(
-            "SELECT 1 FROM agent_jobs WHERE document_id=? AND status IN ('PENDING','RUNNING')", (document_id,)
-        ).fetchone()
-        if running or doc["processing_status"] in ("UPLOADED", "PROCESSING"):
-            raise ApiError(409, "DOCUMENT_STILL_PROCESSING")
-        reviewed = con.execute(
-            """SELECT 1 FROM fields f WHERE f.document_id=? AND (f.edited=1
-            OR f.status IN ('CONFIRMED','DEFERRED','NEEDS_RECONFIRMATION')
-            OR EXISTS (SELECT 1 FROM field_overrides o WHERE o.field_id=f.id)
-            OR EXISTS (SELECT 1 FROM field_history h WHERE h.field_id=f.id))
-            UNION SELECT 1 FROM document_confirmations WHERE document_id=? LIMIT 1""",
-            (document_id, document_id),
-        ).fetchone()
-        if reviewed:
-            raise ApiError(
-                409,
-                "DOCUMENT_REVIEW_STARTED",
-                "확인하거나 수정한 값이 있어 문서 유형을 바꿀 수 없습니다. 새 문서로 다시 올려 주세요.",
-            )
-        unchanged = (
-            body.documentType == doc["document_type"]
-            and doc["error_code"] is None
-            and doc["processing_status"] in ("READY", "REVIEW_REQUIRED")
-        )
-        if unchanged:
-            return ok(doc_dto(con, doc), 202)
-        ref = source_ref(con, document_id, user["id"])
-        read = con.execute(
-            "SELECT 1 FROM document_ocr WHERE document_id=? AND document_version=? AND content_hash=? LIMIT 1",
-            (document_id, ref.document_version, ref.content_hash),
-        ).fetchone()
-        metadata = load(doc["ai_metadata"]) or {}
-        metadata.pop("detectedType", None)
-        metadata["legacyAutoExtract"] = True
-        # Unreviewed candidates of the previous type would otherwise linger beside the new ones.
-        con.execute("DELETE FROM fields WHERE document_id=?", (document_id,))
-        # READ_READY reuses the stored reading (no second OCR); the document worker extracts next.
-        con.execute(
-            "UPDATE documents SET document_type=?,processing_status=?,progress=?,error_code=NULL,ai_metadata=? WHERE id=?",
-            (
-                body.documentType,
-                "READ_READY" if read else "UPLOADED",
-                40 if read else 10,
-                dump(metadata),
-                document_id,
-            ),
-        )
-        con.execute(
-            """UPDATE comparison_groups SET needs_review=1,version=version+1,updated_at=? WHERE id IN
-            (SELECT group_id FROM group_documents WHERE document_id=?)""",
-            (now(), document_id),
-        )
-        for link in con.execute("SELECT case_id FROM document_links WHERE document_id=?", (document_id,)).fetchall():
-            schedule(con, link["case_id"], delay=request.app.state.settings.recompute_debounce_seconds)
-        updated = con.execute("SELECT * FROM documents WHERE id=?", (document_id,)).fetchone()
-        return ok(doc_dto(con, updated), 202)
 
 
 @router.get("/cases/{case_id}/documents/{document_id}", response_model=API[DocumentDTO])
@@ -780,16 +698,17 @@ def retry_document(case_id: int, document_id: int, request: Request, user=Depend
 def fields(case_id: int, document_id: int, request: Request, user=Depends(current_user)):
     with request.app.state.db.connect() as con:
         doc, link = case_document(con, case_id, document_id, user["id"])
-        body = {
-            "documentId": document_id,
-            "caseId": case_id,
-            "processingStatus": public_processing_status(doc),
-            "reviewStatus": link["review_status"],
-            "fields": [public_field(f) for f in effective_fields(con, case_id, document_id)],
-        }
-    # Display names follow the user's language; values stay as written in the document.
-    body["fields"] = localize_fields(body["fields"], user_language(user), request.app.state.localizer)
-    return ok(body)
+        return ok(
+            {
+                "documentId": document_id,
+                "caseId": case_id,
+                "processingStatus": "REVIEW_REQUIRED"
+                if doc["processing_status"] == "READ_READY"
+                else doc["processing_status"],
+                "reviewStatus": link["review_status"],
+                "fields": [public_field(f) for f in effective_fields(con, case_id, document_id)],
+            }
+        )
 
 
 def update_field(con, doc, field_id, body, user_id, settings, case_id=None):
@@ -800,23 +719,6 @@ def update_field(con, doc, field_id, body, user_id, settings, case_id=None):
         raise ApiError(404, "RESOURCE_NOT_FOUND")
     if case_id is None and body.expectedInputVersion is not None:
         raise ApiError(422, "CASE_VERSION_NOT_APPLICABLE")
-    if "reviewResolution" in body.model_fields_set:
-        if case_id is None or body.reviewResolution is None or {"value", "confirmed"} & body.model_fields_set:
-            raise ApiError(422, "INVALID_REVIEW_RESOLUTION_REQUEST")
-        current = next(f for f in effective_fields(con, case_id, doc["id"]) if f["fieldId"] == field_id)
-        if body.reviewResolution != "NONE" and (current["value"] not in (None, "") or current["status"] not in {"MISSING", "UNREADABLE"}):
-            raise ApiError(422, "REVIEW_RESOLUTION_NOT_APPLICABLE")
-        con.execute("INSERT INTO field_review_resolutions(case_id,field_id,resolution,resolved_at,user_id) VALUES(?,?,?,?,?) ON CONFLICT(case_id,field_id) DO UPDATE SET resolution=excluded.resolution,resolved_at=excluded.resolved_at,user_id=excluded.user_id",
-                    (case_id, field_id, body.reviewResolution, now(), user_id))
-        con.execute("INSERT INTO field_history(field_id,case_id,user_id,previous_json,new_json,created_at) VALUES(?,?,?,?,?,?)",
-                    (field_id, case_id, user_id, dump({"reviewResolution": current["reviewResolution"]}), dump({"reviewResolution": body.reviewResolution}), now()))
-        from app.review_policy import sync_reviews
-        sync_reviews(con, case_id, doc["id"], started=True)
-        mutation = schedule(con, case_id, delay=settings.recompute_debounce_seconds)
-        updated = next(f for f in effective_fields(con, case_id, doc["id"]) if f["fieldId"] == field_id)
-        return {**public_field(updated), "previousValue": current["value"], "affectedCaseIds": [case_id], "caseUpdates": {str(case_id): mutation}, **mutation}
-    con.execute("INSERT INTO field_history(field_id,case_id,user_id,previous_json,new_json,created_at) SELECT field_id,case_id,?,json_object('reviewResolution',resolution),json_object('reviewResolution','NONE'),? FROM field_review_resolutions WHERE field_id=? AND (? IS NULL OR case_id=?)", (user_id, now(), field_id, case_id, case_id))
-    con.execute("DELETE FROM field_review_resolutions WHERE field_id=? AND (? IS NULL OR case_id=?)", (field_id, case_id, case_id))
     candidate_id = (load(field["source_json"]) or {}).get("candidateId")
     override = (
         con.execute(
@@ -837,6 +739,7 @@ def update_field(con, doc, field_id, body, user_id, settings, case_id=None):
         if newest:
             candidate_id = newest["id"]
         from app.agent_review import confirm_candidate
+        from app.compatibility import public_field
 
         public = public_field(
             {"key": field["key"], "value": value, "valueType": field["value_type"], "status": field["status"]}
@@ -899,8 +802,10 @@ def update_field(con, doc, field_id, body, user_id, settings, case_id=None):
                 ),
             )
             for cid in affected:
-                from app.review_policy import sync_reviews
-                sync_reviews(con, cid, doc["id"], started=True)
+                con.execute(
+                    "UPDATE document_links SET review_status='IN_PROGRESS' WHERE case_id=? AND document_id=?",
+                    (cid, doc["id"]),
+                )
             updates = {
                 str(cid): schedule(con, cid, delay=settings.recompute_debounce_seconds) for cid in affected
             }
@@ -961,8 +866,10 @@ def update_field(con, doc, field_id, body, user_id, settings, case_id=None):
     )
     mutations = {}
     for cid in affected:
-        from app.review_policy import sync_reviews
-        sync_reviews(con, cid, doc["id"], started=True)
+        con.execute(
+            "UPDATE document_links SET review_status='IN_PROGRESS' WHERE case_id=? AND document_id=?",
+            (cid, doc["id"]),
+        )
         mutations[str(cid)] = schedule(con, cid, delay=settings.recompute_debounce_seconds)
     return {
         "fieldId": field_id,
@@ -978,7 +885,7 @@ def update_field(con, doc, field_id, body, user_id, settings, case_id=None):
     }
 
 
-@router.patch("/cases/{case_id}/documents/{document_id}/fields/{field_id}", response_model=API[FieldMutationDTO])
+@router.patch("/cases/{case_id}/documents/{document_id}/fields/{field_id}", response_model=Envelope)
 def patch_case_field(
     case_id: int,
     document_id: int,
@@ -991,10 +898,7 @@ def patch_case_field(
         c = case(con, case_id, user["id"])
         check_version(c, body.expectedInputVersion)
         doc, _ = case_document(con, case_id, document_id, user["id"])
-        result = update_field(con, doc, field_id, body, user["id"], request.app.state.settings, case_id)
-        effective = next(f for f in effective_fields(con, case_id, document_id) if f["fieldId"] == field_id)
-        result.update(public_field(effective))
-        return ok(result)
+        return ok(update_field(con, doc, field_id, body, user["id"], request.app.state.settings, case_id))
 
 
 @router.patch("/workplaces/{workplace_id}/documents/{document_id}/fields/{field_id}", response_model=Envelope)
@@ -1022,19 +926,15 @@ def remove_override(
         ).fetchone()
         if field is None:
             raise ApiError(404, "RESOURCE_NOT_FOUND")
-        con.execute("INSERT INTO field_history(field_id,case_id,user_id,previous_json,new_json,created_at) SELECT field_id,case_id,?,json_object('reviewResolution',resolution),json_object('reviewResolution','NONE'),? FROM field_review_resolutions WHERE case_id=? AND field_id=?", (user["id"], now(), case_id, field_id))
-        con.execute("DELETE FROM field_review_resolutions WHERE case_id=? AND field_id=?", (case_id, field_id))
-        previous = next(f for f in effective_fields(con, case_id, document_id) if f["fieldId"] == field_id)["value"]
         con.execute("DELETE FROM field_overrides WHERE case_id=? AND field_id=?", (case_id, field_id))
-        from app.review_policy import sync_reviews
-        sync_reviews(con, case_id, document_id, started=True)
+        con.execute(
+            "UPDATE document_links SET review_status='IN_PROGRESS' WHERE case_id=? AND document_id=?",
+            (case_id, document_id),
+        )
         return ok(
             {
-                **public_field(next(f for f in effective_fields(con, case_id, document_id) if f["fieldId"] == field_id)),
-                "previousValue": previous,
-                **(mutation := schedule(con, case_id, delay=request.app.state.settings.recompute_debounce_seconds)),
-                "affectedCaseIds": [case_id],
-                "caseUpdates": {str(case_id): mutation},
+                "fieldId": field_id,
+                **schedule(con, case_id, delay=request.app.state.settings.recompute_debounce_seconds),
             }
         )
 
@@ -1066,73 +966,36 @@ def history(case_id: int, document_id: int, field_id: int, request: Request, use
         return ok({"items": items})
 
 
-def review_data(con, case_id, doc, link):
-    from app.review_policy import summary
-    return {"documentId": doc["id"], "processingStatus": public_processing_status(doc),
-            "reviewStatus": link["review_status"],
-            **summary(effective_fields(con, case_id, doc["id"]), public_processing_status(doc))}
-
-
-@router.get("/cases/{case_id}/documents/{document_id}/review", response_model=API[ReviewDTO])
+@router.get("/cases/{case_id}/documents/{document_id}/review", response_model=Envelope)
 def review(case_id: int, document_id: int, request: Request, user=Depends(current_user)):
     with request.app.state.db.connect() as con:
         doc, link = case_document(con, case_id, document_id, user["id"])
-        return ok(review_data(con, case_id, doc, link))
+        pending = [
+            f["fieldId"] for f in effective_fields(con, case_id, document_id) if f["status"] != "CONFIRMED"
+        ]
+        return ok(
+            {
+                "documentId": document_id,
+                "reviewStatus": link["review_status"],
+                "unconfirmedFieldIds": pending,
+                "processingStatus": "REVIEW_REQUIRED"
+                if doc["processing_status"] == "READ_READY"
+                else doc["processing_status"],
+            }
+        )
 
 
-@router.post("/cases/{case_id}/documents/{document_id}/review/confirm", response_model=API[ReviewDTO])
+@router.post("/cases/{case_id}/documents/{document_id}/review/confirm", response_model=Envelope)
 def confirm_review(case_id: int, document_id: int, request: Request, user=Depends(current_user)):
     with request.app.state.db.connect(write=True) as con:
-        doc, link = case_document(con, case_id, document_id, user["id"])
+        doc, _ = case_document(con, case_id, document_id, user["id"])
         if doc["processing_status"] in ("UPLOADED", "PROCESSING"):
             raise ApiError(409, "DOCUMENT_STILL_PROCESSING")
-        data = review_data(con, case_id, doc, link)
-        data["reviewStatus"] = "CONFIRMED" if data["canCompleteReview"] else "IN_PROGRESS"
-        con.execute("UPDATE document_links SET review_status=? WHERE id=?", (data["reviewStatus"], link["id"]))
-        return ok(data)
-
-
-@router.get("/cases/{case_id}/documents/{document_id}/statement-scope", response_model=API[StatementScopeDTO])
-def get_statement_scope(case_id: int, document_id: int, request: Request, user=Depends(current_user)):
-    """Return source table coverage separately from field confirmation."""
-    from app.statement_scope import scope_state
-    with request.app.state.db.connect() as con:
-        doc, _ = case_document(con, case_id, document_id, user["id"])
-        if doc["document_type"] != "PAYSLIP":
-            raise ApiError(422, "INVALID_DOCUMENT_TYPE")
-        return ok(scope_state(con, case_id, document_id))
-
-
-@router.put("/cases/{case_id}/documents/{document_id}/statement-scope", response_model=Envelope)
-def confirm_statement_scope(case_id: int, document_id: int, body: StatementScopePatch, request: Request, user=Depends(current_user)):
-    """Attest that the displayed detail rows cover the entire original table."""
-    from app.compatibility import collect
-    from app.statement_scope import scope_hash, scope_state
-    with request.app.state.db.connect(write=True) as con:
-        current = case(con, case_id, user["id"])
-        check_version(current, body.expectedInputVersion)
-        doc, _ = case_document(con, case_id, document_id, user["id"])
-        if doc["document_type"] != "PAYSLIP":
-            raise ApiError(422, "INVALID_DOCUMENT_TYPE")
-        fields = effective_fields(con, case_id, document_id)
-        conditions = load(current["conditions"])
-        scopes = conditions.setdefault("statement_scopes", {})
-        for key, prefix in (("paymentItems", "earning_"), ("deductionItems", "deduction_")):
-            value = getattr(body, key)
-            if value is None:
-                continue
-            if not value:
-                scopes.pop(key, None)
-                continue
-            selected = [f for f in fields if f["key"] == key or f["key"].startswith(prefix) and f["key"].endswith(("_amount", "_label"))]
-            if not selected or any(not f["usableForAnalysis"] for f in selected):
-                raise ApiError(422, "STATEMENT_ITEMS_REVIEW_REQUIRED")
-            keys = {f["key"] for f in selected}
-            if any(f["key"].endswith("_amount") and f["key"].removesuffix("_amount") + "_label" not in keys for f in selected):
-                raise ApiError(422, "STATEMENT_ITEMS_REVIEW_REQUIRED")
-            if len(collect(con, case_id)["groups"]["PAYSLIP"]) != 1:
-                raise ApiError(409, "STATEMENT_SOURCE_CONFLICT")
-            scopes[key] = {"documentId": document_id, "hash": scope_hash(con, case_id, document_id), "confirmedAt": now(), "userId": user["id"]}
-        con.execute("UPDATE cases SET conditions=? WHERE id=?", (dump(conditions), case_id))
-        mutation = schedule(con, case_id, delay=request.app.state.settings.recompute_debounce_seconds)
-        return ok({**scope_state(con, case_id, document_id), **mutation})
+        values = effective_fields(con, case_id, document_id)
+        pending = [f["fieldId"] for f in values if f["status"] != "CONFIRMED"]
+        status = "CONFIRMED" if values and not pending else "IN_PROGRESS"
+        con.execute(
+            "UPDATE document_links SET review_status=? WHERE case_id=? AND document_id=?",
+            (status, case_id, document_id),
+        )
+        return ok({"documentId": document_id, "reviewStatus": status, "unconfirmedFieldIds": pending})

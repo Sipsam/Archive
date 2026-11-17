@@ -23,7 +23,7 @@ def load(value):
 SCHEMA = '''
 CREATE TABLE IF NOT EXISTS users (
  id INTEGER PRIMARY KEY, email TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
- password_hash TEXT NOT NULL, deleted_at TEXT, language TEXT NOT NULL DEFAULT 'ko');
+ password_hash TEXT NOT NULL, deleted_at TEXT);
 CREATE TABLE IF NOT EXISTS sessions (
  id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id),
  access_hash TEXT UNIQUE NOT NULL, refresh_hash TEXT UNIQUE NOT NULL,
@@ -64,46 +64,6 @@ CREATE TABLE IF NOT EXISTS field_overrides (
  case_id INTEGER NOT NULL REFERENCES cases(id), field_id INTEGER NOT NULL REFERENCES fields(id),
  value_json TEXT NOT NULL, status TEXT NOT NULL, confirmed_at TEXT, source_json TEXT,
  PRIMARY KEY(case_id,field_id));
-CREATE TABLE IF NOT EXISTS field_review_resolutions (
- case_id INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
- field_id INTEGER NOT NULL REFERENCES fields(id) ON DELETE CASCADE,
- resolution TEXT NOT NULL CHECK(resolution IN ('NONE','NOT_IN_DOCUMENT','UNKNOWN')),
- resolved_at TEXT NOT NULL, user_id INTEGER NOT NULL REFERENCES users(id),
- PRIMARY KEY(case_id,field_id));
-CREATE TRIGGER IF NOT EXISTS reset_field_resolution AFTER UPDATE OF value_json,status,source_json ON fields
-BEGIN
- INSERT INTO field_history(field_id,case_id,user_id,previous_json,new_json,created_at)
- SELECT field_id,case_id,user_id,json_object('reviewResolution',resolution),json_object('reviewResolution','NONE'),strftime('%Y-%m-%dT%H:%M:%fZ','now')
- FROM field_review_resolutions WHERE field_id=NEW.id;
- DELETE FROM field_review_resolutions WHERE field_id=NEW.id;
-END;
-CREATE TRIGGER IF NOT EXISTS reset_override_resolution AFTER UPDATE ON field_overrides
-BEGIN
- INSERT INTO field_history(field_id,case_id,user_id,previous_json,new_json,created_at)
- SELECT field_id,case_id,user_id,json_object('reviewResolution',resolution),json_object('reviewResolution','NONE'),strftime('%Y-%m-%dT%H:%M:%fZ','now')
- FROM field_review_resolutions WHERE case_id=NEW.case_id AND field_id=NEW.field_id;
- DELETE FROM field_review_resolutions WHERE case_id=NEW.case_id AND field_id=NEW.field_id;
-END;
-CREATE TRIGGER IF NOT EXISTS insert_override_resolution AFTER INSERT ON field_overrides
-BEGIN
- INSERT INTO field_history(field_id,case_id,user_id,previous_json,new_json,created_at)
- SELECT field_id,case_id,user_id,json_object('reviewResolution',resolution),json_object('reviewResolution','NONE'),strftime('%Y-%m-%dT%H:%M:%fZ','now')
- FROM field_review_resolutions WHERE case_id=NEW.case_id AND field_id=NEW.field_id;
- DELETE FROM field_review_resolutions WHERE case_id=NEW.case_id AND field_id=NEW.field_id;
-END;
-CREATE TRIGGER IF NOT EXISTS remove_override_resolution AFTER DELETE ON field_overrides
-BEGIN
- INSERT INTO field_history(field_id,case_id,user_id,previous_json,new_json,created_at)
- SELECT field_id,case_id,user_id,json_object('reviewResolution',resolution),json_object('reviewResolution','NONE'),strftime('%Y-%m-%dT%H:%M:%fZ','now')
- FROM field_review_resolutions WHERE case_id=OLD.case_id AND field_id=OLD.field_id;
- DELETE FROM field_review_resolutions WHERE case_id=OLD.case_id AND field_id=OLD.field_id;
-END;
-CREATE TRIGGER IF NOT EXISTS clear_deleted_document_resolution AFTER UPDATE OF deleted_at ON documents
-WHEN NEW.deleted_at IS NOT NULL
-BEGIN DELETE FROM field_review_resolutions WHERE field_id IN (SELECT id FROM fields WHERE document_id=NEW.id); END;
-CREATE TRIGGER IF NOT EXISTS clear_deleted_case_resolution AFTER UPDATE OF deleted_at ON cases
-WHEN NEW.deleted_at IS NOT NULL
-BEGIN DELETE FROM field_review_resolutions WHERE case_id=NEW.id; END;
 CREATE TABLE IF NOT EXISTS document_replacements (
  id INTEGER PRIMARY KEY, case_id INTEGER NOT NULL REFERENCES cases(id),
  original_document_id INTEGER NOT NULL REFERENCES documents(id),
@@ -144,9 +104,6 @@ CREATE TABLE IF NOT EXISTS reports (
  id INTEGER PRIMARY KEY, case_id INTEGER NOT NULL REFERENCES cases(id), version INTEGER NOT NULL,
  input_version INTEGER NOT NULL, status TEXT NOT NULL, frozen_json TEXT NOT NULL,
  document_ids TEXT NOT NULL, created_at TEXT NOT NULL, error_code TEXT);
-CREATE TABLE IF NOT EXISTS consultation_drafts (
- case_id INTEGER PRIMARY KEY REFERENCES cases(id), version INTEGER NOT NULL,
- notes_json TEXT NOT NULL, document_ids TEXT NOT NULL, updated_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS consultation_centers (
  id INTEGER PRIMARY KEY, data_json TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS idempotency_responses (
@@ -154,14 +111,6 @@ CREATE TABLE IF NOT EXISTS idempotency_responses (
  fingerprint TEXT NOT NULL, data_json TEXT NOT NULL, status_code INTEGER NOT NULL,
  created_at TEXT NOT NULL, expires_at TEXT NOT NULL,
  PRIMARY KEY(user_id,path,key_hash));
-CREATE TABLE IF NOT EXISTS chat_summaries (
- chat_id INTEGER NOT NULL REFERENCES chats(id), scope_key TEXT NOT NULL, summary TEXT NOT NULL,
- message_ids TEXT NOT NULL, last_message_id INTEGER NOT NULL, updated_at TEXT NOT NULL,
- PRIMARY KEY(chat_id,scope_key));
-CREATE INDEX IF NOT EXISTS messages_chat ON messages(chat_id,id);
-CREATE TABLE IF NOT EXISTS translations (
- language TEXT NOT NULL, source_hash TEXT NOT NULL, translated TEXT NOT NULL, created_at TEXT NOT NULL,
- PRIMARY KEY(language,source_hash));
 CREATE INDEX IF NOT EXISTS jobs_status ON jobs(status,ready_at);
 CREATE INDEX IF NOT EXISTS links_document ON document_links(document_id);
 '''
@@ -201,10 +150,6 @@ class Database:
             payment_columns = {row['name'] for row in con.execute('PRAGMA table_info(payment_transactions)')}
             if 'provenance_json' not in payment_columns:
                 con.execute('ALTER TABLE payment_transactions ADD COLUMN provenance_json TEXT')
-            user_columns = {row['name'] for row in con.execute('PRAGMA table_info(users)')}
-            if 'language' not in user_columns:
-                # Existing accounts start in Korean.
-                con.execute("ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'ko'")
         self._migrate_monotonic_ids()
 
     def _migrate_monotonic_ids(self):

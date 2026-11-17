@@ -32,12 +32,6 @@ def drain(app):
         pass
 
 
-def snapshot_identity(ref):
-    # Live fingerprint/job diagnostics can change while the immutable snapshot
-    # and its per-check freshness stay unchanged.
-    return {k: ref[k] for k in ('snapshotId', 'version', 'inputVersion', 'createdAt', 'freshness')}
-
-
 def payslip(client, cid, **overrides):
     return request(
         client,
@@ -75,7 +69,7 @@ def test_saved_manual_records_reach_real_agent_and_independent_views(api):
         c,
         "POST",
         f"/workplaces/{wid}/payment-transactions",
-        {"paymentMethod": "CASH", "amount": 2090000, "transactionDate": "2026-11-01", "source": "USER_INPUT", "confirmationStatus": "USER_CONFIRMED"},
+        {"paymentMethod": "CASH", "amount": 2090000, "transactionDate": "2026-11-01", "source": "USER_INPUT"},
         201,
     )
     request(
@@ -86,15 +80,15 @@ def test_saved_manual_records_reach_real_agent_and_independent_views(api):
         201,
     )
     pending = request(c, "GET", f"/cases/{cid}/results")
-    assert snapshot_identity(pending["versions"]["calculation"]) == snapshot_identity(refs["calculation"])
+    assert pending["versions"]["calculation"] == refs["calculation"]
     assert pending["versions"]["depositComparison"]["freshness"] == "UPDATING"
     drain(app)
     after = request(c, "GET", f"/cases/{cid}/results")
-    assert snapshot_identity(after["versions"]["calculation"]) == snapshot_identity(refs["calculation"])
-    assert snapshot_identity(after["versions"]["payslipValidation"]) == snapshot_identity(refs["payslipValidation"])
+    assert after["versions"]["calculation"] == refs["calculation"]
+    assert after["versions"]["payslipValidation"] == refs["payslipValidation"]
     deposit = after["depositComparison"]
     assert deposit["status"] == "MATCH" and deposit["linkedCashPaymentTotal"] == 2090000
-    assert deposit["deposits"][0]["confirmationStatus"] == "USER_CONFIRMED"
+    assert deposit["deposits"][0]["confirmationStatus"] == "USER_REPORTED"
     assert deposit["version"] == 2
     assert request(c, "GET", f"/cases/{cid}/recompute-status")["latestJob"]["status"] == "SUCCEEDED"
 
@@ -152,8 +146,7 @@ def test_requested_checks_are_in_real_task_and_unrequested_views_unchanged(api):
         for i in output["comparisons"]
         if i["rule_id"] in ("R-01", "R-02", "R-06", "R-07")
     )
-    after = request(c, "GET", f"/cases/{cid}/results")["versions"]
-    assert {k: snapshot_identity(v) for k, v in after.items()} == {k: snapshot_identity(v) for k, v in before.items()}
+    assert request(c, "GET", f"/cases/{cid}/results")["versions"] == before
 
 
 def test_zero_missing_conflicting_values_do_not_become_false_matches(api):
@@ -409,7 +402,6 @@ def test_running_workers_complete_legacy_flow_without_explicit_group_api(tmp_pat
             time.sleep(0.025)
         assert data["payslipValidation"]["netPay"]["difference"] == 10000
         report = request(c, "POST", f"/cases/{cid}/reports", {"includeOriginalDocuments": False}, 202)
-        deadline = time.monotonic() + 10
         while time.monotonic() < deadline:
             report = request(c, "GET", f"/cases/{cid}/reports/{report['reportId']}")
             if report["status"] != "PROCESSING":
@@ -424,7 +416,6 @@ def test_running_workers_complete_legacy_flow_without_explicit_group_api(tmp_pat
         )
         assert upload.status_code == 202
         did = upload.json()["data"]["documentId"]
-        deadline = time.monotonic() + 10
         while time.monotonic() < deadline:
             fields = request(c, "GET", f"/cases/{cid}/documents/{did}/fields")
             if fields["fields"]:

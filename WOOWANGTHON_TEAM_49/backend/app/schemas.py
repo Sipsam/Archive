@@ -5,21 +5,6 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, m
 
 Money = Annotated[int, Field(strict=True, ge=0, le=10**12)]
 DocType = Literal["CONTRACT", "ATTENDANCE", "PAYSLIP", "DEPOSIT"]
-# AUTO: the agent classifies the document; it stays AUTO (outside case calculations) until then.
-UploadDocType = Literal["CONTRACT", "ATTENDANCE", "PAYSLIP", "DEPOSIT", "AUTO"]
-AGENT_DOCUMENT_TYPES = {
-    "contract": "CONTRACT",
-    "attendance": "ATTENDANCE",
-    "payslip": "PAYSLIP",
-    "payslip_ocr": "PAYSLIP",
-    "deposit": "DEPOSIT",
-}
-TYPE_REVIEW_REASONS = ("DOCUMENT_TYPE_MISMATCH", "DOCUMENT_TYPE_UNRESOLVED")
-
-
-class DocumentTypePatch(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    documentType: UploadDocType
 
 
 class Input(BaseModel):
@@ -35,10 +20,6 @@ class Signup(Input):
 class Login(Input):
     email: str
     password: str
-
-
-class LanguagePatch(Input):
-    language: Literal["ko", "en", "vi", "zh", "km"]
 
 
 class ForgotPassword(Input):
@@ -118,13 +99,12 @@ class LinkPatch(Versioned):
 
 
 class FieldPatch(Versioned):
-    reviewResolution: Literal["NONE", "NOT_IN_DOCUMENT", "UNKNOWN"] | None = None
     value: JsonValue = None
     confirmed: bool | None = None
 
     @model_validator(mode="after")
     def has_change(self):
-        if not {"value", "confirmed", "reviewResolution"} & self.model_fields_set:
+        if not {"value", "confirmed"} & self.model_fields_set:
             raise ValueError("value or confirmed is required")
         return self
 
@@ -294,8 +274,3 @@ class Envelope(BaseModel):
     code: int
     message: str
     data: JsonValue
-
-
-class StatementScopePatch(Versioned):
-    paymentItems: bool | None = None
-    deductionItems: bool | None = None

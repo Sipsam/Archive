@@ -9,25 +9,19 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
 from app.ai import AIAdapter
-from app.chat_memory import catch_up_summaries
-from app.i18n import Localizer
 from app.config import Settings
 from app.centers import seed_centers
 from app.db import Database, load
 from app.errors import ApiError, ok
 from app.schemas import Envelope
 from app.outputs import API, ErrorData
-from app.routers import analysis, auth, chats, documents, payments, workspaces, integration, reviews, reports, safety_disclosures
-from app.safety_disclosures import (
-    SafetyDisclosureDatasetError, SafetyDisclosureDirectory, initialize_safety_disclosures,
-)
+from app.routers import analysis, auth, chats, documents, payments, workspaces, integration, reviews, reports
 from app.worker import document_worker, agent_worker
 from app.agent_service import AgentService
 from agent.schemas.public.errors import AgentError
 
 
-def create_app(settings=None, ai_client=None, *, provider=None, recognizer=None, review_model=None,
-               translation_client=None):
+def create_app(settings=None, ai_client=None, *, provider=None, recognizer=None, review_model=None):
     settings = settings or Settings()
 
     @asynccontextmanager
@@ -38,12 +32,6 @@ def create_app(settings=None, ai_client=None, *, provider=None, recognizer=None,
         app.state.settings = settings
         app.state.db = Database(settings.db_path)
         app.state.db.initialize()
-        try:
-            initialize_safety_disclosures(app.state.db)
-            app.state.safety_disclosures = SafetyDisclosureDirectory(app.state.db)
-        except SafetyDisclosureDatasetError as exc:
-            logging.getLogger(__name__).error('safety_disclosure_dataset_unavailable code=%s', exc.code)
-            app.state.safety_disclosures = None
         app.state.agent_settings = settings.agent_settings()
         app.state.service = AgentService(app.state.db, settings, app.state.agent_settings,
             provider=provider, recognizer=recognizer)
@@ -59,12 +47,7 @@ def create_app(settings=None, ai_client=None, *, provider=None, recognizer=None,
             con.execute("UPDATE jobs SET status='PENDING' WHERE status='RUNNING'")
             con.execute("UPDATE messages SET status='FAILED' WHERE status='STREAMING'")
         app.state.ai = AIAdapter(settings, ai_client)
-        app.state.localizer = Localizer(settings, app.state.db, translation_client)
         app.state.chat_runs = {}
-        app.state.summary_tasks, app.state.summary_timers, app.state.summary_locks = set(), {}, {}
-        catch_up = asyncio.create_task(catch_up_summaries(app.state))
-        app.state.summary_tasks.add(catch_up)
-        catch_up.add_done_callback(app.state.summary_tasks.discard)
         tasks = ([asyncio.create_task(document_worker(app.state))] +
             [asyncio.create_task(agent_worker(app.state)) for _ in range(settings.worker_concurrency)]) if settings.workers_enabled else []
         app.state.worker_tasks = tasks
@@ -75,10 +58,9 @@ def create_app(settings=None, ai_client=None, *, provider=None, recognizer=None,
                 control.cancelled.set()
                 if control.task:
                     control.task.cancel()
-            background = [*tasks, *app.state.summary_tasks]
-            for task in background:
+            for task in tasks:
                 task.cancel()
-            await asyncio.gather(*background, return_exceptions=True)
+            await asyncio.gather(*tasks, return_exceptions=True)
             await app.state.ai.close()
 
     app = FastAPI(title='월급잇다 Integrated Backend', version='1.0.0', lifespan=lifespan,
@@ -140,7 +122,7 @@ def create_app(settings=None, ai_client=None, *, provider=None, recognizer=None,
                    'nationwideFallbackUsed': bool(region and not regional and nationwide),
                    'dataStatus': 'NATIONWIDE_ONLY' if not regional else 'AVAILABLE'})
 
-    for router in (auth.router, workspaces.router, documents.router, analysis.router, payments.router, chats.router, integration.router, reviews.router, reports.router, safety_disclosures.router):
+    for router in (auth.router, workspaces.router, documents.router, analysis.router, payments.router, chats.router, integration.router, reviews.router, reports.router):
         app.include_router(router, prefix='/api/v1', responses={
             code: {'model': API[ErrorData], 'description': description} for code, description in {
                 401: '인증 필요/토큰 만료', 404: '없는 자원/권한 없음/삭제',

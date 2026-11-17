@@ -5,7 +5,6 @@ from pydantic import ConfigDict, Field, SecretStr, field_validator, model_valida
 from agent.config import ENGINE_VERSION, SCHEMA_VERSION
 from agent.schemas.public.base import AwareDateTime, ContractModel, Period
 from agent.schemas.public.inputs import InputSnapshot, SourceRef
-from agent.schemas.public.consultation import ConsultationNotes
 from agent.schemas.public.results import (
     AnalysisResult,
     AnalysisResultCandidate,
@@ -121,7 +120,6 @@ class ReportCondition(ContractModel):
     value: str
     state: Literal["known", "missing", "unknown", "pending", "conflict"] = "known"
     evidence_refs: tuple[str, ...] = ()
-    period_label: str = ""
 
 
 class ReportSource(ContractModel):
@@ -129,7 +127,6 @@ class ReportSource(ContractModel):
 
     source_id: str
     filename: str
-    included_in_zip: bool = True
 
 
 class ReportPeriod(Period):
@@ -142,7 +139,6 @@ class ReportDisplayContext(ContractModel):
     snapshot_id: str
     snapshot_hash: str
     workplace_name: str
-    employment_status: Literal["CURRENT", "FORMER"] | None = None
     period: ReportPeriod
     conditions: tuple[ReportCondition, ...] = ()
     sources: tuple[ReportSource, ...] = ()
@@ -161,7 +157,6 @@ class ReportInput(ContractModel):
     generated_at: AwareDateTime
     template_version: str = "report-v1"
     display_context: ReportDisplayContext | None = None
-    consultation: ConsultationNotes | None = None
 
 
 Payload = ExtractionInput | AnalysisJobInput | ExplanationInput | ReportInput
@@ -188,10 +183,6 @@ class AgentFailure(ContractModel):
     code: str
     message: str
     retryable: bool = False
-    # Code-owned detail of MODEL_OUTPUT_INVALID, e.g. DOCUMENT_TYPE_MISMATCH.
-    reason: str | None = None
-    # Validated document type the model reported on a type conflict.
-    detected_document_type: Literal["contract", "attendance", "payslip", "deposit"] | None = None
 
 
 class AgentOutcome(ContractModel):

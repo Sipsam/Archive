@@ -29,8 +29,6 @@ class AgentSettings(BaseModel):
     ocr_data_path: Path | None = None
     ocr_dpi: int = Field(default=300, ge=150, le=400)
     ocr_page_timeout: float = Field(default=60, gt=0)
-    # Sends scanned pages (no usable text layer) to the model for transcription. Off unless enabled.
-    scan_transcription: bool = False
 
     @classmethod
     def from_env(cls, path: Path, **overrides):
@@ -50,6 +48,4 @@ class AgentSettings(BaseModel):
             values["ocr_command"] = env["AGENT_OCR_COMMAND"]
         if env.get("AGENT_OCR_DATA_PATH"):
             values["ocr_data_path"] = env["AGENT_OCR_DATA_PATH"]
-        if (env.get("AGENT_SCAN_TRANSCRIPTION") or "").strip().lower() in {"1", "true", "yes", "on"}:
-            values["scan_transcription"] = True
         return cls(**(values | overrides))

@@ -127,9 +127,7 @@ def verify_response(response, pages, expected_type, image_pages=None):
         )
     if expected_type != "auto" and actual_type != canonical_expected:
         raise ModelFormatError(
-            "Document type conflict; user confirmation required",
-            reason="DOCUMENT_TYPE_MISMATCH",
-            detected_document_type=actual_type,
+            "Document type conflict; user confirmation required", reason="DOCUMENT_TYPE_MISMATCH"
         )
     reviewed, seen = [], {}
     for original in response.fields:

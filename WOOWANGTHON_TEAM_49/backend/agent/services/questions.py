@@ -84,14 +84,7 @@ def question_reason(code):
 
 def condition_label(field_id):
     key = field_id.removeprefix("wage_conditions.")
-    label = CONDITION_LABELS.get(key, CONDITION_LABELS.get(key.split(".")[0]))
-    if label is None:
-        # Confirmed document fields are named after their extraction profile, never the raw code.
-        from agent.review.registry import ROLE_FIELDS
-        from agent.services.extraction_profiles import korean_field_label
-
-        label = korean_field_label(key) or ROLE_FIELDS.get(key, {}).get("label")
-    return label or key
+    return CONDITION_LABELS.get(key, CONDITION_LABELS.get(key.split(".")[0], key))
 
 
 def _materials(field_id):
@@ -131,7 +124,7 @@ def build_questions(wage_items, comparisons, *, snapshot=None):
     Comparison-only users are not asked to start an unrelated wage calculation.
     This function does not turn unknown/pending/conflicting facts into known data.
     """
-    fields = {f.field_id: f for f in snapshot.analysis_fields} if snapshot is not None else {}
+    fields = {f.field_id: f for f in snapshot.confirmed_fields} if snapshot is not None else {}
     wage_requested = (
         snapshot is None
         or snapshot.wage_conditions is not None

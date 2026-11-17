@@ -27,7 +27,6 @@ ENV PATH="/app/.venv/bin:$PATH" \
     AGENT_FONT_PATH=/app/assets/fonts/NotoSansKR-Regular.ttf \
     AGENT_OCR_COMMAND=/usr/bin/tesseract \
     AGENT_OCR_DATA_PATH=/usr/share/tesseract-ocr/5/tessdata \
-    AGENT_SCAN_TRANSCRIPTION=true \
     WORKER_CONCURRENCY=1 WORKERS_ENABLED=true PASSWORD_RESET_DELIVERY=disabled
 USER app
 EXPOSE 8000

@@ -3,7 +3,6 @@
 from collections import Counter
 
 from app.db import load
-from app.source_location import public_source
 from app.compatibility import KINDS, IDS, collect, fingerprint
 from app.compatibility import job_dto as job_dto, schedule as schedule
 
@@ -44,16 +43,18 @@ def latest(con, case_id, kind=None, data=None):
     if row is not None and not snapshot_accessible(con, row):
         row = None
     c = con.execute("SELECT input_version FROM cases WHERE id=?", (case_id,)).fetchone()
-    current_fp = fingerprint(con, case_id, kind, data)
-    fresh = "CURRENT" if row and row["fingerprint"] == current_fp else "STALE"
-    relevant = next(
-        (j for j in con.execute(
-            "SELECT * FROM jobs WHERE case_id=? AND input_version=? ORDER BY created_at DESC",
-            (case_id, c[0]),
-        ) if KINDS[kind] in load(j["checks_json"]) and j["status"] != "SUPERSEDED"),
-        None,
-    )
+    fresh = "CURRENT" if row and row["fingerprint"] == fingerprint(con, case_id, kind, data) else "STALE"
     if fresh != "CURRENT":
+        relevant = next(
+            (
+                j
+                for j in con.execute(
+                    "SELECT * FROM jobs WHERE case_id=? ORDER BY created_at DESC", (case_id,)
+                )
+                if KINDS[kind] in load(j["checks_json"]) and j["status"] != "SUPERSEDED"
+            ),
+            None,
+        )
         if relevant:
             fresh = (
                 "UPDATING"
@@ -66,13 +67,6 @@ def latest(con, case_id, kind=None, data=None):
         "inputVersion": row["input_version"] if row else c[0],
         "createdAt": row["created_at"] if row else None,
         "freshness": fresh,
-        "currentInputVersion": c[0],
-        "snapshotFingerprint": row["fingerprint"] if row else None,
-        "currentFingerprint": current_fp,
-        "fingerprintMatches": bool(row and row["fingerprint"] == current_fp),
-        "latestJobId": relevant["id"] if relevant else None,
-        "latestJobStatus": relevant["status"] if relevant else None,
-        "latestJobErrorCode": relevant["error_code"] if relevant else None,
     }
 
 
@@ -131,7 +125,6 @@ def results(con, case_id):
                     "stated": body["linkedPaymentTotal"],
                     "difference": body["difference"],
                     "status": body["status"],
-                    "reasonCodes": body.get("reasonCodes", []),
                 }
             ]
         )
@@ -139,7 +132,6 @@ def results(con, case_id):
             items.append(
                 {
                     "id": check["type"],
-                    "reasonCodes": check.get("reasonCodes", []),
                     "title": titles.get(check["type"], check["type"]),
                     "status": check["status"],
                     "calculatedValue": check.get("calculated"),
@@ -231,17 +223,9 @@ def effective_fields(con, case_id, document_id):
                 "confirmedAt": active["confirmed_at"],
                 "effectiveValueOrigin": "CASE_OVERRIDE" if override else "SHARED_DEFAULT",
                 "hasCaseOverride": override is not None,
-                "source": public_source(
-                    load(override["source_json"])
-                    if override and override["source_json"]
-                    else load(field["source_json"])
-                ),
+                "source": load(override["source_json"])
+                if override and override["source_json"]
+                else load(field["source_json"]),
             }
         )
-    from app.review_policy import metadata
-    doc = con.execute("SELECT document_type FROM documents WHERE id=?", (document_id,)).fetchone()
-    case = con.execute("SELECT pay_type FROM cases WHERE id=?", (case_id,)).fetchone()
-    for field in result:
-        row = con.execute("SELECT resolution FROM field_review_resolutions WHERE case_id=? AND field_id=?", (case_id, field["fieldId"])).fetchone()
-        field.update(metadata(field, doc[0], case[0] if case else None, row[0] if row else "NONE"))
     return result

@@ -35,7 +35,7 @@ CONTENT_FIELDS = set(InputSnapshot.model_fields) - SERVER_FIELDS
 
 def build_snapshot(confirmed, *, snapshot_id, input_version, owner_id, workplace_id,
                    case_id, period, authorized_sources, evidence_catalog=None):
-    """Freeze confirmed and separately tagged extracted inputs without guessing semantics.
+    """Freeze explicitly confirmed public inputs without guessing missing semantics.
 
 The caller supplies trusted identities and source permissions. This pure mapper
 does not read candidates, infer wages, or change source evidence.
@@ -180,8 +180,6 @@ references on USER_INPUT remain explicitly user-reported/confirmed identifiers.
     row = {key.removeprefix(row_id + "_"): value for key, value in fields.items() if key.startswith(row_id + "_")}
     values = {key: candidate_value(value) for key, value in row.items()}
     if not values.get("date") or values.get("deposit_amount") is None or not any(values.get(key) for key in ("reference", "sender", "description")):
-        raise ApiError(422, "TRANSACTION_ROW_REVIEW_REQUIRED")
-    if values.get("withdrawal_amount") is not None and Decimal(values["withdrawal_amount"]) != 0:
         raise ApiError(422, "TRANSACTION_ROW_REVIEW_REQUIRED")
     if values["date"] != str(data["transactionDate"]) or Decimal(values["deposit_amount"]) != Decimal(str(data["amount"])):
         raise ApiError(422, "TRANSACTION_ROW_VALUE_MISMATCH")
@@ -382,7 +380,7 @@ same allocation; selecting it does not consume the transaction a second time.
     if not confirmed:
         raise ApiError(409, "CONFIRMED_INPUT_REQUIRED")
     unknown = set(confirmed) - CONTENT_FIELDS - CONFIRMATION_METADATA
-    if unknown or "transaction_allocations" in confirmed or confirmed.get("extracted_fields"):
+    if unknown or "transaction_allocations" in confirmed:
         raise ApiError(422, "INVALID_CONFIRMED_INPUT", details={"unsupported_fields": sorted(unknown),
             "allocation_policy": "Use selected_transaction_ids from the case allocation ledger"})
     profile = {"HOURLY": "H-STD", "MONTHLY": "M-STD"}.get(case["pay_type"])
@@ -519,8 +517,8 @@ same allocation; selecting it does not consume the transaction a second time.
         "duplicate": row["id"] in duplicate_ids,
         "kind": "bank" if row["payment_method"] == "BANK_TRANSFER" else "cash_memo",
     } for row in transactions]
-    # Duplicate-marked rows are excluded by R-06. Their presence does not revoke
-    # the user's scope confirmation for the remaining valid bank allocations.
+    if duplicate_ids:
+        confirmed["payment_scope_confirmed"] = False
     return build_snapshot(confirmed, snapshot_id=snapshot_id, input_version=case["input_version"],
         owner_id=owner_id, workplace_id=case["workplace_id"], case_id=case["id"], period=period,
         authorized_sources=sources)

@@ -1,7 +1,7 @@
 """Public core response schemas for Swagger and frontend type generation."""
 from typing import Generic, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, JsonValue
 
 T = TypeVar('T')
 
@@ -30,59 +30,10 @@ class Page(BaseModel, Generic[T]):
     total: int
 
 
-class SafetyDisclosureDatasetDTO(BaseModel):
-    model_config = ConfigDict(extra='allow')
-    id: str = Field(min_length=1)
-    title: str = Field(min_length=1)
-    publicationDate: str
-    publicationYear: int
-    referenceYear: int
-    noticeNumber: str = Field(min_length=1)
-    sourceUrl: str = Field(min_length=1)
-    listPdfUrl: str = Field(min_length=1)
-    releasePdfUrl: str = Field(min_length=1)
-    scopeNote: str = Field(min_length=1)
-    recordCount: int = Field(ge=1)
-
-
-class SafetyDisclosureSourceRecord(BaseModel):
-    model_config = ConfigDict(extra='allow')
-    id: str = Field(min_length=1)
-    categoryCode: str = Field(min_length=1)
-    categoryLabel: str = Field(min_length=1)
-    companyName: str = Field(min_length=1)
-    companyNames: list[str] = Field(min_length=1)
-    address: str = Field(min_length=1)
-    industry: str | None
-    occurrenceYear: int | None
-    sourcePage: int = Field(ge=1)
-
-
-class SafetyDisclosureRecordDTO(SafetyDisclosureSourceRecord):
-    matchLevel: Literal['NAME_AND_ADDRESS', 'NAME_ONLY', 'PARTIAL']
-
-
-class SafetyDisclosureSearchDTO(BaseModel):
-    status: Literal['MATCHED', 'REVIEW_REQUIRED', 'NOT_FOUND']
-    items: list[SafetyDisclosureRecordDTO]
-    page: int
-    size: int
-    total: int
-    dataset: SafetyDisclosureDatasetDTO
-
-
-Language = Literal['ko', 'en', 'vi', 'zh', 'km']
-
-
 class UserDTO(BaseModel):
     userId: int
     email: str
     name: str
-    language: Language
-
-
-class LanguageDTO(BaseModel):
-    language: Language
 
 
 class LoginDTO(BaseModel):
@@ -124,10 +75,10 @@ class CaseDTO(BaseModel):
 class DocumentDTO(BaseModel):
     documentId: int
     workplaceId: int
-    documentType: Literal['CONTRACT', 'ATTENDANCE', 'PAYSLIP', 'DEPOSIT', 'AUTO']
+    documentType: Literal['CONTRACT', 'ATTENDANCE', 'PAYSLIP', 'DEPOSIT']
     fileName: str
-    processingStatus: Literal['UPLOADED', 'PROCESSING', 'READ_READY', 'READY', 'REVIEW_REQUIRED', 'FAILED'] = Field(description='Extraction lifecycle. REVIEW_REQUIRED can coexist with reviewStatus=CONFIRMED; use reviewStatus and pendingRequiredFieldIds for user review completion.')
-    reviewStatus: Literal['NOT_STARTED', 'IN_PROGRESS', 'CONFIRMED'] = Field(description='Case-specific required user review, independent of extraction status, analysis readiness and result freshness.')
+    processingStatus: Literal['UPLOADED', 'PROCESSING', 'READ_READY', 'READY', 'REVIEW_REQUIRED', 'FAILED']
+    reviewStatus: Literal['NOT_STARTED', 'IN_PROGRESS', 'CONFIRMED']
     progress: int
     linkId: int | None
     linkedCaseIds: list[int]
@@ -137,37 +88,7 @@ class DocumentDTO(BaseModel):
     workplaceName: str | None = None
 
 
-class ReviewFieldMetadata(BaseModel):
-    requiresUserReview: bool
-    reviewReason: Literal['REQUIRED', 'MISSING', 'UNREADABLE', 'CONFLICTED', 'RECONFIRMATION'] | None
-    reviewResolution: Literal['NONE', 'NOT_IN_DOCUMENT', 'UNKNOWN']
-    reviewResolved: bool
-    usableForAnalysis: bool
-    analysisValueOrigin: Literal['USER_CONFIRMED', 'SYSTEM_EXTRACTED_UNVERIFIED', 'NONE']
-
-
-class ReviewDTO(BaseModel):
-    documentId: int
-    processingStatus: str
-    reviewStatus: str
-    unconfirmedFieldIds: list[int]
-    totalFieldCount: int
-    confirmedFieldCount: int
-    requiredReviewCount: int
-    resolvedRequiredCount: int
-    pendingRequiredFieldIds: list[int]
-    optionalUnconfirmedFieldIds: list[int]
-    canCompleteReview: bool
-
-
-class StatementScopeDTO(BaseModel):
-    documentId: int
-    inputVersion: int
-    statementScopes: dict[str, JsonValue]
-    scopeStatus: dict[str, Literal['UNCONFIRMED', 'CONFIRMED', 'NEEDS_RECONFIRMATION']]
-
-
-class FieldDTO(ReviewFieldMetadata):
+class FieldDTO(BaseModel):
     fieldId: int
     key: str
     label: str
@@ -176,20 +97,10 @@ class FieldDTO(ReviewFieldMetadata):
     valueType: str
     status: Literal['UNCONFIRMED', 'CONFIRMED', 'MISSING', 'UNREADABLE', 'CONFLICTED', 'DEFERRED', 'NEEDS_RECONFIRMATION']
     editedByUser: bool
-    effectiveValueOrigin: Literal['SHARED_DEFAULT', 'CASE_OVERRIDE'] = Field(description='Actual effective value source; resolution-only Case PATCH may remain SHARED_DEFAULT.')
-    hasCaseOverride: bool = Field(description='Whether a field_overrides value record exists for this Case. A Case resolution mutation alone does not create one.', examples=[False, True])
+    effectiveValueOrigin: Literal['SHARED_DEFAULT', 'CASE_OVERRIDE']
+    hasCaseOverride: bool
     confirmedAt: str | None
     source: dict[str, JsonValue] | None
-
-
-class FieldMutationDTO(FieldDTO):
-    """A Case mutation need not create a value override (e.g. resolution only)."""
-    model_config = {"extra": "allow"}
-    previousValue: JsonValue
-    affectedCaseIds: list[int]
-    caseUpdates: dict[str, JsonValue]
-    inputVersion: int
-    recompute: dict[str, JsonValue]
 
 
 class FieldsDTO(BaseModel):
@@ -206,13 +117,6 @@ class VersionRef(BaseModel):
     inputVersion: int
     createdAt: str | None
     freshness: Literal['CURRENT', 'STALE', 'UPDATING', 'FAILED']
-    currentInputVersion: int
-    snapshotFingerprint: str | None
-    currentFingerprint: str
-    fingerprintMatches: bool
-    latestJobId: str | None
-    latestJobStatus: str | None
-    latestJobErrorCode: str | None
 
 
 class ResultItem(BaseModel):
@@ -230,7 +134,6 @@ class ResultItem(BaseModel):
     comparisonBasis: dict[str, JsonValue] | None
     sources: list[dict[str, JsonValue]]
     confirmedAt: str | None
-    reasonCodes: list[str] = []
     nextAction: str | None
 
 

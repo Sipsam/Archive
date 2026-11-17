@@ -35,11 +35,6 @@ def invalidate_document_confirmations(con, document_id, reason):
     ).fetchone()
     if doc is None:
         return
-    con.execute("UPDATE document_links SET review_status='IN_PROGRESS' WHERE document_id=?", (document_id,))
-    con.execute("INSERT INTO field_history(field_id,case_id,user_id,previous_json,new_json,created_at) SELECT r.field_id,r.case_id,r.user_id,json_object('reviewResolution',r.resolution),json_object('reviewResolution','NONE'),? FROM field_review_resolutions r JOIN fields f ON f.id=r.field_id WHERE f.document_id=?", (now(), document_id))
-    con.execute("DELETE FROM field_review_resolutions WHERE field_id IN (SELECT id FROM fields WHERE document_id=?)", (document_id,))
-    # An override is tied to the old source just as the shared confirmation is.
-    con.execute("UPDATE field_overrides SET status='NEEDS_RECONFIRMATION',confirmed_at=NULL WHERE field_id IN (SELECT id FROM fields WHERE document_id=?)", (document_id,))
     rows = con.execute(
         "SELECT * FROM fields WHERE document_id=? AND (status='CONFIRMED' OR edited=1)", (document_id,)
     ).fetchall()
@@ -230,15 +225,6 @@ def confirm_candidate(
         document_version=doc["document_version"],
         document_id=document_id,
     )
-    from app.source_location import bounding_box, evidence_page
-
-    reading = con.execute("SELECT data_json FROM document_ocr WHERE id=?", (base["ocr_result_id"],)).fetchone()
-    box = bounding_box(
-        load(reading["data_json"]) if reading else None,
-        chosen.get("source_page"),
-        chosen.get("source_quote"),
-        chosen.get("raw_value"),
-    )
     audit_id, created_at = identifier(), now()
     con.execute(
         """INSERT INTO document_confirmations(id,document_id,owner_id,field_id,candidate_id,
@@ -267,9 +253,9 @@ def confirm_candidate(
         "ocrResultId": base["ocr_result_id"],
         "evidenceRefs": chosen["evidence_refs"],
         "unit": chosen["unit"],
-        "page": evidence_page(chosen.get("source_page"), chosen.get("source_quote")),
+        "page": chosen.get("source_page"),
         "text": chosen.get("source_quote"),
-        "boundingBox": box,
+        "boundingBox": None,
         "coordinateSystem": "RELATIVE_0_1",
     }
     if case_id is not None:
@@ -309,13 +295,6 @@ def confirm_candidate(
             WHERE id IN (SELECT group_id FROM group_documents WHERE document_id=?)""",
             (created_at, document_id),
         )
-    if invalidate_groups:
-        from app.compatibility import schedule
-        affected = [case_id] if case_id is not None else [r[0] for r in con.execute(
-            "SELECT l.case_id FROM document_links l WHERE l.document_id=? AND NOT EXISTS (SELECT 1 FROM field_overrides o WHERE o.case_id=l.case_id AND o.field_id=?)",
-            (document_id, existing["id"] if existing else -1))]
-        for cid in affected:
-            schedule(con, cid)
     return {"confirmation_id": audit_id, "status": status, "field": chosen, "audit": record}
 
 

@@ -1,10 +1,9 @@
 """Legacy Case API adapters over the real agent, with independent immutable views.
 
-User-confirmed inputs and eligible optional extractions retain separate trust
-contracts. Missing wage conditions are never invented.
+Only explicitly user-confirmed fields/manual records enter this adapter. It does
+not promote an extraction candidate, invent wage conditions or call a model.
 """
 
-import re
 import time
 import uuid
 from datetime import datetime
@@ -69,11 +68,6 @@ def money(value):
 def public_field(field):
     result = dict(field)
     key = FIELDS.get(result["key"], result["key"])
-    if result["key"] == "contract_rate" and (result.get("source") or {}).get("unit") == "KRW/month":
-        key = "monthlyBasePay"
-    unit = (result.get("source") or {}).get("unit")
-    if key == "hourlyWage" and unit and unit != "KRW/hour":
-        result["status"], result["value"] = "UNREADABLE", None
     result["agentKey"] = result["key"]
     result["key"] = key
     if key in {
@@ -109,14 +103,10 @@ def collect(con, case_id):
         AND d.deleted_at IS NULL ORDER BY d.id""",
         (case_id,),
     ):
-        if row["document_type"] not in groups or row["purpose"] == "context" or row["processing_status"] not in {"READY", "REVIEW_REQUIRED"}:
+        if row["document_type"] not in groups or row["purpose"] == "context":
             continue
         fields = [public_field(f) for f in effective_fields(con, case_id, row["id"])]
-        scalar_keys = set(SCALARS.get(row["document_type"], {}))
-        if row["document_type"] == "PAYSLIP":
-            scalar_keys.update({"paymentItems", "deductionItems"})
-            scalar_keys.update(f["key"] for f in fields if re.fullmatch(r"(?:earning|deduction)_[1-9]\d*_(?:label|amount)", f["key"]))
-        confirmed = [f for f in fields if f["usableForAnalysis"] and f["key"] in scalar_keys]
+        confirmed = [f for f in fields if f["status"] == "CONFIRMED" and f["value"] is not None]
         if not confirmed:
             continue
         narrowed = (row["applicable_from"] and row["applicable_from"] > case["period_start"]) or (
@@ -130,12 +120,10 @@ def collect(con, case_id):
                 "page": (f["source"] or {}).get("page"),
                 "boundingBox": (f["source"] or {}).get("boundingBox"),
                 "confirmedAt": f["confirmedAt"],
-                "analysisValueOrigin": f["analysisValueOrigin"],
                 "sourceType": row["document_type"],
                 "linkId": row["link_id"],
                 "linkVersion": row["link_version"],
                 "documentHash": row["sha256"],
-                "documentVersion": row["document_version"],
             }
             for f in confirmed
         ]
@@ -195,38 +183,24 @@ def fingerprint(con, case_id, kind, data=None):
     body = {
         "period": [data["case"]["period_start"], data["case"]["period_end"]],
         "payType": data["case"]["pay_type"],
-        "adapterVersion": "legacy-agent-3",
+        "adapterVersion": "legacy-agent-1",
     }
     groups, conditions = data["groups"], data["conditions"]
-
-    def payslip_inputs(keys, details=False):
-        return [
-            {**row,
-             "values": {k: v for k, v in row["values"].items() if k in keys or details and re.fullmatch(r"(?:earning|deduction)_[1-9]\d*_(?:label|amount)", k)},
-             "sources": [s for s in row["sources"] if s.get("key") in keys or details and re.fullmatch(r"(?:earning|deduction)_[1-9]\d*_(?:label|amount)", s.get("key", "")) or "recordId" in s]}
-            for row in groups["PAYSLIP"]
-        ]
-
     if kind == "calculation":
         body.update(
             groups={k: groups[k] for k in ("CONTRACT", "ATTENDANCE")},
-            conditions={k: conditions.get(k) for k in ("base_scope_confirmed", "regular_minutes", "comparison_basis_confirmed")},
+            conditions={k: conditions.get(k) for k in ("base_scope_confirmed", "regular_minutes")},
         )
     elif kind == "comparison":
-        body.update(groups={**groups, "PAYSLIP": payslip_inputs({"hourlyWage", "workedMinutes", "basePay"})}, conditions={k: conditions.get(k) for k in (
-            "comparison_basis_confirmed", "hours_basis_confirmed", "base_pay_basis_confirmed",
-            "base_scope_confirmed", "regular_minutes",
-        )})
+        body.update(groups=groups, conditions=conditions)
     elif kind == "payslipValidation":
-        body["payslip"] = payslip_inputs({"grossPay", "totalDeductions", "netPay", "paymentItems", "deductionItems"}, details=True)
-        body["statementScopes"] = conditions.get("statement_scopes", {})
+        body["payslip"] = groups["PAYSLIP"]
     else:
-        body.update(payslip=payslip_inputs({"netPay"}), payments=data["payments"])
+        body.update(payslip=groups["PAYSLIP"], payments=data["payments"])
     default = con.execute(
-        "SELECT confirmed_json,version,needs_review FROM comparison_groups WHERE id=?", (f"default-{case_id}",)
+        "SELECT confirmed_json,version FROM comparison_groups WHERE id=?", (f"default-{case_id}",)
     ).fetchone()
-    confirmed = load(default[0]) if default and not default["needs_review"] else {}
-    body["inputMode"] = "CONFIRMED_GROUP" if confirmed else "CASE_FIELDS"
+    confirmed = load(default[0]) if default else {}
     if confirmed:
         types = {
             "calculation": {"CONTRACT", "ATTENDANCE"},
@@ -258,23 +232,12 @@ def fingerprint(con, case_id, kind, data=None):
     body["groupFields"] = [
         f for f in (confirmed or {}).get("confirmed_fields", []) if f.get("field_id") in allowed_fields
     ]
-    if confirmed:
-        # Identity and evidence validation affect every check, even when amounts
-        # are unchanged. Keep runtime group versions out of semantic identity.
-        body["groupContext"] = {k: confirmed.get(k) for k in (
-            "subjects_confirmed", "source_identity", "evidence_catalog",
-        )}
-        body["groupConditionStates"] = [
-            f for f in confirmed.get("condition_states", []) if f.get("field_id") in allowed_fields
-        ]
     return digest(body)
 
 
 def schedule(con, case_id, checks=None, delay=0.3, increment=True):
     from app.integration_store import ensure_default_group
 
-    from app.review_policy import sync_reviews
-    sync_reviews(con, case_id)
     checks = checks or list(KINDS.values())
     if not set(checks) <= set(KINDS.values()):
         raise ApiError(422, "INVALID_CHECK_TYPE")
@@ -288,16 +251,6 @@ def schedule(con, case_id, checks=None, delay=0.3, increment=True):
             (now(), case_id),
         )
     version = con.execute("SELECT input_version FROM cases WHERE id=?", (case_id,)).fetchone()[0]
-    if not increment:
-        for active in con.execute(
-            "SELECT * FROM jobs WHERE case_id=? AND input_version=? AND status IN ('PENDING','RUNNING') ORDER BY created_at DESC",
-            (case_id, version),
-        ):
-            if set(checks) <= set(load(active["checks_json"])):
-                return {
-                    "inputVersion": version,
-                    "recompute": {"scheduled": True, "jobId": active["id"], "affectedChecks": load(active["checks_json"])},
-                }
     wanted = set(checks)
     for row in con.execute(
         "SELECT checks_json FROM jobs WHERE case_id=? AND status IN ('PENDING','RUNNING')", (case_id,)
@@ -365,7 +318,7 @@ def prepare_snapshot(con, case_id, snapshot_id):
         (gid, case_id, now(), now()),
     )
     con.execute(
-        "UPDATE comparison_groups SET needs_review=0,updated_at=? WHERE id=? AND needs_review!=0", (now(), gid)
+        "UPDATE comparison_groups SET needs_review=0,version=version+1,updated_at=? WHERE id=?", (now(), gid)
     )
     group = con.execute("SELECT * FROM comparison_groups WHERE id=?", (gid,)).fetchone()
     mid = "legacy-api:" + str(case_id)
@@ -389,7 +342,7 @@ def prepare_snapshot(con, case_id, snapshot_id):
             ref = source_ref(con, row[0], uid, case_id)
             refs.append(ref)
             by_doc[row[0]] = ref
-    catalog, fields, extracted, conditions = [], [], [], []
+    catalog, fields, conditions = [], [], []
 
     def evidence(source):
         eid = "legacy:" + digest(source)[:28]
@@ -398,11 +351,11 @@ def prepare_snapshot(con, case_id, snapshot_id):
             catalog.append(
                 {
                     "evidence_id": eid,
-                    "source_id": ref.source_id if ref and (source.get("page") or source.get("analysisValueOrigin") == "SYSTEM_EXTRACTED_UNVERIFIED") else mid,
+                    "source_id": ref.source_id if ref and source.get("page") else mid,
                     "page": source.get("page"),
-                    "quote": "자동 추출 미확인 값" if source.get("analysisValueOrigin") == "SYSTEM_EXTRACTED_UNVERIFIED" else "사용자가 확인한 입력",
+                    "quote": "사용자가 확인한 입력",
                     "locator": dump(source),
-                    "verification_method": "ocr_unverified" if source.get("analysisValueOrigin") == "SYSTEM_EXTRACTED_UNVERIFIED" else "manual_confirmed",
+                    "verification_method": "manual_confirmed",
                 }
             )
         return eid
@@ -411,6 +364,7 @@ def prepare_snapshot(con, case_id, snapshot_id):
     for kind, mapping in SCALARS.items():
         values, conflict, sources = _single(data, kind)
         all_sources.extend(sources)
+        evs = [evidence(s) for s in sources]
         for name, (key, unit) in mapping.items():
             value = values.get(name)
             if value is None and not conflict:
@@ -420,15 +374,12 @@ def prepare_snapshot(con, case_id, snapshot_id):
                 allowed = data["conditions"].get("comparison_basis_confirmed") is True
             if key in ("worked_minutes", "slip_minutes"):
                 allowed = data["conditions"].get("hours_basis_confirmed") is True
-            relevant = [s for s in sources if s.get("key", name) == name]
-            evs = [evidence(s) for s in relevant]
-            automatic = any(s.get("analysisValueOrigin") == "SYSTEM_EXTRACTED_UNVERIFIED" for s in relevant) and not conflict
-            (extracted if automatic else fields).append(
+            fields.append(
                 {
                     "field_id": key,
                     "value": str(value) if value is not None and not conflict else None,
                     "unit": unit,
-                    **({"analysis_value_origin": "SYSTEM_EXTRACTED_UNVERIFIED"} if automatic else {"confirmation_id": "legacy-user"}),
+                    "confirmation_id": "legacy-user",
                     "state": "conflict" if conflict else "known",
                     "period": {"start": c["period_start"], "end": c["period_end"]},
                     "evidence_refs": evs,
@@ -457,47 +408,17 @@ def prepare_snapshot(con, case_id, snapshot_id):
     payslip, payslip_conflict, payslip_sources = _single(data, "PAYSLIP")
 
     def items(key):
-        from agent.services.extraction_profiles import statement_row_role
-
-        if payslip_conflict:
-            return []
-        prefix = "earning" if key == "paymentItems" else "deduction"
-        rows = [(name, value) for name, value in payslip.items()
-                if re.fullmatch(prefix + r"_[1-9]\d*_amount", name)]
-        if not rows:
-            rows = [(key, value) for value in payslip.get(key, [])]
-        result = []
-        for i, (name, value) in enumerate(rows):
-            relevant = [s for s in payslip_sources if s.get("key", name) == name]
-            automatic = any(s.get("analysisValueOrigin") == "SYSTEM_EXTRACTED_UNVERIFIED" for s in relevant)
-            try:
-                amount = money(value)
-            except (ValueError, TypeError, ArithmeticError):
-                amount = None
-            role = statement_row_role(payslip.get(name.removesuffix("_amount") + "_label", ""))
-            result.append({
-                "item_id": key + ":" + str(i), "amount": str(amount) if amount is not None else None,
-                "evidence_refs": [evidence(s) for s in relevant], "confirmed": not automatic,
-                "is_total": role in {"total", "subtotal"},
-                "analysis_value_origin": "SYSTEM_EXTRACTED_UNVERIFIED" if automatic else "USER_CONFIRMED",
-            })
-        return result
-
-    def items_complete(key):
-        if payslip_conflict:
-            return False
-        scope = data["conditions"].get("statement_scopes", {}).get(key)
-        if scope:
-            from app.statement_scope import scope_hash
-            if scope["hash"] == scope_hash(con, case_id, scope["documentId"]):
-                return bool(items(key)) and all(i["amount"] is not None for i in items(key))
-        prefix = "earning" if key == "paymentItems" else "deduction"
-        if key not in payslip or any(re.fullmatch(prefix + r"_[1-9]\d*_amount", name) for name in payslip):
-            return False
-        relevant = [s for s in payslip_sources if s.get("key", key) == key]
-        # Neither presence nor a matching sum proves all source rows were extracted.
-        return bool(relevant) and all(
-            s.get("analysisValueOrigin", "USER_CONFIRMED") == "USER_CONFIRMED" for s in relevant
+        return (
+            [
+                {
+                    "item_id": key + ":" + str(i),
+                    "amount": str(value),
+                    "evidence_refs": [evidence(s) for s in payslip_sources],
+                }
+                for i, value in enumerate(payslip.get(key) or [])
+            ]
+            if not payslip_conflict
+            else []
         )
 
     transactions = []
@@ -507,7 +428,6 @@ def prepare_snapshot(con, case_id, snapshot_id):
         did = provenance.get("document_id")
         if row["source"] == "DOCUMENT" and (
             did not in by_doc or provenance.get("content_hash") != by_doc[did].content_hash
-            or provenance.get("document_version") != by_doc[did].document_version
         ):
             missing_payment_source = True
             continue
@@ -519,10 +439,6 @@ def prepare_snapshot(con, case_id, snapshot_id):
                 "page": (provenance.get("evidence_catalog") or [{}])[0].get("page"),
             }
         )
-        original_refs = provenance.get("evidence_refs", [])
-        for item in provenance.get("evidence_catalog", []):
-            if not any(e["evidence_id"] == item["evidence_id"] for e in catalog):
-                catalog.append(item)
         transactions.append(
             {
                 "transaction_id": str(row["id"]),
@@ -530,33 +446,18 @@ def prepare_snapshot(con, case_id, snapshot_id):
                 "transaction_amount": str(row["amount"]),
                 "kind": "bank" if row["payment_method"] == "BANK_TRANSFER" else "cash_memo",
                 "confirmed": row["confirmation_status"] == "USER_CONFIRMED",
-                "evidence_refs": list(dict.fromkeys([ev] + original_refs)),
+                "evidence_refs": [ev],
             }
         )
-    from app.agent_mapping import same_document_row
-    duplicate_ids = set()
-    for i, left in enumerate(data["payments"]):
-        for right in data["payments"][i + 1:]:
-            lp, rp = (load(r["provenance_json"]) or {} for r in (left, right))
-            lr, rr = lp.get("bank_reference"), rp.get("bank_reference")
-            if left["payment_method"] == right["payment_method"] and (
-                same_document_row(lp, rp) or lr and lr == rr or
-                left["transaction_date"] == right["transaction_date"] and left["amount"] == right["amount"]
-                and not (lr and rr and lr != rr)
-            ):
-                duplicate_ids.update((str(left["id"]), str(right["id"])))
-    for transaction in transactions:
-        transaction["duplicate"] = transaction["transaction_id"] in duplicate_ids
     snapshot = build_snapshot(
         {
             "confirmed_fields": fields,
-            "extracted_fields": extracted,
             "condition_states": conditions,
             "evidence_catalog": catalog,
             "earnings": items("paymentItems"),
             "deductions": items("deductionItems"),
-            "earnings_complete": items_complete("paymentItems"),
-            "deductions_complete": items_complete("deductionItems"),
+            "earnings_complete": not payslip_conflict and "paymentItems" in payslip,
+            "deductions_complete": not payslip_conflict and "deductionItems" in payslip,
             "payment_scope_confirmed": bool(transactions) and not missing_payment_source,
             "transaction_allocations": transactions,
             "profile": "H-STD" if c["pay_type"] == "HOURLY" else "M-STD",
@@ -626,7 +527,6 @@ def project(con, result, checks=None, fingerprints=None):
             "itemSum": integer_value(item.get("lhs")),
             "statedTotal": integer_value(item.get("rhs")),
             "sources": convert(item.get("evidence_refs", [])),
-            "reasonCodes": item.get("reason_codes", []),
         }
 
     wage_names = {
@@ -701,15 +601,10 @@ def project(con, result, checks=None, fingerprints=None):
         )
     data = collect(con, c["id"])
     rows = data["payments"]
-    frozen = load(con.execute(
-        "SELECT data_json FROM agent_snapshots WHERE id=?", (row["snapshot_id"],)
-    ).fetchone()[0])
-    eligible = [t for t in frozen.get("transaction_allocations", [])
-                if t.get("linked", True) and t.get("confirmed", True) and not t.get("duplicate", False)]
     bank = (
-        sum(money(t["amount"]) for t in eligible if t.get("kind", "bank") == "bank") if eligible else None
+        sum(r["allocated_amount"] for r in rows if r["payment_method"] == "BANK_TRANSFER") if rows else None
     )
-    cash = sum(money(t["amount"]) for t in eligible if t.get("kind") == "cash_memo") if eligible else None
+    cash = sum(r["allocated_amount"] for r in rows if r["payment_method"] == "CASH") if rows else None
     payment = check("R-06")
     bodies = {
         "calculation": calculation,
@@ -726,10 +621,9 @@ def project(con, result, checks=None, fingerprints=None):
         },
         "depositComparison": {
             "status": payment["status"],
-            "reasonCodes": payment["reasonCodes"],
             "payslipNetPay": payment["calculated"],
-            "linkedBankDepositTotal": bank if payment["stated"] is not None else None,
-            "linkedCashPaymentTotal": cash if payment["stated"] is not None else None,
+            "linkedBankDepositTotal": bank,
+            "linkedCashPaymentTotal": cash,
             "linkedPaymentTotal": payment["stated"],
             "difference": payment["difference"],
             "transactionIds": [r["id"] for r in rows],
@@ -855,8 +749,7 @@ def enqueue_current(con, service, case_id, checks=None, metadata=None):
 
 def complete_job(con, agent_job, outcome=None, error_code=None):
     """Finish the Case job in the same transaction as actual agent publication."""
-    metadata = load(agent_job["metadata_json"]) or {}
-    jid = metadata.get("legacyJobId")
+    jid = (load(agent_job["metadata_json"]) or {}).get("legacyJobId")
     if not jid:
         return
     job = con.execute("SELECT * FROM jobs WHERE id=? AND status='RUNNING'", (jid,)).fetchone()
@@ -867,14 +760,6 @@ def complete_job(con, agent_job, outcome=None, error_code=None):
         status = "SUPERSEDED"
     elif outcome is None:
         status = "FAILED"
-    elif any(
-        saved != fingerprint(con, job["case_id"], kind)
-        for kind, saved in metadata.get("fingerprints", {}).items()
-        if KINDS[kind] in load(job["checks_json"])
-    ):
-        # Group confirmations can change independently of Case inputVersion.
-        # A job whose projection was rejected must not claim current success.
-        status = "SUPERSEDED"
     else:
         checks = load(job["checks_json"])
         rules = {
