@@ -1,5 +1,4 @@
 {
-  "conditionPresentation_base_scope": "已记录的基本工资计算依据适用于本次工资计算吗？",
   "conditionDuration_work_time": "合同工时（小时）",
   "conditionDuration_work_time_minutes": "合同工时（分钟）",
   "conditionDuration_input_processing_unanswered": "如果仅输入一个字段，则其余字段均视为 0。如果均留空，则无响应。",

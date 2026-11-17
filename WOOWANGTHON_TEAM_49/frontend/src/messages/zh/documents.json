@@ -133,6 +133,7 @@
   "fieldEditor_message3": "是/否",
   "fieldEditor_div": "结构化值 (JSON)",
   "fieldEditor_save": "存储数组/对象结构以及 null 和 0。",
+  "fieldEditor_valid_input": "请输入正确的 JSON 值。",
   "fieldEditor_edit": "修正值",
   "fieldEditor_select": "请选择",
   "fieldEditor_current_draft_retry_load": "使用最新值重新加载草稿",

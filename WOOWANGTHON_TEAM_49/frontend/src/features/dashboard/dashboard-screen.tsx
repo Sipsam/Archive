@@ -15,7 +15,6 @@ import { useCases } from "@/features/cases/queries";
 import { useWorkplaces } from "@/features/workplaces/queries";
 
 import styles from "./dashboard.module.css";
-import { useCaseProgress } from "@/features/cases/use-case-progress";
 import { WorkflowProgress } from "./workflow-progress";
 
 export function DashboardScreen() {
@@ -32,9 +31,7 @@ const {caseCard} = useLocalized(createLocalizedFeaturesCasesViewModels);
   const recent = sorted?.slice(0, 6);
   const attention = cases.data?.items.filter((item) => item.attentionRequired === true);
   const knownAttention = cases.data?.items.filter((item) => item.attentionRequired !== undefined).length;
-  const candidate = sorted?.find((item) => item.status === "IN_PROGRESS" || item.status === "CREATED");
-  const progress = useCaseProgress(candidate);
-  const current = candidate && {...candidate, currentStep: progress?.next ?? candidate.currentStep};
+  const current = sorted?.find((item) => item.status === "IN_PROGRESS" || item.status === "CREATED");
   const card = current && caseCard(current);
   const firstWorkplace = workplaces.isSuccess && workplaces.data.total === 0;
   const showOnboarding = firstWorkplace && !current;

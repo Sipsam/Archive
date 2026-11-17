@@ -133,6 +133,7 @@
   "fieldEditor_message3": "예/아니요",
   "fieldEditor_div": "구조형 값 (JSON)",
   "fieldEditor_save": "배열·객체 구조와 null, 0을 유지하여 저장합니다.",
+  "fieldEditor_valid_input": "올바른 JSON 값을 입력해 주세요.",
   "fieldEditor_edit": "수정값",
   "fieldEditor_select": "선택해 주세요",
   "fieldEditor_current_draft_retry_load": "최신 값으로 초안 다시 불러오기",

@@ -73,9 +73,6 @@ lerna-debug.log*
 /test-results/
 /blob-report/
 /playwright/.cache/
-/.playwright-cli/
-/output/
-/.npm-cache/
 
 # ==========================================
 # Temporary files

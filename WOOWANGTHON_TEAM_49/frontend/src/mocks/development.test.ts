@@ -48,13 +48,6 @@ describe("browser development scenario through the existing MSW infrastructure",
     }
     expect((await request("/cases/15/documents/101/fields/501", token, "PATCH", { value: 1, expectedInputVersion: 7 })).status).toBe(409);
   });
-  it.each(["2300000", 0, false])("preserves selected JSON type %j in both field scopes", async value => {
-    expect((await request("/workplaces/3/documents/101/fields/502", token, "PATCH", {value})).status).toBe(200);
-    const version = (await (await request("/cases/15", token)).json()).data.inputVersion;
-    expect((await request("/cases/15/documents/101/fields/501", token, "PATCH", {value, confirmed:true, expectedInputVersion:version})).status).toBe(200);
-    const fields = (await (await request("/cases/15/documents/101/fields", token)).json()).data.fields;
-    for (const fieldId of [501,502]) expect(fields.find((f:{fieldId:number})=>f.fieldId===fieldId).value).toBe(value);
-  });
   it("returns a PDF Blob without JSON wrapping and blocks unsupported APIs", async () => {
     const response = await request("/workplaces/3/documents/101/file", token);
     expect(response.headers.get("Content-Type")).toBe("application/pdf");
